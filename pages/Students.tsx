@@ -289,6 +289,13 @@ const MedicalInfoCard = ({ student, isDark }: { student: Student; isDark: boolea
   </div>
 );
 
+
+// Helper for loose class matching (e.g. "P 1" == "P1")
+const normalizeClassHelper = (raw: string): string => {
+  if (!raw) return '';
+  return raw.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+};
+
 const FeePaymentHistory = ({ studentId, studentName, classLevel, boardingStatus, currentYear, schoolSettings, isDark }: {
   studentId: number;
   studentName: string;
@@ -331,7 +338,7 @@ const FeePaymentHistory = ({ studentId, studentName, classLevel, boardingStatus,
       if (structuresRes.ok) {
         const allStructures = await structuresRes.json();
         const filtered = allStructures.filter((fs: FeeStructure) =>
-          fs.classLevel === classLevel && fs.isActive !== false &&
+          normalizeClassHelper(fs.classLevel) === normalizeClassHelper(classLevel) && fs.isActive !== false &&
           (!fs.boardingStatus || fs.boardingStatus === 'all' || fs.boardingStatus === boardingStatus)
         );
         setFeeStructures(filtered);
