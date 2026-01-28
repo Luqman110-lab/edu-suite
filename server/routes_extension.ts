@@ -132,6 +132,112 @@ export function registerExtendedRoutes(app: Express) {
 
     // --- Student Management Extensions ---
 
+    app.get("/api/students", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            const allStudents = await db.select().from(students)
+                .where(and(eq(students.schoolId, schoolId), eq(students.isActive, true)))
+                .orderBy(students.name);
+            res.json(allStudents);
+        } catch (error: any) {
+            console.error("Get students error:", error);
+            res.status(500).json({ message: "Failed to fetch students: " + error.message });
+        }
+    });
+
+    app.post("/api/students", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            const newStudent = await db.insert(students).values({
+                ...req.body,
+                schoolId,
+                isActive: true
+            }).returning();
+
+            res.status(201).json(newStudent[0]);
+        } catch (error: any) {
+            console.error("Create student error:", error);
+            res.status(500).json({ message: "Failed to create student: " + error.message });
+        }
+    });
+
+    app.put("/api/students/:id", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            const studentId = parseInt(req.params.id);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+            if (isNaN(studentId)) return res.status(400).json({ message: "Invalid student ID" });
+
+            const existing = await db.select().from(students)
+                .where(and(eq(students.id, studentId), eq(students.schoolId, schoolId)))
+                .limit(1);
+
+            if (existing.length === 0) return res.status(404).json({ message: "Student not found" });
+
+            const updated = await db.update(students)
+                .set({ ...req.body, schoolId })
+                .where(eq(students.id, studentId))
+                .returning();
+
+            res.json(updated[0]);
+        } catch (error: any) {
+            console.error("Update student error:", error);
+            res.status(500).json({ message: "Failed to update student: " + error.message });
+        }
+    });
+
+    app.delete("/api/students/:id", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            const studentId = parseInt(req.params.id);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+            if (isNaN(studentId)) return res.status(400).json({ message: "Invalid student ID" });
+
+            const existing = await db.select().from(students)
+                .where(and(eq(students.id, studentId), eq(students.schoolId, schoolId)))
+                .limit(1);
+
+            if (existing.length === 0) return res.status(404).json({ message: "Student not found" });
+
+            await db.update(students)
+                .set({ isActive: false })
+                .where(eq(students.id, studentId));
+
+            res.json({ message: "Student deleted successfully" });
+        } catch (error: any) {
+            console.error("Delete student error:", error);
+            res.status(500).json({ message: "Failed to delete student: " + error.message });
+        }
+    });
+
+    app.delete("/api/students", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            const { ids } = req.body;
+            if (!Array.isArray(ids) || ids.length === 0) {
+                return res.status(400).json({ message: "No student IDs provided" });
+            }
+
+            await db.update(students)
+                .set({ isActive: false })
+                .where(and(
+                    eq(students.schoolId, schoolId),
+                    inArray(students.id, ids)
+                ));
+
+            res.json({ message: "Students deleted successfully" });
+        } catch (error: any) {
+            console.error("Batch delete students error:", error);
+            res.status(500).json({ message: "Failed to delete students: " + error.message });
+        }
+    });
+
     app.post("/api/students/batch", requireAuth, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
@@ -142,11 +248,12 @@ export function registerExtendedRoutes(app: Express) {
                 return res.status(400).json({ message: "No students provided" });
             }
 
+            // Using onConflictDoNothing to skip duplicates gracefully
             const created = await db.insert(students).values(newStudents.map((s: any) => ({
                 ...s,
                 isActive: true,
                 schoolId: schoolId
-            }))).returning();
+            }))).onConflictDoNothing().returning();
 
             res.json(created);
         } catch (error: any) {
