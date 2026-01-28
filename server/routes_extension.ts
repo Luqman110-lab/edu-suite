@@ -817,10 +817,11 @@ export function registerExtendedRoutes(app: Express) {
                 year,
                 paymentDate: new Date().toISOString().split('T')[0],
                 paymentMethod,
-                receiptNumber,
+                paymentMethod,
+                receiptNumber: receiptNumber || null,
                 status,
                 notes,
-                collectedBy: req.user?.id
+                receivedBy: req.user?.id?.toString()
             }).returning();
 
             // Record transaction in Ledger (Credit)
