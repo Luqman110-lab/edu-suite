@@ -797,8 +797,8 @@ export const insertFeeStructureSchema = createInsertSchema(feeStructures, {
 });
 export const selectFeeStructureSchema = createSelectSchema(feeStructures);
 export type FeeStructure = typeof feeStructures.$inferSelect;
-// ... previous code
 export type InsertFeeStructure = typeof feeStructures.$inferInsert;
+
 
 export const financeTransactions = pgTable("finance_transactions", {
   id: serial("id").primaryKey(),

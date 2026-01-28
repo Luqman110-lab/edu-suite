@@ -1,7 +1,7 @@
 import { Express } from "express";
 import { db } from "./db";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
-import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, teacherAttendance, classes, streams, users, userSchools, financeTransactions, feeStructures } from "../shared/schema";
+import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, users, financeTransactions, feeStructures, dormitories, dormRooms, beds, boardingRollCalls, leaveRequests } from "../shared/schema";
 import { requireAuth, requireAdmin, requireSuperAdmin, getActiveSchoolId, hashPassword } from "./auth";
 
 export function registerExtendedRoutes(app: Express) {
@@ -1451,6 +1451,507 @@ export function registerExtendedRoutes(app: Express) {
         } catch (error: any) {
             console.error("Get all data error:", error);
             res.status(500).json({ message: "Failed to export data: " + error.message });
+        }
+    });
+
+    // --- Boarding Module Routes ---
+
+    // Boarding Stats
+    app.get("/api/boarding-stats", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            const today = new Date().toISOString().split('T')[0];
+
+            const dormsCount = await db.select({ count: sql<number>`count(*)` }).from(dormitories).where(eq(dormitories.schoolId, schoolId));
+            const roomsCount = await db.select({ count: sql<number>`count(*)` }).from(dormRooms).where(eq(dormRooms.schoolId, schoolId));
+            const bedsCount = await db.select({ count: sql<number>`count(*)` }).from(beds).where(eq(beds.schoolId, schoolId));
+            const occupiedBedsCount = await db.select({ count: sql<number>`count(*)` }).from(beds).where(and(eq(beds.schoolId, schoolId), eq(beds.status, 'occupied')));
+            const boardersCount = await db.select({ count: sql<number>`count(*)` }).from(students).where(and(eq(students.schoolId, schoolId), eq(students.boardingStatus, 'Boarder')));
+
+            // Leave Stats
+            const pendingLeaves = await db.select({ count: sql<number>`count(*)` }).from(leaveRequests).where(and(eq(leaveRequests.schoolId, schoolId), eq(leaveRequests.status, 'pending')));
+            const onLeave = await db.select({ count: sql<number>`count(*)` }).from(leaveRequests).where(and(eq(leaveRequests.schoolId, schoolId), eq(leaveRequests.status, 'checked_out')));
+
+            // Roll Calls
+            const morningRollCalls = await db.select({ count: sql<number>`count(*)` }).from(boardingRollCalls).where(
+                and(
+                    eq(boardingRollCalls.schoolId, schoolId),
+                    eq(boardingRollCalls.date, today),
+                    eq(boardingRollCalls.session, 'morning')
+                )
+            );
+            const eveningRollCalls = await db.select({ count: sql<number>`count(*)` }).from(boardingRollCalls).where(
+                and(
+                    eq(boardingRollCalls.schoolId, schoolId),
+                    eq(boardingRollCalls.date, today),
+                    eq(boardingRollCalls.session, 'evening')
+                )
+            );
+
+            const totalBeds = bedsCount[0]?.count || 0;
+            const occupied = occupiedBedsCount[0]?.count || 0;
+
+            res.json({
+                totalDorms: dormsCount[0]?.count || 0,
+                dormitories: dormsCount[0]?.count || 0, // Frontend expects this key
+                totalRooms: roomsCount[0]?.count || 0,
+                totalBeds: totalBeds,
+                occupiedBeds: occupied,
+                availableBeds: totalBeds - occupied,
+                totalBoarders: boardersCount[0]?.count || 0,
+                occupancyRate: totalBeds > 0 ? Math.round((occupied / totalBeds) * 100) : 0,
+                pendingLeaveRequests: pendingLeaves[0]?.count || 0,
+                studentsOnLeave: onLeave[0]?.count || 0,
+                todayRollCalls: {
+                    morning: morningRollCalls[0]?.count || 0,
+                    evening: eveningRollCalls[0]?.count || 0
+                }
+            });
+        } catch (error: any) {
+            res.status(500).json({ message: "Failed to fetch boarding stats: " + error.message });
+        }
+    });
+
+    // Bulk Roll Calls
+    app.post("/api/boarding-roll-calls/bulk", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            const { records, session } = req.body;
+            if (!records || !Array.isArray(records)) {
+                return res.status(400).json({ message: "Invalid records format" });
+            }
+
+            const today = new Date().toISOString().split('T')[0];
+            const newEntries = [];
+
+            for (const record of records) {
+                const existing = await db.select().from(boardingRollCalls).where(
+                    and(
+                        eq(boardingRollCalls.studentId, record.studentId),
+                        eq(boardingRollCalls.date, today),
+                        eq(boardingRollCalls.session, session)
+                    )
+                );
+
+                if (existing.length > 0) {
+                    const updated = await db.update(boardingRollCalls)
+                        .set({
+                            status: record.status,
+                            dormitoryId: record.dormitoryId,
+                            markedById: req.user?.id
+                        })
+                        .where(eq(boardingRollCalls.id, existing[0].id))
+                        .returning();
+                    newEntries.push(updated[0]);
+                } else {
+                    const created = await db.insert(boardingRollCalls).values({
+                        schoolId,
+                        studentId: record.studentId,
+                        date: today,
+                        session: session,
+                        status: record.status,
+                        dormitoryId: record.dormitoryId,
+                        markedById: req.user?.id
+                    }).returning();
+                    newEntries.push(created[0]);
+                }
+            }
+            res.json(newEntries);
+        } catch (error: any) {
+            res.status(500).json({ message: "Failed to submit bulk roll call: " + error.message });
+        }
+    });
+
+    // Dormitories CRUD
+    app.get("/api/dormitories", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+            const allDorms = await db.select().from(dormitories).where(eq(dormitories.schoolId, schoolId));
+            res.json(allDorms);
+        } catch (error: any) {
+            res.status(500).json({ message: "Failed to fetch dormitories: " + error.message });
+        }
+    });
+
+    app.post("/api/dormitories", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+            const data = { ...req.body, schoolId };
+            const newDorm = await db.insert(dormitories).values(data).returning();
+            res.json(newDorm[0]);
+        } catch (error: any) {
+            res.status(500).json({ message: "Failed to create dormitory: " + error.message });
+        }
+    });
+
+    app.put("/api/dormitories/:id", requireAuth, async (req, res) => {
+        try {
+            const id = parseInt(req.params.id);
+            const updatedDorm = await db.update(dormitories).set(req.body).where(eq(dormitories.id, id)).returning();
+            res.json(updatedDorm[0]);
+        } catch (error: any) {
+            res.status(500).json({ message: "Failed to update dormitory: " + error.message });
+        }
+    });
+
+    app.delete("/api/dormitories/:id", requireAuth, async (req, res) => {
+        try {
+            const id = parseInt(req.params.id);
+            await db.delete(dormitories).where(eq(dormitories.id, id));
+            res.json({ message: "Dormitory deleted" });
+        } catch (error: any) {
+            res.status(500).json({ message: "Failed to delete dormitory: " + error.message });
+        }
+    });
+
+    // Dorm Rooms CRUD
+    app.get("/api/dorm-rooms", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            let query;
+            if (req.query.dormitoryId) {
+                query = db.select().from(dormRooms).where(and(eq(dormRooms.schoolId, schoolId), eq(dormRooms.dormitoryId, parseInt(req.query.dormitoryId as string))));
+            } else {
+                query = db.select().from(dormRooms).where(eq(dormRooms.schoolId, schoolId));
+            }
+
+            const allRooms = await query;
+            res.json(allRooms);
+        } catch (error: any) {
+            res.status(500).json({ message: "Failed to fetch dorm rooms: " + error.message });
+        }
+    });
+
+    app.post("/api/dorm-rooms", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+            const data = { ...req.body, schoolId };
+            const newRoom = await db.insert(dormRooms).values(data).returning();
+            res.json(newRoom[0]);
+        } catch (error: any) {
+            res.status(500).json({ message: "Failed to create dorm room: " + error.message });
+        }
+    });
+
+    app.put("/api/dorm-rooms/:id", requireAuth, async (req, res) => {
+        try {
+            const id = parseInt(req.params.id);
+            const updatedRoom = await db.update(dormRooms).set(req.body).where(eq(dormRooms.id, id)).returning();
+            res.json(updatedRoom[0]);
+        } catch (error: any) {
+            res.status(500).json({ message: "Failed to update dorm room: " + error.message });
+        }
+    });
+
+    app.delete("/api/dorm-rooms/:id", requireAuth, async (req, res) => {
+        try {
+            const id = parseInt(req.params.id);
+            await db.delete(dormRooms).where(eq(dormRooms.id, id));
+            res.json({ message: "Dorm room deleted" });
+        } catch (error: any) {
+            res.status(500).json({ message: "Failed to delete dorm room: " + error.message });
+        }
+    });
+
+    // Beds CRUD
+    app.get("/api/beds", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            let query = db.select({
+                bed: beds,
+                student: {
+                    id: students.id,
+                    firstName: students.firstName,
+                    lastName: students.lastName,
+                    classLevel: students.classLevel
+                }
+            })
+                .from(beds)
+                .leftJoin(students, eq(beds.studentId, students.id)); // Base join
+
+            // Add where clause
+            if (req.query.roomId) {
+                query.where(and(eq(beds.schoolId, schoolId), eq(beds.roomId, parseInt(req.query.roomId as string))));
+            } else {
+                query.where(eq(beds.schoolId, schoolId));
+            }
+
+            const allBeds = await query;
+
+            const flattenedBeds = allBeds.map(item => ({
+                ...item.bed,
+                studentName: item.student ? `${item.student.firstName} ${item.student.lastName}` : null,
+                classLevel: item.student?.classLevel
+            }));
+
+            res.json(flattenedBeds);
+
+        } catch (error: any) {
+            console.error("Fetch beds error:", error);
+            res.status(500).json({ message: "Failed to fetch beds: " + error.message });
+        }
+    });
+
+    app.post("/api/beds", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+            const data = { ...req.body, schoolId, status: 'vacant' }; // Default status
+            const newBed = await db.insert(beds).values(data).returning();
+            res.json(newBed[0]);
+        } catch (error: any) {
+            res.status(500).json({ message: "Failed to create bed: " + error.message });
+        }
+    });
+
+    app.post("/api/beds/:id/assign", requireAuth, async (req, res) => {
+        try {
+            const bedId = parseInt(req.params.id);
+            const { studentId } = req.body;
+
+            if (!studentId) return res.status(400).json({ message: "Student ID required" });
+
+            // 1. Update Bed
+            const updatedBed = await db.update(beds)
+                .set({ status: 'occupied', studentId: studentId })
+                .where(eq(beds.id, bedId))
+                .returning();
+
+            // 2. Fetch dorm info to update student
+            const room = await db.select().from(dormRooms).where(eq(dormRooms.id, updatedBed[0].roomId));
+            if (room[0]) {
+                const dorm = await db.select().from(dormitories).where(eq(dormitories.id, room[0].dormitoryId));
+                if (dorm[0]) {
+                    await db.update(students)
+                        .set({
+                            boardingStatus: 'Boarder',
+                            houseOrDormitory: dorm[0].name
+                        })
+                        .where(eq(students.id, studentId));
+                }
+            } else {
+                // Fallback if no room/dorm info found (shouldn't happen ideally)
+                await db.update(students)
+                    .set({ boardingStatus: 'Boarder' })
+                    .where(eq(students.id, studentId));
+            }
+
+            res.json(updatedBed[0]);
+        } catch (error: any) {
+            console.error("Bes assignment error:", error);
+            res.status(500).json({ message: "Failed to assign bed: " + error.message });
+        }
+    });
+
+    app.post("/api/beds/:id/unassign", requireAuth, async (req, res) => {
+        try {
+            const bedId = parseInt(req.params.id);
+
+            // Get current student before unassigning
+            const currentBed = await db.select().from(beds).where(eq(beds.id, bedId));
+            if (currentBed[0] && currentBed[0].studentId) {
+                await db.update(students)
+                    .set({ houseOrDormitory: null })
+                    .where(eq(students.id, currentBed[0].studentId));
+            }
+
+            const updatedBed = await db.update(beds)
+                .set({ status: 'vacant', studentId: null })
+                .where(eq(beds.id, bedId))
+                .returning();
+
+            res.json(updatedBed[0]);
+        } catch (error: any) {
+            res.status(500).json({ message: "Failed to unassign bed: " + error.message });
+        }
+    });
+
+    app.delete("/api/beds/:id", requireAuth, async (req, res) => {
+        try {
+            const id = parseInt(req.params.id);
+            await db.delete(beds).where(eq(beds.id, id));
+            res.json({ message: "Bed deleted" });
+        } catch (error: any) {
+            res.status(500).json({ message: "Failed to delete bed: " + error.message });
+        }
+    });
+
+    // Boarding Attendance (Roll Calls)
+    app.get("/api/boarding-roll-calls", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            let query = db.select({
+                rollCall: boardingRollCalls,
+                studentName: sql<string>`concat(${students.firstName}, ' ', ${students.lastName})`
+            })
+                .from(boardingRollCalls)
+                .leftJoin(students, eq(boardingRollCalls.studentId, students.id))
+                .where(eq(boardingRollCalls.schoolId, schoolId));
+
+            // Filters
+            if (req.query.date) {
+                query.where(and(eq(boardingRollCalls.schoolId, schoolId), eq(boardingRollCalls.date, req.query.date as string)));
+            }
+            if (req.query.session) {
+                query.where(and(eq(boardingRollCalls.schoolId, schoolId), eq(boardingRollCalls.session, req.query.session as string)));
+            }
+            if (req.query.dormitoryId) {
+                query.where(and(eq(boardingRollCalls.schoolId, schoolId), eq(boardingRollCalls.dormitoryId, parseInt(req.query.dormitoryId as string))));
+            }
+
+            const results = await query;
+            // flatten
+            const flatResults = results.map(r => ({
+                ...r.rollCall,
+                studentName: r.studentName
+            }));
+
+            res.json(flatResults);
+        } catch (error: any) {
+            res.status(500).json({ message: "Failed to fetch roll calls: " + error.message });
+        }
+    });
+
+    app.post("/api/boarding-roll-calls", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            const entries = Array.isArray(req.body) ? req.body : [req.body];
+
+            const newEntries = [];
+            for (const entry of entries) {
+                const existing = await db.select().from(boardingRollCalls).where(
+                    and(
+                        eq(boardingRollCalls.studentId, entry.studentId),
+                        eq(boardingRollCalls.date, entry.date),
+                        eq(boardingRollCalls.session, entry.session)
+                    )
+                );
+
+                if (existing.length > 0) {
+                    const updated = await db.update(boardingRollCalls)
+                        .set({ ...entry, status: entry.status || 'present' })
+                        .where(eq(boardingRollCalls.id, existing[0].id))
+                        .returning();
+                    newEntries.push(updated[0]);
+                } else {
+                    const created = await db.insert(boardingRollCalls).values({
+                        ...entry,
+                        schoolId,
+                        markedById: req.user?.id
+                    }).returning();
+                    newEntries.push(created[0]);
+                }
+            }
+
+            res.json(newEntries);
+
+        } catch (error: any) {
+            res.status(500).json({ message: "Failed to submit roll call: " + error.message });
+        }
+    });
+
+    // Leave Requests
+    app.get("/api/leave-requests", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            let query = db.select({
+                request: leaveRequests,
+                studentName: sql<string>`concat(${students.firstName}, ' ', ${students.lastName})`,
+                classLevel: students.classLevel
+            })
+                .from(leaveRequests)
+                .leftJoin(students, eq(leaveRequests.studentId, students.id))
+                .where(eq(leaveRequests.schoolId, schoolId));
+
+            if (req.query.status) {
+                query.where(and(eq(leaveRequests.schoolId, schoolId), eq(leaveRequests.status, req.query.status as string)));
+            }
+            if (req.query.studentId) {
+                query.where(and(eq(leaveRequests.schoolId, schoolId), eq(leaveRequests.studentId, parseInt(req.query.studentId as string))));
+            }
+
+            const results = await query;
+            const flatResults = results.map(r => ({
+                ...r.request,
+                studentName: r.studentName,
+                classLevel: r.classLevel
+            }));
+
+            res.json(flatResults);
+        } catch (error: any) {
+            res.status(500).json({ message: "Failed to fetch leave requests: " + error.message });
+        }
+    });
+
+    app.post("/api/leave-requests", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+            const data = {
+                ...req.body,
+                schoolId,
+                requestedById: req.user?.id,
+                status: 'pending'
+            };
+            const newRequest = await db.insert(leaveRequests).values(data).returning();
+            res.json(newRequest[0]);
+        } catch (error: any) {
+            res.status(500).json({ message: "Failed to create leave request: " + error.message });
+        }
+    });
+
+    app.put("/api/leave-requests/:id", requireAuth, async (req, res) => {
+        try {
+            const id = parseInt(req.params.id);
+            const data = req.body;
+
+            const updates: any = { ...data };
+            if (data.status === 'approved') {
+                updates.approvedById = req.user?.id;
+                updates.approvedAt = new Date();
+            } else if (data.status === 'checked_out') {
+                updates.checkOutById = req.user?.id;
+                updates.checkOutTime = new Date().toISOString();
+            } else if (data.status === 'returned') {
+                updates.checkInById = req.user?.id;
+                updates.checkInTime = new Date().toISOString();
+            }
+
+            const updatedRequest = await db.update(leaveRequests)
+                .set(updates)
+                .where(eq(leaveRequests.id, id))
+                .returning();
+
+            res.json(updatedRequest[0]);
+        } catch (error: any) {
+            res.status(500).json({ message: "Failed to update leave request: " + error.message });
+        }
+    });
+
+    app.delete("/api/leave-requests/:id", requireAuth, async (req, res) => {
+        try {
+            const id = parseInt(req.params.id);
+            await db.delete(leaveRequests).where(eq(leaveRequests.id, id));
+            res.json({ message: "Leave request deleted" });
+        } catch (error: any) {
+            res.status(500).json({ message: "Failed to delete leave request: " + error.message });
         }
     });
 
