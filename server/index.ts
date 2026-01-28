@@ -58,8 +58,10 @@ app.use((req, res, next) => {
 import { registerExtendedRoutes } from "./routes_extension";
 
 (async () => {
-  registerExtendedRoutes(app);
+  // CRITICAL: registerRoutes MUST be called first to initialize passport middleware
   const server = registerRoutes(app);
+  // Now register extended routes after auth is set up
+  registerExtendedRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
