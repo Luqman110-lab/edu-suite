@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import logoImage from '@assets/EDU_1766463322650.png';
 
 const LandingPage: React.FC = () => {
@@ -31,9 +31,9 @@ const LandingPage: React.FC = () => {
 
       if (response.ok) {
         setSubmitStatus('success');
-        
+
         // Create WhatsApp message
-        const whatsappMessage = `Hello! I'm interested in a demo of the Report Card System.
+        const whatsappMessage = `Hello! I'm interested in a demo of the School Management System.
 
 *My Details:*
 Name: ${formData.name}
@@ -45,7 +45,7 @@ ${formData.message ? `Message: ${formData.message}` : ''}`;
         // Open WhatsApp with pre-filled message
         const whatsappUrl = `https://wa.me/256744073812?text=${encodeURIComponent(whatsappMessage)}`;
         window.open(whatsappUrl, '_blank');
-        
+
         setFormData({ name: '', phone: '', schoolName: '', studentCount: '', message: '' });
       } else {
         setSubmitStatus('error');
@@ -90,32 +90,39 @@ ${formData.message ? `Message: ${formData.message}` : ''}`;
         </div>
       </nav>
 
-      <section className="pt-20 lg:pt-24 pb-12 lg:pb-16 px-4 bg-gradient-to-br from-gray-50 via-white to-gray-50">
-        <div className="max-w-7xl mx-auto">
+      <section className="relative pt-20 lg:pt-24 pb-12 lg:pb-16 px-4 overflow-hidden">
+        {/* Animated gradient background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-white to-purple-50 animate-gradient-shift"></div>
+        <div className="absolute inset-0 opacity-30">
+          <div className="absolute top-0 left-0 w-96 h-96 bg-blue-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
+          <div className="absolute top-0 right-0 w-96 h-96 bg-purple-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
+          <div className="absolute bottom-0 left-1/2 w-96 h-96 bg-pink-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
+        </div>
+
+        <div className="relative max-w-7xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
-            <div>
+            <div className="animate-fade-in-up">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#0052CC]/10 rounded-full text-[#0052CC] text-xs sm:text-sm font-medium mb-4">
                 <span className="w-2 h-2 bg-[#0052CC] rounded-full animate-pulse"></span>
                 Trusted by 50+ Schools in Uganda
               </div>
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[#003D99] leading-tight mb-4">
-                Professional Report Cards
-                <span className="text-[#0052CC]"> Made Simple</span>
+                Complete School Management
+                <span className="text-[#0052CC]"> System</span>
               </h1>
               <p className="text-base sm:text-lg text-gray-600 mb-6 leading-relaxed">
-                The complete school management solution for Ugandan primary schools. 
-                Generate UNEB-compliant report cards, manage assessments, and track student performance.
+                Manage students, teachers, marks, and generate professional UNEB-compliant report cards — all in one powerful platform designed for Ugandan primary schools.
               </p>
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <a
                   href="#contact"
-                  className="px-6 py-3.5 sm:px-8 sm:py-4 bg-gradient-to-r from-[#0052CC] to-[#003D99] text-white rounded-xl font-semibold text-base sm:text-lg hover:shadow-xl active:scale-95 transition-all duration-300 text-center touch-manipulation"
+                  className="px-6 py-3.5 sm:px-8 sm:py-4 bg-gradient-to-r from-[#0052CC] to-[#003D99] text-white rounded-xl font-semibold text-base sm:text-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-300 text-center touch-manipulation"
                 >
                   Request a Demo
                 </a>
                 <a
                   href="#how-it-works"
-                  className="px-6 py-3.5 sm:px-8 sm:py-4 border-2 border-[#003D99] text-[#003D99] rounded-xl font-semibold text-base sm:text-lg hover:bg-[#003D99] hover:text-white active:scale-95 transition-all duration-300 flex items-center justify-center gap-2 touch-manipulation"
+                  className="px-6 py-3.5 sm:px-8 sm:py-4 border-2 border-[#003D99] text-[#003D99] rounded-xl font-semibold text-base sm:text-lg hover:bg-[#003D99] hover:text-white hover:scale-105 active:scale-95 transition-all duration-300 flex items-center justify-center gap-2 touch-manipulation"
                 >
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
@@ -140,9 +147,9 @@ ${formData.message ? `Message: ${formData.message}` : ''}`;
                 </div>
               </div>
             </div>
-            <div className="relative hidden lg:block">
-              <div className="absolute -inset-4 bg-gradient-to-r from-[#0052CC]/20 to-[#003D99]/20 rounded-3xl blur-2xl"></div>
-              <div className="relative bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
+            <div className="relative hidden lg:block animate-fade-in-right">
+              <div className="absolute -inset-4 bg-gradient-to-r from-[#0052CC]/20 to-[#003D99]/20 rounded-3xl blur-2xl animate-pulse-slow"></div>
+              <div className="relative bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden transform hover:scale-105 transition-transform duration-500">
                 <div className="bg-gradient-to-r from-[#0052CC] to-[#003D99] p-3">
                   <div className="flex items-center gap-2">
                     <div className="w-2.5 h-2.5 rounded-full bg-red-400"></div>
@@ -196,6 +203,65 @@ ${formData.message ? `Message: ${formData.message}` : ''}`;
             </div>
           </div>
         </div>
+
+        {/* Add CSS animations */}
+        <style>{`
+          @keyframes gradient-shift {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+          }
+          @keyframes blob {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(30px, -50px) scale(1.1); }
+            66% { transform: translate(-20px, 20px) scale(0.9); }
+          }
+          @keyframes fade-in-up {
+            from {
+              opacity: 0;
+              transform: translateY(30px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+          @keyframes fade-in-right {
+            from {
+              opacity: 0;
+              transform: translateX(30px);
+            }
+            to {
+              opacity: 1;
+              transform: translateX(0);
+            }
+          }
+          @keyframes pulse-slow {
+            0%, 100% { opacity: 0.2; }
+            50% { opacity: 0.4; }
+          }
+          .animate-gradient-shift {
+            background-size: 200% 200%;
+            animation: gradient-shift 15s ease infinite;
+          }
+          .animate-blob {
+            animation: blob 7s infinite;
+          }
+          .animation-delay-2000 {
+            animation-delay: 2s;
+          }
+          .animation-delay-4000 {
+            animation-delay: 4s;
+          }
+          .animate-fade-in-up {
+            animation: fade-in-up 0.8s ease-out;
+          }
+          .animate-fade-in-right {
+            animation: fade-in-right 0.8s ease-out 0.2s both;
+          }
+          .animate-pulse-slow {
+            animation: pulse-slow 3s ease-in-out infinite;
+          }
+        `}</style>
       </section>
 
       <section id="features" className="py-12 lg:py-16 px-4 bg-white">
@@ -210,6 +276,33 @@ ${formData.message ? `Message: ${formData.message}` : ''}`;
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {[
+              {
+                icon: (
+                  <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                ),
+                title: 'Student Information System',
+                description: 'Complete student profiles with admission numbers, photos, parent contacts, and academic history. Import from Excel or add individually.'
+              },
+              {
+                icon: (
+                  <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                ),
+                title: 'Teacher & Staff Management',
+                description: 'Manage teacher profiles, assign subjects and classes, track qualifications, and control access with role-based permissions.'
+              },
+              {
+                icon: (
+                  <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                  </svg>
+                ),
+                title: 'Marks Entry & Tracking',
+                description: 'Easy marks entry by subject and term. Automatic grade calculation, aggregate scores, and division classification per UNEB standards.'
+              },
               {
                 icon: (
                   <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -235,7 +328,7 @@ ${formData.message ? `Message: ${formData.message}` : ''}`;
                   </svg>
                 ),
                 title: 'Professional PDF Reports',
-                description: 'Generate beautiful, branded report cards with your school logo, colors, and customized layouts.'
+                description: 'Generate beautiful, branded report cards with your school logo, colors, and customized layouts. Print-ready format.'
               },
               {
                 icon: (
@@ -249,11 +342,11 @@ ${formData.message ? `Message: ${formData.message}` : ''}`;
               {
                 icon: (
                   <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                   </svg>
                 ),
-                title: 'Teacher & Admin Roles',
-                description: 'Role-based access control with separate permissions for administrators and teachers.'
+                title: 'Class & Stream Organization',
+                description: 'Organize students by class (P1-P7) and streams. Flexible configuration for your school\'s structure.'
               },
               {
                 icon: (
@@ -267,15 +360,135 @@ ${formData.message ? `Message: ${formData.message}` : ''}`;
             ].map((feature, index) => (
               <div
                 key={index}
-                className="group p-5 sm:p-6 rounded-xl border border-gray-100 hover:border-[#0052CC]/20 hover:shadow-lg active:scale-[0.98] transition-all duration-300 bg-white touch-manipulation"
+                className="group relative p-5 sm:p-6 rounded-xl border border-gray-100 hover:border-[#0052CC]/30 hover:shadow-2xl hover:-translate-y-2 active:scale-[0.98] transition-all duration-500 bg-white touch-manipulation"
               >
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#0052CC]/10 to-[#003D99]/10 flex items-center justify-center text-[#0052CC] mb-4 group-hover:scale-110 transition-transform">
-                  {feature.icon}
+                <div className="absolute inset-0 bg-gradient-to-br from-[#0052CC]/5 to-transparent opacity-0 group-hover:opacity-100 rounded-xl transition-opacity duration-500"></div>
+                <div className="relative">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#0052CC]/10 to-[#003D99]/10 flex items-center justify-center text-[#0052CC] mb-4 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500">
+                    {feature.icon}
+                  </div>
+                  <h3 className="text-lg sm:text-xl font-semibold text-[#003D99] mb-2 group-hover:text-[#0052CC] transition-colors">{feature.title}</h3>
+                  <p className="text-sm sm:text-base text-gray-600 leading-relaxed">{feature.description}</p>
                 </div>
-                <h3 className="text-lg sm:text-xl font-semibold text-[#003D99] mb-2">{feature.title}</h3>
-                <p className="text-sm sm:text-base text-gray-600 leading-relaxed">{feature.description}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="py-12 lg:py-16 px-4 bg-gradient-to-br from-gray-50 via-white to-gray-50">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-10 lg:mb-12">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#003D99] mb-3">
+              Everything You Need to Run Your School
+            </h2>
+            <p className="text-base sm:text-lg text-gray-600 max-w-2xl mx-auto">
+              From student enrollment to report card generation - manage every aspect of your school in one place
+            </p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
+            <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
+              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#0052CC] to-[#003D99] flex items-center justify-center text-white mb-4">
+                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-[#003D99] mb-3">Manage Students</h3>
+              <ul className="space-y-2 text-gray-600">
+                <li className="flex items-start gap-2">
+                  <svg className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>Add student profiles with photos</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <svg className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>Organize by class and stream</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <svg className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>Store parent contact information</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <svg className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>Import/export student data</span>
+                </li>
+              </ul>
+            </div>
+            <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
+              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#0052CC] to-[#003D99] flex items-center justify-center text-white mb-4">
+                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-[#003D99] mb-3">Track Performance</h3>
+              <ul className="space-y-2 text-gray-600">
+                <li className="flex items-start gap-2">
+                  <svg className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>Enter marks by subject and term</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <svg className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>Automatic UNEB grading (D1-F9)</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <svg className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>Division classification (I-IV)</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <svg className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>Performance analytics and charts</span>
+                </li>
+              </ul>
+            </div>
+            <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
+              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#0052CC] to-[#003D99] flex items-center justify-center text-white mb-4">
+                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-[#003D99] mb-3">Generate Reports</h3>
+              <ul className="space-y-2 text-gray-600">
+                <li className="flex items-start gap-2">
+                  <svg className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>Professional PDF report cards</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <svg className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>Branded with school logo</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <svg className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>Bulk generation for entire class</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <svg className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>Print-ready format</span>
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
       </section>
@@ -287,7 +500,7 @@ ${formData.message ? `Message: ${formData.message}` : ''}`;
               Get Started in Minutes
             </h2>
             <p className="text-base sm:text-lg text-gray-300 max-w-2xl mx-auto">
-              Setting up your school is quick and easy. Follow these simple steps to start generating professional report cards.
+              Setting up your school is quick and easy. Follow these simple steps to start managing your school and generating professional report cards.
             </p>
           </div>
           <div className="grid md:grid-cols-4 gap-8">
@@ -372,10 +585,10 @@ ${formData.message ? `Message: ${formData.message}` : ''}`;
       <section className="py-10 lg:py-14 px-4 bg-gradient-to-r from-[#0052CC] to-[#003D99]">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-4">
-            Ready to Transform Your School's Report Cards?
+            Ready to Transform Your School Management?
           </h2>
           <p className="text-base sm:text-lg text-white/80 mb-6">
-            Join hundreds of schools already using our system. Request a personalized demo today.
+            Join hundreds of schools already using our comprehensive management system. Request a personalized demo today.
           </p>
           <a
             href="#contact"
@@ -395,7 +608,7 @@ ${formData.message ? `Message: ${formData.message}` : ''}`;
                 Request a Demo
               </h2>
               <p className="text-base sm:text-lg text-gray-600 mb-6">
-                Interested in our Report Card System? Fill out the form and we'll schedule a personalized demo for your school.
+                Interested in our School Management System? Fill out the form and we'll schedule a personalized demo for your school.
               </p>
               <div className="space-y-6">
                 <div className="flex items-center gap-4">
@@ -443,7 +656,7 @@ ${formData.message ? `Message: ${formData.message}` : ''}`;
                 <h3 className="text-lg sm:text-xl font-semibold text-[#1E3A5F] mb-1">Schedule Your Demo</h3>
                 <p className="text-xs sm:text-sm text-gray-500">Fill out the form and we'll contact you within 24 hours.</p>
               </div>
-              
+
               {submitStatus === 'success' && (
                 <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-xl">
                   <div className="flex items-center gap-2 text-green-700">
@@ -454,7 +667,7 @@ ${formData.message ? `Message: ${formData.message}` : ''}`;
                   </div>
                 </div>
               )}
-              
+
               {submitStatus === 'error' && (
                 <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl">
                   <div className="flex items-center gap-2 text-red-700">
@@ -465,7 +678,7 @@ ${formData.message ? `Message: ${formData.message}` : ''}`;
                   </div>
                 </div>
               )}
-              
+
               <form className="space-y-4" onSubmit={handleSubmit}>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">Your Name *</label>
@@ -540,7 +753,7 @@ ${formData.message ? `Message: ${formData.message}` : ''}`;
                   ) : (
                     <>
                       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
                       </svg>
                       Request Demo via WhatsApp
                     </>
@@ -605,17 +818,17 @@ ${formData.message ? `Message: ${formData.message}` : ''}`;
             <div className="flex gap-4">
               <a href="#" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors">
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"/>
+                  <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z" />
                 </svg>
               </a>
               <a href="#" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors">
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M22.675 0h-21.35c-.732 0-1.325.593-1.325 1.325v21.351c0 .731.593 1.324 1.325 1.324h11.495v-9.294h-3.128v-3.622h3.128v-2.671c0-3.1 1.893-4.788 4.659-4.788 1.325 0 2.463.099 2.795.143v3.24l-1.918.001c-1.504 0-1.795.715-1.795 1.763v2.313h3.587l-.467 3.622h-3.12v9.293h6.116c.73 0 1.323-.593 1.323-1.325v-21.35c0-.732-.593-1.325-1.325-1.325z"/>
+                  <path d="M22.675 0h-21.35c-.732 0-1.325.593-1.325 1.325v21.351c0 .731.593 1.324 1.325 1.324h11.495v-9.294h-3.128v-3.622h3.128v-2.671c0-3.1 1.893-4.788 4.659-4.788 1.325 0 2.463.099 2.795.143v3.24l-1.918.001c-1.504 0-1.795.715-1.795 1.763v2.313h3.587l-.467 3.622h-3.12v9.293h6.116c.73 0 1.323-.593 1.323-1.325v-21.35c0-.732-.593-1.325-1.325-1.325z" />
                 </svg>
               </a>
               <a href="#" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors">
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                  <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
                 </svg>
               </a>
             </div>
