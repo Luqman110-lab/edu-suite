@@ -269,7 +269,7 @@ export const MarksEntry: React.FC = () => {
       const record = allMarks.find(m =>
         m.studentId === student.id &&
         m.term === selectedTerm &&
-        m.year === new Date().getFullYear() &&
+        m.year === (currentSettings?.currentYear || new Date().getFullYear()) &&
         m.type === selectedType
       );
       if (record) {
@@ -465,7 +465,7 @@ export const MarksEntry: React.FC = () => {
   };
 
   const performSave = async () => {
-    const year = new Date().getFullYear();
+    const year = settings?.currentYear || new Date().getFullYear();
     try {
       const promises = students.map(student => {
         const studentMarks = marksData[student.id!] || {};
@@ -582,8 +582,10 @@ export const MarksEntry: React.FC = () => {
 
     saveToHistory();
     setLoading(true);
+    saveToHistory();
+    setLoading(true);
     const allMarks = await dbService.getMarks();
-    const year = new Date().getFullYear();
+    const year = settings?.currentYear || new Date().getFullYear();
 
     const newMarksData = { ...marksData };
     let copiedCount = 0;
