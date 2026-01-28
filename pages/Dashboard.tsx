@@ -320,36 +320,42 @@ export function Dashboard() {
     queryKey: ['dashboardStats', schoolId],
     queryFn: fetchDashboardStats,
     enabled: !!schoolId,
+    staleTime: 0,
   });
 
   const { data: revenueData } = useQuery({
     queryKey: ['revenueTrends', schoolId],
     queryFn: fetchRevenueTrends,
     enabled: !!schoolId,
+    staleTime: 0,
   });
 
   const { data: events } = useQuery({
     queryKey: ['upcomingEvents', schoolId],
     queryFn: fetchUpcomingEvents,
     enabled: !!schoolId,
+    staleTime: 0,
   });
 
   const { data: academicData } = useQuery({
     queryKey: ['academicPerformance', schoolId],
     queryFn: fetchAcademicPerformance,
     enabled: !!schoolId,
+    staleTime: 0,
   });
 
   const { data: demographics } = useQuery({
     queryKey: ['demographics', schoolId],
     queryFn: fetchDemographics,
     enabled: !!schoolId,
+    staleTime: 0,
   });
 
   const { data: recentPayments } = useQuery({
     queryKey: ['recentPayments', schoolId],
     queryFn: fetchRecentPayments,
     enabled: !!schoolId,
+    staleTime: 0,
   });
 
   return (

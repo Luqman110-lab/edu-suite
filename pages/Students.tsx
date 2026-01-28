@@ -1083,6 +1083,7 @@ export const Students: React.FC = () => {
         await dbService.deleteStudent(id);
         await loadData();
         await queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+        await queryClient.invalidateQueries({ queryKey: ['demographics'] });
         showToast('Student deleted successfully', 'success');
 
         if (viewMode === 'profile') {
@@ -1102,6 +1103,7 @@ export const Students: React.FC = () => {
         setSelectedIds(new Set());
         loadData();
         await queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+        await queryClient.invalidateQueries({ queryKey: ['demographics'] });
         showToast(`${selectedIds.size} students deleted successfully`, 'success');
       } catch (error: any) {
         showToast(`Failed to delete: ${error.message}`, 'error');
@@ -1149,6 +1151,7 @@ export const Students: React.FC = () => {
       }
 
       await queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+      await queryClient.invalidateQueries({ queryKey: ['demographics'] });
       setIsModalOpen(false);
       setFormData({
         name: '',
@@ -1219,6 +1222,7 @@ export const Students: React.FC = () => {
         setPromoteTargetStream('');
         setPromotionSummary({});
         await queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+        await queryClient.invalidateQueries({ queryKey: ['demographics'] });
 
         let message = `Successfully promoted ${result.promotedCount} student(s)!`;
         if (result.graduatedCount > 0) {
@@ -1443,6 +1447,7 @@ export const Students: React.FC = () => {
             await dbService.saveSettings({ ...currentSettings, streams: updatedStreams });
             await dbService.addStudents(newStudents);
             await queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+            await queryClient.invalidateQueries({ queryKey: ['demographics'] });
 
             let msg = `Successfully imported ${addedCount} students.`;
             if (duplicates > 0) msg += ` ${duplicates} duplicates skipped.`;
