@@ -806,6 +806,9 @@ export function registerExtendedRoutes(app: Express) {
             const balance = amountDue - (amountPaid || 0);
             const status = balance <= 0 ? 'paid' : (amountPaid > 0 ? 'partial' : 'pending');
 
+            // Generate receipt number if missing to satisfy potential constraints
+            const finalReceiptNumber = receiptNumber || `REC-${Date.now()}`;
+
             const newPayment = await db.insert(feePayments).values({
                 schoolId,
                 studentId,
@@ -817,8 +820,7 @@ export function registerExtendedRoutes(app: Express) {
                 year,
                 paymentDate: new Date().toISOString().split('T')[0],
                 paymentMethod,
-                paymentMethod,
-                receiptNumber: receiptNumber || null,
+                receiptNumber: finalReceiptNumber,
                 status,
                 notes,
                 receivedBy: req.user?.id?.toString()
@@ -831,7 +833,7 @@ export function registerExtendedRoutes(app: Express) {
                     studentId,
                     transactionType: 'credit',
                     amount: amountPaid,
-                    description: `Payment - ${feeType} (${term}/${year})`,
+                    description: `Payment - ${feeType} (${term}/${year}) - ${finalReceiptNumber}`,
                     term,
                     year,
                     transactionDate: new Date().toISOString().split('T')[0]
@@ -841,7 +843,9 @@ export function registerExtendedRoutes(app: Express) {
             res.json(newPayment[0]);
         } catch (error: any) {
             console.error("Create fee payment error:", error);
-            res.status(500).json({ message: "Failed to create fee payment: " + error.message });
+            // Include detail/code if available, safe fallbacks
+            const dbError = error.code ? ` (DB Code: ${error.code})` : '';
+            res.status(500).json({ message: "Failed to create fee payment: " + error.message + dbError });
         }
     });
 
