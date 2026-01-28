@@ -1,6 +1,11 @@
 import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from "../shared/schema";
+import dns from 'dns';
+
+// Force IPv4 DNS resolution to avoid IPv6 issues on Render
+dns.setDefaultResultOrder('ipv4first');
+
 
 if (!process.env.DATABASE_URL) {
   throw new Error(
