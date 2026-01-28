@@ -1,0 +1,5 @@
+{
+  "name": "Broadway Report Card System",
+  "description": "An offline-first PWA for managing primary school assessments, grading (UNEB), and report card generation.",
+  "requestFramePermissions": []
+}
