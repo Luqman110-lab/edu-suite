@@ -8,8 +8,17 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-export const pool = new Pool({ 
+export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+  ssl: { rejectUnauthorized: false },
+  // Force IPv4 to avoid IPv6 connection issues on Render
+  host: process.env.DATABASE_URL.match(/@([^:]+)/)?.[1],
+  connectionTimeoutMillis: 10000,
 });
+
+// Test connection on startup
+pool.on('error', (err) => {
+  console.error('Unexpected database error:', err);
+});
+
 export const db = drizzle(pool, { schema });
