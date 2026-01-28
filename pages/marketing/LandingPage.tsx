@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import logoImage from '@assets/EDU_1766463322650.png';
+import classroomPhoto from '@assets/classroom_photo.png';
 
 const LandingPage: React.FC = () => {
   const [formData, setFormData] = useState({
