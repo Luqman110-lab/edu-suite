@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { dbService } from '../services/api';
 import Papa from 'papaparse';
+import { useQueryClient } from '@tanstack/react-query';
 import { Teacher, ClassLevel, Gender, ALL_SUBJECTS, SchoolSettings, Student } from '../types';
 import { Button } from '../components/Button';
 import { useTheme } from '../contexts/ThemeContext';
@@ -344,6 +345,7 @@ const TeacherProfile = ({ teacher, students, onEdit, onDelete, onBack, isDark }:
 };
 
 export const Teachers: React.FC = () => {
+  const queryClient = useQueryClient();
   const { isDark } = useTheme();
   const [viewMode, setViewMode] = useState<'list' | 'profile'>('list');
   const [teachers, setTeachers] = useState<Teacher[]>([]);
@@ -457,8 +459,9 @@ export const Teachers: React.FC = () => {
     if (window.confirm('Are you sure you want to delete this teacher? This cannot be undone.')) {
       try {
         await dbService.deleteTeacher(id);
+        await loadData();
+        await queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
         showToast('Teacher deleted successfully', 'success');
-        loadData();
         if (viewMode === 'profile') handleBackToList();
       } catch (error) {
         console.error('Error deleting teacher:', error);
@@ -474,611 +477,616 @@ export const Teachers: React.FC = () => {
         for (const id of selectedIds) {
           await dbService.deleteTeacher(id);
         }
+      }
         showToast(`${selectedIds.size} teachers deleted`, 'success');
-        setSelectedIds(new Set());
-        loadData();
-      } catch (error) {
-        console.error('Error deleting teachers:', error);
-        showToast('Failed to delete teachers. Please try again.', 'error');
-      }
-    }
-  };
-
-  const toggleArrayItem = (array: any[], item: any) => {
-    if (array.includes(item)) {
-      return array.filter(i => i !== item);
-    } else {
-      return [...array, item];
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.name || formData.roles?.length === 0) {
-      showToast('Name and at least one role are required.', 'error');
-      return;
-    }
-
-    const teacherData = formData as Teacher;
-
-    try {
-      if (editingId) {
-        const updated = await dbService.updateTeacher(teacherData);
-        showToast('Teacher updated successfully', 'success');
-        if (selectedTeacher && selectedTeacher.id === editingId) {
-          setSelectedTeacher(updated);
-        }
-      } else {
-        await dbService.addTeacher(teacherData);
-        showToast('Teacher added successfully', 'success');
-      }
-
-      setIsModalOpen(false);
-      loadData();
-    } catch (error) {
-      console.error('Error saving teacher:', error);
-      showToast('Failed to save teacher. Please try again.', 'error');
-    }
-  };
-
-  const toggleSelection = (id: number) => {
-    const newSet = new Set(selectedIds);
-    if (newSet.has(id)) {
-      newSet.delete(id);
-    } else {
-      newSet.add(id);
-    }
-    setSelectedIds(newSet);
-  };
-
-  const toggleSelectAll = () => {
-    if (selectedIds.size === filteredTeachers.length) {
       setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(filteredTeachers.map(t => t.id!)));
+      loadData();
+      await queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+    } catch (error) {
+      console.error('Error deleting teachers:', error);
+      showToast('Failed to delete teachers. Please try again.', 'error');
     }
-  };
+  }
+};
 
-  const handleExportCSV = () => {
-    const headers = ['Employee ID', 'Name', 'Gender', 'Phone', 'Email', 'Roles', 'Assigned Class', 'Assigned Stream', 'Subjects', 'Teaching Classes', 'Qualifications', 'Date Joined', 'Initials', 'Active'];
-    const rows = teachers.map(t => [
-      t.employeeId || '',
-      t.name,
-      t.gender,
-      t.phone,
-      t.email,
-      t.roles.join(';'),
-      t.assignedClass || '',
-      t.assignedStream || '',
-      t.subjects.join(';'),
-      t.teachingClasses.join(';'),
-      t.qualifications || '',
-      t.dateJoined || '',
-      t.initials || '',
-      t.isActive !== false ? 'Yes' : 'No'
-    ]);
+const toggleArrayItem = (array: any[], item: any) => {
+  if (array.includes(item)) {
+    return array.filter(i => i !== item);
+  } else {
+    return [...array, item];
+  }
+};
 
-    const csv = [headers.join(','), ...rows.map(r => r.map(c => `"${c}"`).join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'teachers_export.csv';
-    a.click();
-    URL.revokeObjectURL(url);
-    showToast(`Exported ${teachers.length} teachers`, 'success');
-  };
-
-  const handleDownloadTemplate = () => {
-    const headers = ['Employee ID', 'Name', 'Gender', 'Phone', 'Email', 'Roles', 'Assigned Class', 'Assigned Stream', 'Subjects', 'Teaching Classes', 'Qualifications', 'Date Joined', 'Initials', 'Active'];
-    // Teaching Classes format: CLASS-STREAM combinations separated by semicolons (e.g., P3-DILIGENT;P6-WISDOM)
-    const example = ['T001', 'MR. JOHN OKELLO', 'M', '0700123456', 'john@school.com', 'Class Teacher;Subject Teacher', 'P5', 'EAST', 'MATHS;SCIENCE', 'P3-DILIGENT;P6-WISDOM', 'Diploma in Education', '2020-01-15', 'JO', 'Yes'];
-    const csv = [headers.join(','), example.map(c => `"${c}"`).join(',')].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'teachers_template.csv';
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Reset file input value to allow selecting same file again
-    if (fileInputRef.current) {
-      // Don't reset immediately, do it in finally block
-    }
-
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      transformHeader: (header) => header.trim().toLowerCase().replace(/[\s_-]/g, ''),
-      complete: async (results) => {
-        const rows = results.data as any[];
-        if (rows.length === 0) {
-          showToast('CSV file is empty or invalid', 'error');
-          if (fileInputRef.current) fileInputRef.current.value = '';
-          return;
-        }
-
-        let imported = 0;
-        let skipped = 0;
-        let errorMsg = '';
-
-        try {
-          for (const row of rows) {
-            // Flexible column matching
-            const name = row.name || row.fullname || `${row.firstname || ''} ${row.lastname || ''}`.trim();
-            if (!name) {
-              skipped++;
-              continue;
-            }
-
-            // Parse Roles
-            const rolesStr = row.roles || row.role || '';
-            const roles = rolesStr ? rolesStr.split(/[;,]/).map((r: string) => {
-              const trimmed = r.trim();
-              // Try to match with known roles (case insensitive)
-              const match = ROLES.find(known => known.toLowerCase() === trimmed.toLowerCase());
-              return match || trimmed;
-            }).filter((r: string) => ROLES.includes(r)) : [];
-
-            if (roles.length === 0) {
-              // Default to Subject Teacher if no role specified? Or skip? 
-              // Existing logic skips. Let's stick to that for safety.
-              skipped++;
-              continue;
-            }
-
-            // Parse Subjects
-            const subjectsStr = row.subjects || row.subject || '';
-            const subjects = subjectsStr ? subjectsStr.split(/[;,]/).map((s: string) => s.trim().toUpperCase()).filter((s: string) => ALL_SUBJECTS.includes(s)) : [];
-
-            // Parse Teaching Classes
-            const classesStr = row.teachingclasses || row.classes || '';
-            const teachingClasses = classesStr ? classesStr.split(/[;,]/).map((c: string) => c.trim().toUpperCase()).filter((c: string) => {
-              // Validate class/stream format
-              if (c.includes('-')) {
-                const [cls] = c.split('-');
-                return Object.values(ClassLevel).includes(cls as ClassLevel);
-              }
-              return Object.values(ClassLevel).includes(c as ClassLevel);
-            }) : [];
-
-            const assignedClassRaw = row.assignedclass || row.class || '';
-            const assignedClass = Object.values(ClassLevel).includes(assignedClassRaw as ClassLevel) ? assignedClassRaw as ClassLevel : undefined;
-
-            const assignedStream = row.assignedstream || row.stream || undefined;
-
-            const teacher: Teacher = {
-              employeeId: row.employeeid || row.id || row.empid || '',
-              name: name.toUpperCase(),
-              gender: ((row.gender || row.sex || '').toUpperCase().startsWith('F')) ? Gender.Female : Gender.Male,
-              phone: row.phone || row.contact || '',
-              email: row.email || '',
-              roles,
-              assignedClass,
-              assignedStream,
-              subjects,
-              teachingClasses,
-              qualifications: row.qualifications || '',
-              dateJoined: row.datejoined || row.joined || '',
-              initials: row.initials || '',
-              isActive: (row.active || 'yes').toLowerCase() !== 'no',
-            };
-
-            // Check for duplicates (by email or phone if provided)?
-            // Existing logic didn't check duplicates client-side, just dbService.addTeacher.
-            // We'll rely on dbService.addTeacher to handle or throw errors if unique constraints exist.
-            // But we should try catch individually.
-
-            try {
-              // Check if teacher exists in current list by Name or ID?
-              // Ideally we should check against 'teachers' state.
-              const exists = teachers.some(t =>
-                (t.employeeId && teacher.employeeId && t.employeeId === teacher.employeeId) ||
-                (t.name.toLowerCase() === teacher.name.toLowerCase())
-              );
-
-              if (exists) {
-                skipped++;
-                continue;
-              }
-
-              await dbService.addTeacher(teacher);
-              imported++;
-            } catch (err) {
-              skipped++;
-            }
-          }
-
-          let msg = `Imported ${imported} teachers.`;
-          if (skipped > 0) msg += ` ${skipped} skipped (duplicates or invalid data).`;
-          showToast(msg, imported > 0 ? 'success' : (skipped > 0 ? 'warning' : 'error'));
-          loadData();
-
-        } catch (error: any) {
-          console.error("CSV Import Error:", error);
-          showToast(`Error processing CSV: ${error.message}`, 'error');
-        } finally {
-          if (fileInputRef.current) fileInputRef.current.value = '';
-        }
-      },
-      error: (error: any) => {
-        showToast(`CSV Parsing Error: ${error.message}`, 'error');
-        if (fileInputRef.current) fileInputRef.current.value = '';
-      }
-    });
-  };
-
-  const inputClasses = `mt-1 block w-full rounded-lg border ${isDark ? 'border-gray-600 bg-gray-700 text-white placeholder-gray-400' : 'border-gray-300 bg-white text-gray-900 placeholder-gray-400'} px-3 py-2 shadow-sm focus:border-[#7B1113] focus:ring-2 focus:ring-[#7B1113]/30 focus:outline-none sm:text-sm transition-all duration-200`;
-  const checkboxClasses = "h-4 w-4 rounded border-gray-300 text-[#7B1113] focus:ring-[#7B1113] cursor-pointer";
-
-  const availableStreams = formData.assignedClass && settings ? (settings.streams[formData.assignedClass] || []) : [];
-  const teachingClassStreams = newTeachingClassSelected && settings ? (settings.streams[newTeachingClassSelected] || []) : [];
-
-  if (viewMode === 'profile' && selectedTeacher) {
-    return (
-      <TeacherProfile
-        teacher={selectedTeacher}
-        students={students}
-        onEdit={() => handleOpenModal(selectedTeacher)}
-        onDelete={() => handleDelete(selectedTeacher.id!)}
-        onBack={handleBackToList}
-        isDark={isDark}
-      />
-    );
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!formData.name || formData.roles?.length === 0) {
+    showToast('Name and at least one role are required.', 'error');
+    return;
   }
 
+  const teacherData = formData as Teacher;
+
+  try {
+    if (editingId) {
+      const updated = await dbService.updateTeacher(teacherData);
+      showToast('Teacher updated successfully', 'success');
+      if (selectedTeacher && selectedTeacher.id === editingId) {
+        setSelectedTeacher(updated);
+      }
+    } else {
+      await dbService.addTeacher(teacherData);
+      showToast('Teacher added successfully', 'success');
+    }
+
+    setIsModalOpen(false);
+    loadData();
+    await queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+  } catch (error) {
+    console.error('Error saving teacher:', error);
+    showToast('Failed to save teacher. Please try again.', 'error');
+  }
+};
+
+const toggleSelection = (id: number) => {
+  const newSet = new Set(selectedIds);
+  if (newSet.has(id)) {
+    newSet.delete(id);
+  } else {
+    newSet.add(id);
+  }
+  setSelectedIds(newSet);
+};
+
+const toggleSelectAll = () => {
+  if (selectedIds.size === filteredTeachers.length) {
+    setSelectedIds(new Set());
+  } else {
+    setSelectedIds(new Set(filteredTeachers.map(t => t.id!)));
+  }
+};
+
+const handleExportCSV = () => {
+  const headers = ['Employee ID', 'Name', 'Gender', 'Phone', 'Email', 'Roles', 'Assigned Class', 'Assigned Stream', 'Subjects', 'Teaching Classes', 'Qualifications', 'Date Joined', 'Initials', 'Active'];
+  const rows = teachers.map(t => [
+    t.employeeId || '',
+    t.name,
+    t.gender,
+    t.phone,
+    t.email,
+    t.roles.join(';'),
+    t.assignedClass || '',
+    t.assignedStream || '',
+    t.subjects.join(';'),
+    t.teachingClasses.join(';'),
+    t.qualifications || '',
+    t.dateJoined || '',
+    t.initials || '',
+    t.isActive !== false ? 'Yes' : 'No'
+  ]);
+
+  const csv = [headers.join(','), ...rows.map(r => r.map(c => `"${c}"`).join(','))].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'teachers_export.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast(`Exported ${teachers.length} teachers`, 'success');
+};
+
+const handleDownloadTemplate = () => {
+  const headers = ['Employee ID', 'Name', 'Gender', 'Phone', 'Email', 'Roles', 'Assigned Class', 'Assigned Stream', 'Subjects', 'Teaching Classes', 'Qualifications', 'Date Joined', 'Initials', 'Active'];
+  // Teaching Classes format: CLASS-STREAM combinations separated by semicolons (e.g., P3-DILIGENT;P6-WISDOM)
+  const example = ['T001', 'MR. JOHN OKELLO', 'M', '0700123456', 'john@school.com', 'Class Teacher;Subject Teacher', 'P5', 'EAST', 'MATHS;SCIENCE', 'P3-DILIGENT;P6-WISDOM', 'Diploma in Education', '2020-01-15', 'JO', 'Yes'];
+  const csv = [headers.join(','), example.map(c => `"${c}"`).join(',')].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'teachers_template.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  // Reset file input value to allow selecting same file again
+  if (fileInputRef.current) {
+    // Don't reset immediately, do it in finally block
+  }
+
+  Papa.parse(file, {
+    header: true,
+    skipEmptyLines: true,
+    transformHeader: (header) => header.trim().toLowerCase().replace(/[\s_-]/g, ''),
+    complete: async (results) => {
+      const rows = results.data as any[];
+      if (rows.length === 0) {
+        showToast('CSV file is empty or invalid', 'error');
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        return;
+      }
+
+      let imported = 0;
+      let skipped = 0;
+      let errorMsg = '';
+
+      try {
+        for (const row of rows) {
+          // Flexible column matching
+          const name = row.name || row.fullname || `${row.firstname || ''} ${row.lastname || ''}`.trim();
+          if (!name) {
+            skipped++;
+            continue;
+          }
+
+          // Parse Roles
+          const rolesStr = row.roles || row.role || '';
+          const roles = rolesStr ? rolesStr.split(/[;,]/).map((r: string) => {
+            const trimmed = r.trim();
+            // Try to match with known roles (case insensitive)
+            const match = ROLES.find(known => known.toLowerCase() === trimmed.toLowerCase());
+            return match || trimmed;
+          }).filter((r: string) => ROLES.includes(r)) : [];
+
+          if (roles.length === 0) {
+            // Default to Subject Teacher if no role specified? Or skip? 
+            // Existing logic skips. Let's stick to that for safety.
+            skipped++;
+            continue;
+          }
+
+          // Parse Subjects
+          const subjectsStr = row.subjects || row.subject || '';
+          const subjects = subjectsStr ? subjectsStr.split(/[;,]/).map((s: string) => s.trim().toUpperCase()).filter((s: string) => ALL_SUBJECTS.includes(s)) : [];
+
+          // Parse Teaching Classes
+          const classesStr = row.teachingclasses || row.classes || '';
+          const teachingClasses = classesStr ? classesStr.split(/[;,]/).map((c: string) => c.trim().toUpperCase()).filter((c: string) => {
+            // Validate class/stream format
+            if (c.includes('-')) {
+              const [cls] = c.split('-');
+              return Object.values(ClassLevel).includes(cls as ClassLevel);
+            }
+            return Object.values(ClassLevel).includes(c as ClassLevel);
+          }) : [];
+
+          const assignedClassRaw = row.assignedclass || row.class || '';
+          const assignedClass = Object.values(ClassLevel).includes(assignedClassRaw as ClassLevel) ? assignedClassRaw as ClassLevel : undefined;
+
+          const assignedStream = row.assignedstream || row.stream || undefined;
+
+          const teacher: Teacher = {
+            employeeId: row.employeeid || row.id || row.empid || '',
+            name: name.toUpperCase(),
+            gender: ((row.gender || row.sex || '').toUpperCase().startsWith('F')) ? Gender.Female : Gender.Male,
+            phone: row.phone || row.contact || '',
+            email: row.email || '',
+            roles,
+            assignedClass,
+            assignedStream,
+            subjects,
+            teachingClasses,
+            qualifications: row.qualifications || '',
+            dateJoined: row.datejoined || row.joined || '',
+            initials: row.initials || '',
+            isActive: (row.active || 'yes').toLowerCase() !== 'no',
+          };
+
+          // Check for duplicates (by email or phone if provided)?
+          // Existing logic didn't check duplicates client-side, just dbService.addTeacher.
+          // We'll rely on dbService.addTeacher to handle or throw errors if unique constraints exist.
+          // But we should try catch individually.
+
+          try {
+            // Check if teacher exists in current list by Name or ID?
+            // Ideally we should check against 'teachers' state.
+            const exists = teachers.some(t =>
+              (t.employeeId && teacher.employeeId && t.employeeId === teacher.employeeId) ||
+              (t.name.toLowerCase() === teacher.name.toLowerCase())
+            );
+
+            if (exists) {
+              skipped++;
+              continue;
+            }
+
+            await dbService.addTeacher(teacher);
+            imported++;
+          } catch (err) {
+            skipped++;
+          }
+        }
+
+        let msg = `Imported ${imported} teachers.`;
+        if (skipped > 0) msg += ` ${skipped} skipped (duplicates or invalid data).`;
+        showToast(msg, imported > 0 ? 'success' : (skipped > 0 ? 'warning' : 'error'));
+        loadData();
+        await queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+
+
+      } catch (error: any) {
+        console.error("CSV Import Error:", error);
+        showToast(`Error processing CSV: ${error.message}`, 'error');
+      } finally {
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+    },
+    error: (error: any) => {
+      showToast(`CSV Parsing Error: ${error.message}`, 'error');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  });
+};
+
+const inputClasses = `mt-1 block w-full rounded-lg border ${isDark ? 'border-gray-600 bg-gray-700 text-white placeholder-gray-400' : 'border-gray-300 bg-white text-gray-900 placeholder-gray-400'} px-3 py-2 shadow-sm focus:border-[#7B1113] focus:ring-2 focus:ring-[#7B1113]/30 focus:outline-none sm:text-sm transition-all duration-200`;
+const checkboxClasses = "h-4 w-4 rounded border-gray-300 text-[#7B1113] focus:ring-[#7B1113] cursor-pointer";
+
+const availableStreams = formData.assignedClass && settings ? (settings.streams[formData.assignedClass] || []) : [];
+const teachingClassStreams = newTeachingClassSelected && settings ? (settings.streams[newTeachingClassSelected] || []) : [];
+
+if (viewMode === 'profile' && selectedTeacher) {
   return (
-    <div className="space-y-6">
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+    <TeacherProfile
+      teacher={selectedTeacher}
+      students={students}
+      onEdit={() => handleOpenModal(selectedTeacher)}
+      onDelete={() => handleDelete(selectedTeacher.id!)}
+      onBack={handleBackToList}
+      isDark={isDark}
+    />
+  );
+}
 
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-        <div>
-          <h1 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Staff Directory</h1>
-          <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'} mt-1`}>Manage teaching and administrative staff</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={handleDownloadTemplate}>
-            <Icons.FileText className="w-4 h-4 mr-1.5" /> Template
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
-            <Icons.Upload className="w-4 h-4 mr-1.5" /> Import
-          </Button>
-          <input ref={fileInputRef} type="file" accept=".csv" onChange={handleImportCSV} className="hidden" />
-          <Button variant="outline" size="sm" onClick={handleExportCSV}>
-            <Icons.Download className="w-4 h-4 mr-1.5" /> Export
-          </Button>
-          <Button onClick={() => handleOpenModal()}>Add Teacher</Button>
-        </div>
+return (
+  <div className="space-y-6">
+    {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
+    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+      <div>
+        <h1 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Staff Directory</h1>
+        <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'} mt-1`}>Manage teaching and administrative staff</p>
       </div>
-
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-        <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg p-4 border shadow-sm`}>
-          <div className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>{stats.total}</div>
-          <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase font-medium`}>Total Staff</div>
-        </div>
-        <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg p-4 border shadow-sm`}>
-          <div className="text-2xl font-bold text-green-500">{stats.active}</div>
-          <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase font-medium`}>Active</div>
-        </div>
-        <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg p-4 border shadow-sm`}>
-          <div className="text-2xl font-bold text-blue-500">{stats.male}</div>
-          <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase font-medium`}>Male</div>
-        </div>
-        <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg p-4 border shadow-sm`}>
-          <div className="text-2xl font-bold text-pink-500">{stats.female}</div>
-          <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase font-medium`}>Female</div>
-        </div>
-        <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg p-4 border shadow-sm`}>
-          <div className="text-2xl font-bold text-purple-500">{stats.classTeachers}</div>
-          <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase font-medium`}>Class Teachers</div>
-        </div>
-        <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg p-4 border shadow-sm`}>
-          <div className="text-2xl font-bold text-orange-500">{stats.subjectTeachers}</div>
-          <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase font-medium`}>Subject Teachers</div>
-        </div>
-        <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg p-4 border shadow-sm`}>
-          <div className="text-2xl font-bold text-[#7B1113]">{stats.headteachers}</div>
-          <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase font-medium`}>Headteachers</div>
-        </div>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" size="sm" onClick={handleDownloadTemplate}>
+          <Icons.FileText className="w-4 h-4 mr-1.5" /> Template
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+          <Icons.Upload className="w-4 h-4 mr-1.5" /> Import
+        </Button>
+        <input ref={fileInputRef} type="file" accept=".csv" onChange={handleImportCSV} className="hidden" />
+        <Button variant="outline" size="sm" onClick={handleExportCSV}>
+          <Icons.Download className="w-4 h-4 mr-1.5" /> Export
+        </Button>
+        <Button onClick={() => handleOpenModal()}>Add Teacher</Button>
       </div>
+    </div>
 
+    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
       <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg p-4 border shadow-sm`}>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="flex-1 relative">
-            <Icons.Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${isDark ? 'text-gray-400' : 'text-gray-400'}`} />
-            <input
-              type="text"
-              placeholder="Search by name, email, phone, or ID..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className={`${inputClasses} pl-9`}
-            />
-          </div>
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${showFilters ? 'bg-[#7B1113] text-white border-[#7B1113]' : isDark ? 'bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'}`}
-          >
-            <Icons.Filter className="w-4 h-4" />
-            <span>Filters</span>
-            {(selectedRole || selectedGender || selectedClass) && (
-              <span className="bg-white text-[#7B1113] text-xs px-1.5 py-0.5 rounded-full font-medium">
-                {[selectedRole, selectedGender, selectedClass].filter(Boolean).length}
-              </span>
-            )}
-          </button>
-        </div>
+        <div className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>{stats.total}</div>
+        <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase font-medium`}>Total Staff</div>
+      </div>
+      <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg p-4 border shadow-sm`}>
+        <div className="text-2xl font-bold text-green-500">{stats.active}</div>
+        <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase font-medium`}>Active</div>
+      </div>
+      <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg p-4 border shadow-sm`}>
+        <div className="text-2xl font-bold text-blue-500">{stats.male}</div>
+        <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase font-medium`}>Male</div>
+      </div>
+      <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg p-4 border shadow-sm`}>
+        <div className="text-2xl font-bold text-pink-500">{stats.female}</div>
+        <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase font-medium`}>Female</div>
+      </div>
+      <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg p-4 border shadow-sm`}>
+        <div className="text-2xl font-bold text-purple-500">{stats.classTeachers}</div>
+        <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase font-medium`}>Class Teachers</div>
+      </div>
+      <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg p-4 border shadow-sm`}>
+        <div className="text-2xl font-bold text-orange-500">{stats.subjectTeachers}</div>
+        <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase font-medium`}>Subject Teachers</div>
+      </div>
+      <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg p-4 border shadow-sm`}>
+        <div className="text-2xl font-bold text-[#7B1113]">{stats.headteachers}</div>
+        <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase font-medium`}>Headteachers</div>
+      </div>
+    </div>
 
-        {showFilters && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <select
-              value={selectedRole}
-              onChange={e => setSelectedRole(e.target.value)}
-              className={inputClasses}
-            >
-              <option value="">All Roles</option>
-              {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-            </select>
-            <select
-              value={selectedGender}
-              onChange={e => setSelectedGender(e.target.value)}
-              className={inputClasses}
-            >
-              <option value="">All Genders</option>
-              <option value="M">Male</option>
-              <option value="F">Female</option>
-            </select>
-            <select
-              value={selectedClass}
-              onChange={e => setSelectedClass(e.target.value)}
-              className={inputClasses}
-            >
-              <option value="">All Classes</option>
-              {Object.values(ClassLevel).map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-        )}
+    <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg p-4 border shadow-sm`}>
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex-1 relative">
+          <Icons.Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${isDark ? 'text-gray-400' : 'text-gray-400'}`} />
+          <input
+            type="text"
+            placeholder="Search by name, email, phone, or ID..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className={`${inputClasses} pl-9`}
+          />
+        </div>
+        <button
+          onClick={() => setShowFilters(!showFilters)}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${showFilters ? 'bg-[#7B1113] text-white border-[#7B1113]' : isDark ? 'bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'}`}
+        >
+          <Icons.Filter className="w-4 h-4" />
+          <span>Filters</span>
+          {(selectedRole || selectedGender || selectedClass) && (
+            <span className="bg-white text-[#7B1113] text-xs px-1.5 py-0.5 rounded-full font-medium">
+              {[selectedRole, selectedGender, selectedClass].filter(Boolean).length}
+            </span>
+          )}
+        </button>
       </div>
 
-      {selectedIds.size > 0 && (
-        <div className={`${isDark ? 'bg-[#7B1113]/20 border-[#7B1113]/50' : 'bg-[#7B1113]/10 border-[#7B1113]/30'} border rounded-lg p-3 flex items-center justify-between`}>
-          <span className={isDark ? 'text-gray-200' : 'text-gray-700'}>
-            <span className="font-semibold">{selectedIds.size}</span> teacher(s) selected
-          </span>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setSelectedIds(new Set())}>Clear</Button>
-            <Button variant="danger" size="sm" onClick={handleBulkDelete}>
-              <Icons.Trash className="w-4 h-4 mr-1" /> Delete Selected
-            </Button>
-          </div>
+      {showFilters && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <select
+            value={selectedRole}
+            onChange={e => setSelectedRole(e.target.value)}
+            className={inputClasses}
+          >
+            <option value="">All Roles</option>
+            {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+          </select>
+          <select
+            value={selectedGender}
+            onChange={e => setSelectedGender(e.target.value)}
+            className={inputClasses}
+          >
+            <option value="">All Genders</option>
+            <option value="M">Male</option>
+            <option value="F">Female</option>
+          </select>
+          <select
+            value={selectedClass}
+            onChange={e => setSelectedClass(e.target.value)}
+            className={inputClasses}
+          >
+            <option value="">All Classes</option>
+            {Object.values(ClassLevel).map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
         </div>
       )}
+    </div>
 
-      <div className="hidden md:block">
-        <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} shadow rounded-lg overflow-hidden border`}>
-          <table className={`min-w-full divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
-            <thead className={isDark ? 'bg-gray-750' : 'bg-gray-50'}>
-              <tr>
-                <th className="px-4 py-3 text-left">
-                  <input
-                    type="checkbox"
-                    checked={filteredTeachers.length > 0 && selectedIds.size === filteredTeachers.length}
-                    onChange={toggleSelectAll}
-                    className={checkboxClasses}
-                  />
-                </th>
-                <th className={`px-4 py-3 text-left text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase tracking-wider`}>Teacher</th>
-                <th className={`px-4 py-3 text-left text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase tracking-wider`}>Contact</th>
-                <th className={`px-4 py-3 text-left text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase tracking-wider`}>Roles</th>
-                <th className={`px-4 py-3 text-left text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase tracking-wider`}>Assignments</th>
-                <th className={`px-4 py-3 text-left text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase tracking-wider`}>Status</th>
-                <th className={`px-4 py-3 text-right text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase tracking-wider`}>Actions</th>
-              </tr>
-            </thead>
-            <tbody className={`${isDark ? 'bg-gray-800' : 'bg-white'} divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
-              {filteredTeachers.map((teacher) => (
-                <tr
-                  key={teacher.id}
-                  className={`${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'} transition-colors cursor-pointer ${selectedIds.has(teacher.id!) ? isDark ? 'bg-[#7B1113]/20' : 'bg-[#7B1113]/10' : ''}`}
-                  onClick={() => handleViewProfile(teacher)}
-                >
-                  <td className="px-4 py-4" onClick={e => e.stopPropagation()}>
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.has(teacher.id!)}
-                      onChange={() => toggleSelection(teacher.id!)}
-                      className={checkboxClasses}
-                    />
-                  </td>
-                  <td className="px-4 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className={`h-10 w-10 rounded-full bg-gradient-to-br from-[#7B1113] to-[#1E3A5F] flex items-center justify-center text-white text-sm font-bold`}>
-                        {teacher.initials || teacher.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
-                      </div>
-                      <div>
-                        <div className={`text-sm font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{teacher.name}</div>
-                        <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                          {teacher.employeeId || teacher.gender === 'M' ? 'Male' : 'Female'}
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-4">
-                    <div className={`text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>{teacher.phone}</div>
-                    <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{teacher.email}</div>
-                  </td>
-                  <td className="px-4 py-4">
-                    <div className="flex flex-wrap gap-1">
-                      {teacher.roles.map(role => (
-                        <span key={role} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gradient-to-r from-[#7B1113] to-[#1E3A5F] text-white">
-                          {role}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="px-4 py-4">
-                    <div className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                      {teacher.roles.includes('Class Teacher') && teacher.assignedClass && (
-                        <div className="mb-1">
-                          <span className={`font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Class:</span> {teacher.assignedClass} {teacher.assignedStream}
-                        </div>
-                      )}
-                      {teacher.roles.includes('Subject Teacher') && teacher.teachingClasses && teacher.teachingClasses.length > 0 && (
-                        <div className="mb-1">
-                          <span className={`font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Teaching:</span> {teacher.teachingClasses.slice(0, 2).map(tc => tc.includes('-') ? tc.replace('-', ' ') : tc).join(', ')}{teacher.teachingClasses.length > 2 ? ` +${teacher.teachingClasses.length - 2}` : ''}
-                        </div>
-                      )}
-                      {teacher.roles.includes('Subject Teacher') && teacher.subjects.length > 0 && (
-                        <div>
-                          <span className={`font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Subjects:</span> {teacher.subjects.slice(0, 3).join(', ')}{teacher.subjects.length > 3 ? '...' : ''}
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-4 py-4">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${teacher.isActive !== false ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
-                      {teacher.isActive !== false ? 'Active' : 'Inactive'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-4 text-right" onClick={e => e.stopPropagation()}>
-                    <div className="flex justify-end gap-1">
-                      <button
-                        onClick={() => handleViewProfile(teacher)}
-                        className={`p-2 rounded-lg ${isDark ? 'hover:bg-gray-600 text-gray-400 hover:text-white' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-700'} transition-colors`}
-                        title="View Profile"
-                      >
-                        <Icons.Eye className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleOpenModal(teacher)}
-                        className={`p-2 rounded-lg ${isDark ? 'hover:bg-gray-600 text-gray-400 hover:text-white' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-700'} transition-colors`}
-                        title="Edit"
-                      >
-                        <Icons.Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(teacher.id!)}
-                        className={`p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 transition-colors`}
-                        title="Delete"
-                      >
-                        <Icons.Trash className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {filteredTeachers.length === 0 && (
-                <tr>
-                  <td colSpan={7} className={`px-6 py-12 text-center ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                    <Icons.Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                    <p className="font-medium">No teachers found</p>
-                    <p className="text-sm mt-1">Try adjusting your search or filters</p>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+    {selectedIds.size > 0 && (
+      <div className={`${isDark ? 'bg-[#7B1113]/20 border-[#7B1113]/50' : 'bg-[#7B1113]/10 border-[#7B1113]/30'} border rounded-lg p-3 flex items-center justify-between`}>
+        <span className={isDark ? 'text-gray-200' : 'text-gray-700'}>
+          <span className="font-semibold">{selectedIds.size}</span> teacher(s) selected
+        </span>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => setSelectedIds(new Set())}>Clear</Button>
+          <Button variant="danger" size="sm" onClick={handleBulkDelete}>
+            <Icons.Trash className="w-4 h-4 mr-1" /> Delete Selected
+          </Button>
         </div>
       </div>
+    )}
 
-      <div className="md:hidden space-y-3">
-        {filteredTeachers.map((teacher) => (
-          <div
-            key={teacher.id}
-            className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg border p-4 shadow-sm ${selectedIds.has(teacher.id!) ? 'ring-2 ring-[#7B1113]' : ''}`}
-            onClick={() => handleViewProfile(teacher)}
-          >
-            <div className="flex items-start gap-3">
-              <input
-                type="checkbox"
-                checked={selectedIds.has(teacher.id!)}
-                onChange={() => toggleSelection(teacher.id!)}
-                onClick={e => e.stopPropagation()}
-                className={`${checkboxClasses} mt-1`}
-              />
-              <div className={`h-12 w-12 rounded-full bg-gradient-to-br from-[#7B1113] to-[#1E3A5F] flex items-center justify-center text-white font-bold`}>
-                {teacher.initials || teacher.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
-                  <h3 className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'} truncate`}>{teacher.name}</h3>
+    <div className="hidden md:block">
+      <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} shadow rounded-lg overflow-hidden border`}>
+        <table className={`min-w-full divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
+          <thead className={isDark ? 'bg-gray-750' : 'bg-gray-50'}>
+            <tr>
+              <th className="px-4 py-3 text-left">
+                <input
+                  type="checkbox"
+                  checked={filteredTeachers.length > 0 && selectedIds.size === filteredTeachers.length}
+                  onChange={toggleSelectAll}
+                  className={checkboxClasses}
+                />
+              </th>
+              <th className={`px-4 py-3 text-left text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase tracking-wider`}>Teacher</th>
+              <th className={`px-4 py-3 text-left text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase tracking-wider`}>Contact</th>
+              <th className={`px-4 py-3 text-left text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase tracking-wider`}>Roles</th>
+              <th className={`px-4 py-3 text-left text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase tracking-wider`}>Assignments</th>
+              <th className={`px-4 py-3 text-left text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase tracking-wider`}>Status</th>
+              <th className={`px-4 py-3 text-right text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase tracking-wider`}>Actions</th>
+            </tr>
+          </thead>
+          <tbody className={`${isDark ? 'bg-gray-800' : 'bg-white'} divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
+            {filteredTeachers.map((teacher) => (
+              <tr
+                key={teacher.id}
+                className={`${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'} transition-colors cursor-pointer ${selectedIds.has(teacher.id!) ? isDark ? 'bg-[#7B1113]/20' : 'bg-[#7B1113]/10' : ''}`}
+                onClick={() => handleViewProfile(teacher)}
+              >
+                <td className="px-4 py-4" onClick={e => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(teacher.id!)}
+                    onChange={() => toggleSelection(teacher.id!)}
+                    className={checkboxClasses}
+                  />
+                </td>
+                <td className="px-4 py-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`h-10 w-10 rounded-full bg-gradient-to-br from-[#7B1113] to-[#1E3A5F] flex items-center justify-center text-white text-sm font-bold`}>
+                      {teacher.initials || teacher.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                    </div>
+                    <div>
+                      <div className={`text-sm font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{teacher.name}</div>
+                      <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                        {teacher.employeeId || teacher.gender === 'M' ? 'Male' : 'Female'}
+                      </div>
+                    </div>
+                  </div>
+                </td>
+                <td className="px-4 py-4">
+                  <div className={`text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>{teacher.phone}</div>
+                  <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{teacher.email}</div>
+                </td>
+                <td className="px-4 py-4">
+                  <div className="flex flex-wrap gap-1">
+                    {teacher.roles.map(role => (
+                      <span key={role} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gradient-to-r from-[#7B1113] to-[#1E3A5F] text-white">
+                        {role}
+                      </span>
+                    ))}
+                  </div>
+                </td>
+                <td className="px-4 py-4">
+                  <div className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                    {teacher.roles.includes('Class Teacher') && teacher.assignedClass && (
+                      <div className="mb-1">
+                        <span className={`font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Class:</span> {teacher.assignedClass} {teacher.assignedStream}
+                      </div>
+                    )}
+                    {teacher.roles.includes('Subject Teacher') && teacher.teachingClasses && teacher.teachingClasses.length > 0 && (
+                      <div className="mb-1">
+                        <span className={`font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Teaching:</span> {teacher.teachingClasses.slice(0, 2).map(tc => tc.includes('-') ? tc.replace('-', ' ') : tc).join(', ')}{teacher.teachingClasses.length > 2 ? ` +${teacher.teachingClasses.length - 2}` : ''}
+                      </div>
+                    )}
+                    {teacher.roles.includes('Subject Teacher') && teacher.subjects.length > 0 && (
+                      <div>
+                        <span className={`font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Subjects:</span> {teacher.subjects.slice(0, 3).join(', ')}{teacher.subjects.length > 3 ? '...' : ''}
+                      </div>
+                    )}
+                  </div>
+                </td>
+                <td className="px-4 py-4">
                   <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${teacher.isActive !== false ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
                     {teacher.isActive !== false ? 'Active' : 'Inactive'}
                   </span>
-                </div>
-                <div className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'} mt-1`}>{teacher.phone}</div>
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {teacher.roles.map(role => (
-                    <span key={role} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gradient-to-r from-[#7B1113] to-[#1E3A5F] text-white">
-                      {role}
-                    </span>
-                  ))}
-                </div>
-                {teacher.roles.includes('Class Teacher') && teacher.assignedClass && (
-                  <div className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'} mt-2`}>
-                    Class: {teacher.assignedClass} {teacher.assignedStream}
+                </td>
+                <td className="px-4 py-4 text-right" onClick={e => e.stopPropagation()}>
+                  <div className="flex justify-end gap-1">
+                    <button
+                      onClick={() => handleViewProfile(teacher)}
+                      className={`p-2 rounded-lg ${isDark ? 'hover:bg-gray-600 text-gray-400 hover:text-white' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-700'} transition-colors`}
+                      title="View Profile"
+                    >
+                      <Icons.Eye className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleOpenModal(teacher)}
+                      className={`p-2 rounded-lg ${isDark ? 'hover:bg-gray-600 text-gray-400 hover:text-white' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-700'} transition-colors`}
+                      title="Edit"
+                    >
+                      <Icons.Edit className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(teacher.id!)}
+                      className={`p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 transition-colors`}
+                      title="Delete"
+                    >
+                      <Icons.Trash className="w-4 h-4" />
+                    </button>
                   </div>
-                )}
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700" onClick={e => e.stopPropagation()}>
-              <button
-                onClick={() => handleOpenModal(teacher)}
-                className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium ${isDark ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'} transition-colors`}
-              >
-                <Icons.Edit className="w-4 h-4" /> Edit
-              </button>
-              <button
-                onClick={() => handleDelete(teacher.id!)}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50 transition-colors"
-              >
-                <Icons.Trash className="w-4 h-4" /> Delete
-              </button>
-            </div>
-          </div>
-        ))}
-        {filteredTeachers.length === 0 && (
-          <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg border p-8 text-center`}>
-            <Icons.Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p className={`font-medium ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>No teachers found</p>
-          </div>
-        )}
+                </td>
+              </tr>
+            ))}
+            {filteredTeachers.length === 0 && (
+              <tr>
+                <td colSpan={7} className={`px-6 py-12 text-center ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                  <Icons.Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                  <p className="font-medium">No teachers found</p>
+                  <p className="text-sm mt-1">Try adjusting your search or filters</p>
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
+    </div>
 
-      {isModalOpen && (
-        <TeacherFormWizard
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          onSubmit={async (teacher) => {
-            try {
-              if (editingId) {
-                const updated = await dbService.updateTeacher(teacher);
-                showToast('Teacher updated successfully', 'success');
-                if (selectedTeacher && selectedTeacher.id === editingId) {
-                  setSelectedTeacher(updated);
-                }
-              } else {
-                await dbService.addTeacher(teacher);
-                showToast('Teacher added successfully', 'success');
-              }
-              loadData();
-            } catch (error) {
-              console.error('Error saving teacher:', error);
-              showToast('Failed to save teacher. Please try again.', 'error');
-              throw error;
-            }
-          }}
-          initialData={formData}
-          isEdit={!!editingId}
-          settings={settings}
-          isDark={isDark}
-        />
+    <div className="md:hidden space-y-3">
+      {filteredTeachers.map((teacher) => (
+        <div
+          key={teacher.id}
+          className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg border p-4 shadow-sm ${selectedIds.has(teacher.id!) ? 'ring-2 ring-[#7B1113]' : ''}`}
+          onClick={() => handleViewProfile(teacher)}
+        >
+          <div className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              checked={selectedIds.has(teacher.id!)}
+              onChange={() => toggleSelection(teacher.id!)}
+              onClick={e => e.stopPropagation()}
+              className={`${checkboxClasses} mt-1`}
+            />
+            <div className={`h-12 w-12 rounded-full bg-gradient-to-br from-[#7B1113] to-[#1E3A5F] flex items-center justify-center text-white font-bold`}>
+              {teacher.initials || teacher.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between">
+                <h3 className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'} truncate`}>{teacher.name}</h3>
+                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${teacher.isActive !== false ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
+                  {teacher.isActive !== false ? 'Active' : 'Inactive'}
+                </span>
+              </div>
+              <div className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'} mt-1`}>{teacher.phone}</div>
+              <div className="flex flex-wrap gap-1 mt-2">
+                {teacher.roles.map(role => (
+                  <span key={role} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gradient-to-r from-[#7B1113] to-[#1E3A5F] text-white">
+                    {role}
+                  </span>
+                ))}
+              </div>
+              {teacher.roles.includes('Class Teacher') && teacher.assignedClass && (
+                <div className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'} mt-2`}>
+                  Class: {teacher.assignedClass} {teacher.assignedStream}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700" onClick={e => e.stopPropagation()}>
+            <button
+              onClick={() => handleOpenModal(teacher)}
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium ${isDark ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'} transition-colors`}
+            >
+              <Icons.Edit className="w-4 h-4" /> Edit
+            </button>
+            <button
+              onClick={() => handleDelete(teacher.id!)}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50 transition-colors"
+            >
+              <Icons.Trash className="w-4 h-4" /> Delete
+            </button>
+          </div>
+        </div>
+      ))}
+      {filteredTeachers.length === 0 && (
+        <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg border p-8 text-center`}>
+          <Icons.Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
+          <p className={`font-medium ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>No teachers found</p>
+        </div>
       )}
     </div>
-  );
+
+    {isModalOpen && (
+      <TeacherFormWizard
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={async (teacher) => {
+          try {
+            if (editingId) {
+              const updated = await dbService.updateTeacher(teacher);
+              showToast('Teacher updated successfully', 'success');
+              if (selectedTeacher && selectedTeacher.id === editingId) {
+                setSelectedTeacher(updated);
+              }
+            } else {
+              await dbService.addTeacher(teacher);
+              showToast('Teacher added successfully', 'success');
+            }
+            loadData();
+          } catch (error) {
+            console.error('Error saving teacher:', error);
+            showToast('Failed to save teacher. Please try again.', 'error');
+            throw error;
+          }
+        }}
+        initialData={formData}
+        isEdit={!!editingId}
+        settings={settings}
+        isDark={isDark}
+      />
+    )}
+  </div>
+);
 };

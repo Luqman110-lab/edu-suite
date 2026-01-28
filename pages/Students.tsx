@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Papa from 'papaparse';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { dbService } from '../services/api';
 import { Student, ClassLevel, Gender, MarkRecord, SchoolSettings, FeePayment, StudentFeeOverride, FeeStructure } from '../types';
@@ -960,6 +961,7 @@ const HighlightText = ({ text, query }: { text: string; query: string }) => {
 };
 
 export const Students: React.FC = () => {
+  const queryClient = useQueryClient();
   const { isDark } = useTheme();
   const [viewMode, setViewMode] = useState<'list' | 'profile'>('list');
   const [students, setStudents] = useState<Student[]>([]);
@@ -1080,6 +1082,7 @@ export const Students: React.FC = () => {
       try {
         await dbService.deleteStudent(id);
         await loadData();
+        await queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
         showToast('Student deleted successfully', 'success');
 
         if (viewMode === 'profile') {
@@ -1098,6 +1101,7 @@ export const Students: React.FC = () => {
         await dbService.deleteStudents(Array.from(selectedIds));
         setSelectedIds(new Set());
         loadData();
+        await queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
         showToast(`${selectedIds.size} students deleted successfully`, 'success');
       } catch (error: any) {
         showToast(`Failed to delete: ${error.message}`, 'error');
@@ -1144,6 +1148,7 @@ export const Students: React.FC = () => {
         showToast('Student added successfully', 'success');
       }
 
+      await queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
       setIsModalOpen(false);
       setFormData({
         name: '',
@@ -1213,6 +1218,7 @@ export const Students: React.FC = () => {
         setShowPromoteModal(false);
         setPromoteTargetStream('');
         setPromotionSummary({});
+        await queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
 
         let message = `Successfully promoted ${result.promotedCount} student(s)!`;
         if (result.graduatedCount > 0) {
@@ -1434,7 +1440,9 @@ export const Students: React.FC = () => {
             }
 
             await dbService.saveSettings({ ...currentSettings, streams: updatedStreams });
+            await dbService.saveSettings({ ...currentSettings, streams: updatedStreams });
             await dbService.addStudents(newStudents);
+            await queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
 
             let msg = `Successfully imported ${addedCount} students.`;
             if (duplicates > 0) msg += ` ${duplicates} duplicates skipped.`;
