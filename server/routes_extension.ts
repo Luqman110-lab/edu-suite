@@ -748,13 +748,21 @@ export function registerExtendedRoutes(app: Express) {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-            // Get fee payments summary
-            const payments = await db.select().from(feePayments).where(eq(feePayments.schoolId, schoolId));
-            const totalRevenue = payments.reduce((sum, p) => sum + (p.amountPaid || 0), 0);
-            const totalDue = payments.reduce((sum, p) => sum + (p.amountDue || 0), 0);
-            const totalOutstanding = payments.reduce((sum, p) => sum + (p.balance || 0), 0);
+            // Ledger Based Stats (Revenue & Invoiced)
+            const finStats = await db.select({
+                totalCredits: sql<number>`SUM(CASE WHEN ${financeTransactions.transactionType} = 'credit' THEN ${financeTransactions.amount} ELSE 0 END)`,
+                totalDebits: sql<number>`SUM(CASE WHEN ${financeTransactions.transactionType} = 'debit' THEN ${financeTransactions.amount} ELSE 0 END)`,
+            }).from(financeTransactions).where(eq(financeTransactions.schoolId, schoolId));
 
-            // Get expenses summary
+            const totalRevenue = Number(finStats[0].totalCredits || 0);
+            const totalDue = Number(finStats[0].totalDebits || 0); // Total Invoiced
+            const totalOutstanding = totalDue - totalRevenue;
+
+            // Counts
+            const paymentsCountRes = await db.select({ count: sql<number>`count(*)` }).from(feePayments).where(eq(feePayments.schoolId, schoolId));
+            const paymentCount = Number(paymentsCountRes[0].count);
+
+            // Expenses
             const expenseRecords = await db.select().from(expenses).where(eq(expenses.schoolId, schoolId));
             const totalExpenses = expenseRecords.reduce((sum, e) => sum + (e.amount || 0), 0);
 
@@ -765,7 +773,7 @@ export function registerExtendedRoutes(app: Express) {
                 totalDue,
                 netIncome: totalRevenue - totalExpenses,
                 collectionRate: totalDue > 0 ? Math.round((totalRevenue / totalDue) * 100) : 0,
-                paymentCount: payments.length,
+                paymentCount,
                 expenseCount: expenseRecords.length
             });
         } catch (error: any) {
