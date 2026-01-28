@@ -24,6 +24,34 @@ export function registerExtendedRoutes(app: Express) {
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
             const data = { ...req.body, schoolId };
             const newStructure = await db.insert(feeStructures).values(data).returning();
+
+            // Auto-invoice active students in this class
+            if (newStructure[0]) {
+                const s = newStructure[0];
+                if (s.classLevel && s.amount) {
+                    const activeStudents = await db.select().from(students)
+                        .where(and(
+                            eq(students.schoolId, schoolId),
+                            eq(students.classLevel, s.classLevel),
+                            eq(students.isActive, true)
+                        ));
+
+                    if (activeStudents.length > 0) {
+                        const today = new Date().toISOString().split('T')[0];
+                        const transactions = activeStudents.map(stu => ({
+                            schoolId,
+                            studentId: stu.id,
+                            transactionType: 'debit',
+                            amount: s.amount,
+                            description: `Term Fees - ${s.feeType}`,
+                            term: s.term || 1,
+                            year: s.year || new Date().getFullYear(),
+                            transactionDate: today
+                        }));
+                        await db.insert(financeTransactions).values(transactions);
+                    }
+                }
+            }
             res.json(newStructure[0]);
         } catch (error: any) {
             res.status(500).json({ message: "Failed to create fee structure: " + error.message });
@@ -114,31 +142,38 @@ export function registerExtendedRoutes(app: Express) {
     app.get("/api/dashboard/stats", requireAuth, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
-            console.log(`[Dashboard Stats] Request schoolId: ${schoolId}`);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-            const rawAll = await db.select({ count: sql<number>`count(*)` }).from(students).where(eq(students.schoolId, schoolId));
-            console.log(`[Dashboard Stats] Total raw students in DB for school ${schoolId}: ${rawAll[0].count}`);
+            const today = new Date().toISOString().split('T')[0];
 
+            // 1. Basic Counts
             const studentCount = await db.select({ count: sql<number>`count(*)` }).from(students)
                 .where(and(eq(students.schoolId, schoolId), eq(students.isActive, true)));
-            console.log(`[Dashboard Stats] Active student count: ${studentCount[0].count}`);
 
             const teacherCount = await db.select({ count: sql<number>`count(*)` }).from(teachers)
                 .where(and(eq(teachers.schoolId, schoolId), eq(teachers.isActive, true)));
 
-            const today = new Date().toISOString().split('T')[0];
             const attendance = await db.select({ count: sql<number>`count(*)` }).from(gateAttendance)
                 .where(and(eq(gateAttendance.schoolId, schoolId), eq(gateAttendance.date, today), eq(gateAttendance.status, 'present')));
 
-            const totalRevenue = await db.select({ total: sql<number>`sum(${feePayments.amountPaid})` }).from(feePayments)
-                .where(and(eq(feePayments.schoolId, schoolId), eq(feePayments.isDeleted, false)));
+            // 2. Financial Stats (Revenue & Outstanding)
+            // Revenue = Total collected (Credits)
+            // Outstanding = Total Billed (Debits) - Total collected (Credits)
+            const finStats = await db.select({
+                totalCredits: sql<number>`SUM(CASE WHEN ${financeTransactions.transactionType} = 'credit' THEN ${financeTransactions.amount} ELSE 0 END)`,
+                totalDebits: sql<number>`SUM(CASE WHEN ${financeTransactions.transactionType} = 'debit' THEN ${financeTransactions.amount} ELSE 0 END)`,
+            }).from(financeTransactions).where(eq(financeTransactions.schoolId, schoolId));
+
+            const totalRevenue = Number(finStats[0].totalCredits || 0);
+            const totalInvoiced = Number(finStats[0].totalDebits || 0);
+            const outstanding = totalInvoiced - totalRevenue;
+            const collectionRate = totalInvoiced > 0 ? Math.round((totalRevenue / totalInvoiced) * 100) : 0;
 
             res.json({
                 students: { total: Number(studentCount[0].count), present: Number(attendance[0].count) },
                 teachers: { total: Number(teacherCount[0].count) },
-                revenue: { total: Number(totalRevenue[0].total || 0) },
-                attendance: { rate: Number(studentCount[0].count) ? Math.round((Number(attendance[0].count) / Number(studentCount[0].count)) * 100) : 0 }
+                revenue: { total: totalRevenue, outstanding: outstanding, collectionRate: collectionRate },
+                attendance: { rate: Number(studentCount[0].count) > 0 ? Math.round((Number(attendance[0].count) / Number(studentCount[0].count)) * 100) : 0 }
             });
         } catch (error: any) {
             res.status(500).json({ message: error.message });
@@ -779,6 +814,20 @@ export function registerExtendedRoutes(app: Express) {
                 notes,
                 collectedBy: req.user?.id
             }).returning();
+
+            // Record transaction in Ledger (Credit)
+            if (newPayment[0] && amountPaid > 0) {
+                await db.insert(financeTransactions).values({
+                    schoolId,
+                    studentId,
+                    transactionType: 'credit',
+                    amount: amountPaid,
+                    description: `Payment - ${feeType} (${term}/${year})`,
+                    term,
+                    year,
+                    transactionDate: new Date().toISOString().split('T')[0]
+                });
+            }
 
             res.json(newPayment[0]);
         } catch (error: any) {

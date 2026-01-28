@@ -390,11 +390,11 @@ export function Dashboard() {
           trend={2.5}
         />
         <StatCard
-          title="Total Teachers"
-          value={stats?.teachers?.total || 0}
-          subtext="Active Staff"
-          icon={GraduationCap}
-          variant="purple"
+          title="Outstanding Fees"
+          value={`UGX ${(stats?.revenue?.outstanding || 0).toLocaleString()}`}
+          subtext="Uncollected"
+          icon={TrendingDown}
+          variant="danger"
           trend={0}
         />
         <StatCard
@@ -406,12 +406,12 @@ export function Dashboard() {
           trend={12.5}
         />
         <StatCard
-          title="Attendance Rate"
-          value={`${stats?.attendance?.rate || 0}%`}
-          subtext="Daily Average"
-          icon={UserPlus}
-          variant="orange"
-          trend={-1.2}
+          title="Collection Rate"
+          value={`${stats?.revenue?.collectionRate || 0}%`}
+          subtext="Of Expected Revenue"
+          icon={PieChartIcon}
+          variant="blue"
+          trend={1.2}
         />
       </div>
 
