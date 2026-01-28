@@ -1,5 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import Papa from 'papaparse';
+
 import { dbService } from '../services/api';
 import { Student, ClassLevel, Gender, MarkRecord, SchoolSettings, FeePayment, StudentFeeOverride, FeeStructure } from '../types';
 import { Button } from '../components/Button';
@@ -1342,195 +1344,135 @@ export const Students: React.FC = () => {
     if (!file) return;
 
     setImporting(true);
-    const reader = new FileReader();
 
-    reader.onload = async (event) => {
-      try {
-        const text = event.target?.result as string;
-        const lines = text.split(/\r\n|\n/);
-        const newStudents: Student[] = [];
-        const CENTRE_NUMBER = settings?.centreNumber || "670135";
-        let count = students.length;
-        let duplicates = 0;
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      transformHeader: (header) => header.trim().toLowerCase().replace(/[\s_-]/g, ''),
+      complete: async (results) => {
+        try {
+          const newStudents: Student[] = [];
+          const rows = results.data as any[];
+          const CENTRE_NUMBER = settings?.centreNumber || "670135";
 
-        const firstLine = lines[0].toLowerCase().trim();
-        const headerCols = firstLine.split(',').map(c => c.trim().replace(/^"|"$/g, '').toLowerCase());
+          let duplicates = 0;
+          let addedCount = 0;
+          const detectedStreams: { [key: string]: Set<string> } = {};
 
-        // Find the highest existing index number suffix to avoid duplicates
-        const existingIndexSuffixes = students
-          .map(s => {
-            const match = s.indexNumber.match(/\/(\d+)$/);
-            return match ? parseInt(match[1], 10) : 0;
-          })
-          .filter(n => !isNaN(n));
-        let nextIndexSuffix = existingIndexSuffixes.length > 0 ? Math.max(...existingIndexSuffixes) + 1 : 1;
+          // Find the highest existing index number suffix to avoid duplicates for auto-generated IDs
+          const existingIndexSuffixes = students
+            .map(s => {
+              const match = s.indexNumber.match(/\/(\d+)$/);
+              return match ? parseInt(match[1], 10) : 0;
+            })
+            .filter(n => !isNaN(n));
+          let nextIndexSuffix = existingIndexSuffixes.length > 0 ? Math.max(...existingIndexSuffixes) + 1 : 1;
+          for (const row of rows) {
+            const name = row.name || row.fullname || `${row.firstname || ''} ${row.lastname || ''}`.trim();
 
-        const hasHeader = headerCols.some(h =>
-          h.includes('name') || h.includes('class') || h.includes('gender') ||
-          h.includes('index') || h.includes('payment') || h.includes('paycode') ||
-          h.includes('first') || h.includes('last')
-        );
-
-        const colMap: { [key: string]: number } = {};
-        if (hasHeader) {
-          headerCols.forEach((col, idx) => {
-            const cleanCol = col.replace(/[_\-\s]/g, '').toLowerCase();
-            if (cleanCol.includes('paymentcode') || cleanCol.includes('paycode') || cleanCol === 'paycode') {
-              colMap['paycode'] = idx;
-            } else if (cleanCol.includes('indexnumber') || cleanCol === 'index') {
-              colMap['indexNumber'] = idx;
-            } else if (cleanCol === 'firstname' || cleanCol === 'first') {
-              colMap['firstName'] = idx;
-            } else if (cleanCol === 'lastname' || cleanCol === 'last') {
-              colMap['lastName'] = idx;
-            } else if (cleanCol === 'name' || cleanCol === 'fullname') {
-              colMap['name'] = idx;
-            } else if (cleanCol === 'gender' || cleanCol === 'sex') {
-              colMap['gender'] = idx;
-            } else if (cleanCol === 'class' || cleanCol === 'classlevel' || cleanCol === 'grade') {
-              colMap['class'] = idx;
-            } else if (cleanCol === 'stream' || cleanCol === 'section') {
-              colMap['stream'] = idx;
-            } else if (cleanCol.includes('parentname') || cleanCol.includes('guardianname')) {
-              colMap['parentName'] = idx;
-            } else if (cleanCol.includes('parentcontact') || cleanCol.includes('phone') || cleanCol.includes('contact')) {
-              colMap['parentContact'] = idx;
-            }
-          });
-        }
-
-        const startIndex = hasHeader ? 1 : 0;
-        const detectedStreams: { [classLevel: string]: Set<string> } = {};
-
-        for (let i = startIndex; i < lines.length; i++) {
-          const line = lines[i].trim();
-          if (!line) continue;
-
-          const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
-          if (cols.length < 2) continue;
-
-          let name = '';
-          let indexNumber = '';
-          let genderRaw = '';
-          let rawClass = 'P1';
-          let stream = '';
-          let paycode = '';
-          let parentName = '';
-          let parentContact = '';
-
-          if (hasHeader && Object.keys(colMap).length > 0) {
-            if (colMap['firstName'] !== undefined && colMap['lastName'] !== undefined) {
-              const firstName = cols[colMap['firstName']] || '';
-              const lastName = cols[colMap['lastName']] || '';
-              name = `${firstName} ${lastName}`.trim();
-            } else if (colMap['name'] !== undefined) {
-              name = cols[colMap['name']] || '';
+            if (!name) {
+              continue;
             }
 
-            indexNumber = colMap['indexNumber'] !== undefined ? cols[colMap['indexNumber']] || '' : '';
-            genderRaw = colMap['gender'] !== undefined ? (cols[colMap['gender']] || '').toUpperCase() : '';
-            rawClass = colMap['class'] !== undefined ? cols[colMap['class']] || 'P1' : 'P1';
-            stream = colMap['stream'] !== undefined ? cols[colMap['stream']] || '' : '';
-            paycode = colMap['paycode'] !== undefined ? cols[colMap['paycode']] || '' : '';
-            parentName = colMap['parentName'] !== undefined ? cols[colMap['parentName']] || '' : '';
-            parentContact = colMap['parentContact'] !== undefined ? cols[colMap['parentContact']] || '' : '';
-          } else {
-            indexNumber = cols[0] || '';
-            name = cols[1] || '';
-            genderRaw = (cols[2] || '').toUpperCase();
-            rawClass = cols[3] || 'P1';
-            stream = cols[4] || '';
-            paycode = cols[5] || '';
-            parentName = cols[6] || '';
-            parentContact = cols[7] || '';
-          }
+            let indexNumber = row.indexnumber || row.index || '';
+            if (!indexNumber) {
+              const indexSuffix = String(nextIndexSuffix).padStart(3, '0');
+              indexNumber = `${CENTRE_NUMBER}/${indexSuffix}`;
+              nextIndexSuffix++;
+            }
 
-          if (!name.trim()) continue;
+            // Check for duplicates
+            const isDuplicate = students.some(s =>
+              s.indexNumber === indexNumber ||
+              (s.name.toLowerCase() === name.toLowerCase())
+            ) || newStudents.some(s => s.indexNumber === indexNumber);
 
-          let finalIndexNumber = indexNumber.trim();
-          if (!finalIndexNumber) {
-            // Generate a unique index number that doesn't conflict with existing ones
-            const indexSuffix = String(nextIndexSuffix).padStart(3, '0');
-            finalIndexNumber = `${CENTRE_NUMBER}/${indexSuffix}`;
-            nextIndexSuffix++;
-          } else {
-            // Only check for duplicates if index number was provided in CSV
-            const existingWithIndex = [...students, ...newStudents].find(
-              s => s.indexNumber === finalIndexNumber
-            );
-            if (existingWithIndex) {
+            if (isDuplicate) {
               duplicates++;
               continue;
             }
+
+            let gender = Gender.Male;
+            const genderRaw = (row.gender || row.sex || '').toUpperCase();
+            if (genderRaw === 'F' || genderRaw === 'FEMALE') gender = Gender.Female;
+
+            const classRaw = row.class || row.classlevel || row.grade || '';
+            const classLevel = normalizeClassInput(classRaw);
+
+            const stream = (row.stream || row.section || '').toUpperCase().trim() || 'Blue';
+
+            if (classLevel && stream) {
+              if (!detectedStreams[classLevel]) detectedStreams[classLevel] = new Set();
+              detectedStreams[classLevel].add(stream);
+            }
+
+            const student: Student = {
+              indexNumber,
+              name: name.toUpperCase(),
+              gender,
+              classLevel,
+              stream,
+              paycode: row.paycode || row.paymentcode || '',
+              parentName: row.parentname || row.guardianname || '',
+              parentContact: row.parentcontact || row.phone || row.contact || '',
+              specialCases: { absenteeism: false, sickness: false, fees: false }
+            };
+
+            newStudents.push(student);
+            addedCount++;
           }
 
-          // Also check for duplicate names to avoid importing same student twice
-          const existingWithName = [...students, ...newStudents].find(
-            s => s.name.toUpperCase() === name.toUpperCase().trim()
-          );
-          if (existingWithName) {
-            duplicates++;
-            continue;
+          if (newStudents.length > 0) {
+            const currentSettings = await dbService.getSettings();
+            const updatedStreams = { ...currentSettings.streams };
+
+            for (const [classLevel, streamSet] of Object.entries(detectedStreams)) {
+              const existingStreams = updatedStreams[classLevel] || [];
+              const newStreamsArray = Array.from(streamSet);
+              const mergedStreams = [...new Set([...existingStreams, ...newStreamsArray])];
+              updatedStreams[classLevel] = mergedStreams;
+            }
+
+            await dbService.saveSettings({ ...currentSettings, streams: updatedStreams });
+            await dbService.addStudents(newStudents);
+
+            let msg = `Successfully imported ${addedCount} students.`;
+            if (duplicates > 0) msg += ` ${duplicates} duplicates skipped.`;
+            showToast(msg, 'success');
+            loadData();
+          } else {
+            let msg = "No valid new students found.";
+            if (duplicates > 0) msg += ` ${duplicates} duplicates skipped.`;
+            showToast(msg, 'warning');
           }
-
-          const classLevel = normalizeClassInput(rawClass);
-          const gender = (genderRaw === 'F' || genderRaw === 'FEMALE') ? Gender.Female : Gender.Male;
-
-          const studentStream = stream || 'Default';
-
-          if (!detectedStreams[classLevel]) {
-            detectedStreams[classLevel] = new Set();
-          }
-          detectedStreams[classLevel].add(studentStream);
-
-          const student: Student = {
-            indexNumber: finalIndexNumber,
-            name: name.toUpperCase(),
-            classLevel,
-            stream: studentStream,
-            gender,
-            paycode: paycode.trim(),
-            parentName: parentName.trim(),
-            parentContact: parentContact.trim(),
-            specialCases: { absenteeism: false, sickness: false, fees: false }
-          };
-
-          newStudents.push(student);
+        } catch (error: any) {
+          console.error("CSV Import Error:", error);
+          showToast(`Error processing CSV: ${error.message}`, 'error');
+        } finally {
+          setImporting(false);
+          if (fileInputRef.current) fileInputRef.current.value = '';
         }
-
-        if (newStudents.length > 0) {
-          const currentSettings = await dbService.getSettings();
-          const updatedStreams = { ...currentSettings.streams };
-
-          for (const [classLevel, streamSet] of Object.entries(detectedStreams)) {
-            const existingStreams = updatedStreams[classLevel] || [];
-            const newStreamsArray = Array.from(streamSet);
-            const mergedStreams = [...new Set([...existingStreams, ...newStreamsArray])];
-            updatedStreams[classLevel] = mergedStreams;
-          }
-
-          await dbService.saveSettings({ ...currentSettings, streams: updatedStreams });
-          await dbService.addStudents(newStudents);
-
-          let msg = `Successfully imported ${newStudents.length} students.`;
-          if (duplicates > 0) {
-            msg += ` ${duplicates} duplicates skipped.`;
-          }
-          showToast(msg, 'success');
-          loadData();
-        } else {
-          showToast(duplicates > 0 ? `No new students imported. ${duplicates} duplicates found.` : "No valid student records found in CSV.", 'warning');
-        }
-
-      } catch (error: any) {
-        showToast(`Error processing CSV: ${error.message}`, 'error');
-      } finally {
+      },
+      error: (error: any) => {
         setImporting(false);
+        showToast(`CSV Parsing Error: ${error.message}`, 'error');
         if (fileInputRef.current) fileInputRef.current.value = '';
       }
-    };
-    reader.readAsText(file);
+    });
   };
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   let filteredStudents = students.filter(s =>
   (s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||

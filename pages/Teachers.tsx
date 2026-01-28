@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { dbService } from '../services/api';
+import Papa from 'papaparse';
 import { Teacher, ClassLevel, Gender, ALL_SUBJECTS, SchoolSettings, Student } from '../types';
 import { Button } from '../components/Button';
 import { useTheme } from '../contexts/ThemeContext';
@@ -57,20 +58,25 @@ const Icons = {
   Award: ({ className }: { className?: string }) => (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="8" r="6" /><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11" /></svg>
   ),
+  AlertTriangle: ({ className }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+  ),
 };
 
-const Toast = ({ message, type, onClose }: { message: string; type: 'success' | 'error' | 'info'; onClose: () => void }) => {
+const Toast = ({ message, type, onClose }: { message: string; type: 'success' | 'error' | 'info' | 'warning'; onClose: () => void }) => {
   useEffect(() => {
     const timer = setTimeout(onClose, 4000);
     return () => clearTimeout(timer);
   }, [onClose]);
 
-  const bgColor = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500';
+  const bgColor = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : type === 'warning' ? 'bg-yellow-500' : 'bg-blue-500';
 
   return (
     <div className={`fixed bottom-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-3 z-50 animate-slide-up`}>
       {type === 'success' && <Icons.Check className="w-5 h-5" />}
       {type === 'error' && <Icons.X className="w-5 h-5" />}
+      {type === 'warning' && <Icons.AlertTriangle className="w-5 h-5" />}
+      {type === 'info' && <Icons.FileText className="w-5 h-5" />}
       <span className="font-medium">{message}</span>
       <button onClick={onClose} className="ml-2 hover:opacity-80">
         <Icons.X className="w-4 h-4" />
@@ -346,7 +352,7 @@ export const Teachers: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [settings, setSettings] = useState<SchoolSettings | null>(null);
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' | 'warning' } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRole, setSelectedRole] = useState<string>('');
   const [selectedGender, setSelectedGender] = useState<string>('');
@@ -388,7 +394,7 @@ export const Teachers: React.FC = () => {
     loadData();
   }, []);
 
-  const showToast = (message: string, type: 'success' | 'error' | 'info') => {
+  const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning') => {
     setToast({ message, type });
   };
 
@@ -577,85 +583,135 @@ export const Teachers: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
-  const handleImportCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const text = await file.text();
-    const lines = text.split('\n').filter(l => l.trim());
-    if (lines.length < 2) {
-      showToast('CSV file is empty or invalid', 'error');
-      return;
+    // Reset file input value to allow selecting same file again
+    if (fileInputRef.current) {
+      // Don't reset immediately, do it in finally block
     }
 
-    const headers = lines[0].split(',').map(h => h.replace(/"/g, '').trim().toLowerCase());
-    let imported = 0;
-    let skipped = 0;
-
-    for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].match(/("([^"]*)"|[^,]*)/g)?.map(v => v.replace(/^"|"$/g, '').trim()) || [];
-      if (values.length < 5) {
-        skipped++;
-        continue;
-      }
-
-      const getValue = (key: string) => values[headers.indexOf(key)] || '';
-
-      const name = getValue('name');
-      if (!name) {
-        skipped++;
-        continue;
-      }
-
-      const rolesStr = getValue('roles');
-      const roles = rolesStr ? rolesStr.split(';').map(r => r.trim()).filter(r => ROLES.includes(r)) : [];
-      if (roles.length === 0) {
-        skipped++;
-        continue;
-      }
-
-      const subjectsStr = getValue('subjects');
-      const subjects = subjectsStr ? subjectsStr.split(';').map(s => s.trim().toUpperCase()).filter(s => ALL_SUBJECTS.includes(s)) : [];
-
-      const classesStr = getValue('teaching classes');
-      // Support both old format (P3;P6) and new format (P3-DILIGENT;P6-WISDOM)
-      const teachingClasses = classesStr ? classesStr.split(';').map(c => c.trim().toUpperCase()).filter(c => {
-        // Check if it's a CLASS-STREAM combo or just a class level
-        if (c.includes('-')) {
-          const [cls] = c.split('-');
-          return Object.values(ClassLevel).includes(cls as ClassLevel);
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      transformHeader: (header) => header.trim().toLowerCase().replace(/[\s_-]/g, ''),
+      complete: async (results) => {
+        const rows = results.data as any[];
+        if (rows.length === 0) {
+          showToast('CSV file is empty or invalid', 'error');
+          if (fileInputRef.current) fileInputRef.current.value = '';
+          return;
         }
-        return Object.values(ClassLevel).includes(c as ClassLevel);
-      }) : [];
 
-      const teacher: Teacher = {
-        employeeId: getValue('employee id'),
-        name: name.toUpperCase(),
-        gender: getValue('gender').toUpperCase() === 'F' ? Gender.Female : Gender.Male,
-        phone: getValue('phone'),
-        email: getValue('email'),
-        roles,
-        assignedClass: getValue('assigned class') as ClassLevel || undefined,
-        assignedStream: getValue('assigned stream') || undefined,
-        subjects,
-        teachingClasses,
-        qualifications: getValue('qualifications'),
-        dateJoined: getValue('date joined'),
-        initials: getValue('initials'),
-        isActive: getValue('active').toLowerCase() !== 'no',
-      };
+        let imported = 0;
+        let skipped = 0;
+        let errorMsg = '';
 
-      try {
-        await dbService.addTeacher(teacher);
-        imported++;
-      } catch {
-        skipped++;
+        try {
+          for (const row of rows) {
+            // Flexible column matching
+            const name = row.name || row.fullname || `${row.firstname || ''} ${row.lastname || ''}`.trim();
+            if (!name) {
+              skipped++;
+              continue;
+            }
+
+            // Parse Roles
+            const rolesStr = row.roles || row.role || '';
+            const roles = rolesStr ? rolesStr.split(/[;,]/).map((r: string) => {
+              const trimmed = r.trim();
+              // Try to match with known roles (case insensitive)
+              const match = ROLES.find(known => known.toLowerCase() === trimmed.toLowerCase());
+              return match || trimmed;
+            }).filter((r: string) => ROLES.includes(r)) : [];
+
+            if (roles.length === 0) {
+              // Default to Subject Teacher if no role specified? Or skip? 
+              // Existing logic skips. Let's stick to that for safety.
+              skipped++;
+              continue;
+            }
+
+            // Parse Subjects
+            const subjectsStr = row.subjects || row.subject || '';
+            const subjects = subjectsStr ? subjectsStr.split(/[;,]/).map((s: string) => s.trim().toUpperCase()).filter((s: string) => ALL_SUBJECTS.includes(s)) : [];
+
+            // Parse Teaching Classes
+            const classesStr = row.teachingclasses || row.classes || '';
+            const teachingClasses = classesStr ? classesStr.split(/[;,]/).map((c: string) => c.trim().toUpperCase()).filter((c: string) => {
+              // Validate class/stream format
+              if (c.includes('-')) {
+                const [cls] = c.split('-');
+                return Object.values(ClassLevel).includes(cls as ClassLevel);
+              }
+              return Object.values(ClassLevel).includes(c as ClassLevel);
+            }) : [];
+
+            const assignedClassRaw = row.assignedclass || row.class || '';
+            const assignedClass = Object.values(ClassLevel).includes(assignedClassRaw as ClassLevel) ? assignedClassRaw as ClassLevel : undefined;
+
+            const assignedStream = row.assignedstream || row.stream || undefined;
+
+            const teacher: Teacher = {
+              employeeId: row.employeeid || row.id || row.empid || '',
+              name: name.toUpperCase(),
+              gender: ((row.gender || row.sex || '').toUpperCase().startsWith('F')) ? Gender.Female : Gender.Male,
+              phone: row.phone || row.contact || '',
+              email: row.email || '',
+              roles,
+              assignedClass,
+              assignedStream,
+              subjects,
+              teachingClasses,
+              qualifications: row.qualifications || '',
+              dateJoined: row.datejoined || row.joined || '',
+              initials: row.initials || '',
+              isActive: (row.active || 'yes').toLowerCase() !== 'no',
+            };
+
+            // Check for duplicates (by email or phone if provided)?
+            // Existing logic didn't check duplicates client-side, just dbService.addTeacher.
+            // We'll rely on dbService.addTeacher to handle or throw errors if unique constraints exist.
+            // But we should try catch individually.
+
+            try {
+              // Check if teacher exists in current list by Name or ID?
+              // Ideally we should check against 'teachers' state.
+              const exists = teachers.some(t =>
+                (t.employeeId && teacher.employeeId && t.employeeId === teacher.employeeId) ||
+                (t.name.toLowerCase() === teacher.name.toLowerCase())
+              );
+
+              if (exists) {
+                skipped++;
+                continue;
+              }
+
+              await dbService.addTeacher(teacher);
+              imported++;
+            } catch (err) {
+              skipped++;
+            }
+          }
+
+          let msg = `Imported ${imported} teachers.`;
+          if (skipped > 0) msg += ` ${skipped} skipped (duplicates or invalid data).`;
+          showToast(msg, imported > 0 ? 'success' : (skipped > 0 ? 'warning' : 'error'));
+          loadData();
+
+        } catch (error: any) {
+          console.error("CSV Import Error:", error);
+          showToast(`Error processing CSV: ${error.message}`, 'error');
+        } finally {
+          if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+      },
+      error: (error: any) => {
+        showToast(`CSV Parsing Error: ${error.message}`, 'error');
+        if (fileInputRef.current) fileInputRef.current.value = '';
       }
-    }
-
-    showToast(`Imported ${imported} teachers, ${skipped} skipped`, imported > 0 ? 'success' : 'error');
-    loadData();
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    });
   };
 
   const inputClasses = `mt-1 block w-full rounded-lg border ${isDark ? 'border-gray-600 bg-gray-700 text-white placeholder-gray-400' : 'border-gray-300 bg-white text-gray-900 placeholder-gray-400'} px-3 py-2 shadow-sm focus:border-[#7B1113] focus:ring-2 focus:ring-[#7B1113]/30 focus:outline-none sm:text-sm transition-all duration-200`;
