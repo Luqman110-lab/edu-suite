@@ -36,15 +36,15 @@ const calculatePositionFromMarks = (studentId: number, marks: ApiMarkRecord[], c
   if (!studentRecord || !studentRecord.marks) {
     return '-';
   }
-  
+
   // Determine subjects based on class level
-  const subjects = ['P1','P2','P3'].includes(classLevel) 
-    ? SUBJECTS_LOWER 
+  const subjects = ['P1', 'P2', 'P3'].includes(classLevel)
+    ? SUBJECTS_LOWER
     : SUBJECTS_UPPER;
-  
+
   const studentTotal = calculateTotalMarks(studentRecord, subjects);
   if (studentTotal === 0) return '-';
-  
+
   // Calculate totals for all students and sort by total marks (highest first)
   const studentsWithTotals = marks
     .filter(m => m.marks && Object.keys(m.marks).length > 0)
@@ -54,7 +54,7 @@ const calculatePositionFromMarks = (studentId: number, marks: ApiMarkRecord[], c
     }))
     .filter(s => s.totalMarks > 0)
     .sort((a, b) => b.totalMarks - a.totalMarks); // Descending order (highest first)
-  
+
   // Find position - students with same total share the same position
   let position = 1;
   let prevTotal = -1;
@@ -63,14 +63,14 @@ const calculatePositionFromMarks = (studentId: number, marks: ApiMarkRecord[], c
       position = i + 1;
     }
     prevTotal = studentsWithTotals[i].totalMarks;
-    
+
     if (studentsWithTotals[i].studentId === studentId) {
       break;
     }
   }
-  
+
   if (position <= 0) return '-';
-  
+
   const lastDigit = position % 10;
   const lastTwoDigits = position % 100;
   let suffix: string;
@@ -85,7 +85,7 @@ const calculatePositionFromMarks = (studentId: number, marks: ApiMarkRecord[], c
   } else {
     suffix = 'th';
   }
-  
+
   return `${position}${suffix}`;
 };
 
@@ -103,77 +103,77 @@ export const Reports: React.FC = () => {
   const [dataLoading, setDataLoading] = useState(false);
   const [allMarks, setAllMarks] = useState<ApiMarkRecord[]>([]);
   const [allTeachers, setAllTeachers] = useState<ApiTeacher[]>([]);
-  
+
   const availableStreams = settings?.streams[selectedClass] || [];
 
   useEffect(() => {
-      const loadConfig = async () => {
-          const s = await dbService.getSettings();
-          setSettings(s);
-          if (s) {
-              setSelectedTerm(s.currentTerm);
-          }
-      };
-      loadConfig();
+    const loadConfig = async () => {
+      const s = await dbService.getSettings();
+      setSettings(s);
+      if (s) {
+        setSelectedTerm(s.currentTerm);
+      }
+    };
+    loadConfig();
   }, []);
 
   useEffect(() => {
     if (settings && selectedStream !== 'All') {
-        const streams = settings.streams[selectedClass] || [];
-        if (!streams.includes(selectedStream)) {
-            setSelectedStream('All');
-        }
+      const streams = settings.streams[selectedClass] || [];
+      if (!streams.includes(selectedStream)) {
+        setSelectedStream('All');
+      }
     }
   }, [selectedClass, settings]);
 
   useEffect(() => {
     const loadPreviewData = async () => {
       if (!settings) return;
-      
+
       setDataLoading(true);
       try {
         const allStudents = await dbService.getStudents();
         const marks = await dbService.getMarks();
         const teachers = await dbService.getTeachers();
-        
+
         setAllMarks(marks);
         setAllTeachers(teachers);
-        
+
         let classStudents = allStudents.filter(s => s.classLevel === selectedClass);
         if (selectedStream !== 'All') {
           classStudents = classStudents.filter(s => s.stream === selectedStream);
         }
-        
+
         const year = settings.currentYear || new Date().getFullYear();
-        const subjects = ['P1','P2','P3'].includes(selectedClass) ? SUBJECTS_LOWER : SUBJECTS_UPPER;
-        
+        const subjects = ['P1', 'P2', 'P3'].includes(selectedClass) ? SUBJECTS_LOWER : SUBJECTS_UPPER;
+
         const wholeClassStudents = allStudents.filter(s => s.classLevel === selectedClass);
-        
-        const classBotMarks = marks.filter(m => 
-          m.term === selectedTerm && 
-          m.year === year && 
+
+        const classBotMarks = marks.filter(m =>
+          m.term === selectedTerm &&
+          m.year === year &&
           m.type === AssessmentType.BOT &&
           wholeClassStudents.some(s => s.id === m.studentId)
         );
-        
-        const classEotMarks = marks.filter(m => 
-          m.term === selectedTerm && 
-          m.year === year && 
+
+        const classEotMarks = marks.filter(m =>
+          m.term === selectedTerm &&
+          m.year === year &&
           m.type === AssessmentType.EOT &&
           wholeClassStudents.some(s => s.id === m.studentId)
         );
-        
+
         const previews: StudentPreview[] = classStudents.map(student => {
           const botRecord = classBotMarks.find(m => m.studentId === student.id) || null;
           const eotRecord = classEotMarks.find(m => m.studentId === student.id) || null;
-          
+
           const currentRecord = reportType === AssessmentType.BOT ? botRecord : eotRecord;
-          const hasMissingMarks = !currentRecord || !currentRecord.marks || 
+          const hasMissingMarks = !currentRecord || !currentRecord.marks ||
             subjects.some(subj => {
               const key = subj.toLowerCase().replace(' ', '') as keyof typeof currentRecord.marks;
               return currentRecord.marks[key] === undefined || currentRecord.marks[key] === null;
             });
-          
+
           return {
             student,
             botMarks: botRecord,
@@ -183,7 +183,7 @@ export const Reports: React.FC = () => {
             hasMissingMarks
           };
         });
-        
+
         setStudentPreviews(previews);
         setSelectedStudentIds(new Set(classStudents.map(s => s.id!)));
       } catch (error) {
@@ -194,14 +194,14 @@ export const Reports: React.FC = () => {
         setDataLoading(false);
       }
     };
-    
+
     loadPreviewData();
   }, [selectedClass, selectedStream, selectedTerm, reportType, settings]);
 
   const filteredPreviews = useMemo(() => {
     if (!searchQuery.trim()) return studentPreviews;
     const query = searchQuery.toLowerCase();
-    return studentPreviews.filter(p => 
+    return studentPreviews.filter(p =>
       p.student.name.toLowerCase().includes(query) ||
       p.student.indexNumber.toLowerCase().includes(query)
     );
@@ -209,22 +209,22 @@ export const Reports: React.FC = () => {
 
   const stats = useMemo(() => {
     const withMarks = studentPreviews.filter(p => !p.hasMissingMarks);
-    const currentMarks = reportType === AssessmentType.BOT 
+    const currentMarks = reportType === AssessmentType.BOT
       ? studentPreviews.map(p => p.botMarks).filter(Boolean) as ApiMarkRecord[]
       : studentPreviews.map(p => p.eotMarks).filter(Boolean) as ApiMarkRecord[];
-    
+
     const aggregates = currentMarks.filter(m => m.aggregate).map(m => m.aggregate!);
-    const avgAggregate = aggregates.length > 0 
-      ? (aggregates.reduce((a, b) => a + b, 0) / aggregates.length).toFixed(1) 
+    const avgAggregate = aggregates.length > 0
+      ? (aggregates.reduce((a, b) => a + b, 0) / aggregates.length).toFixed(1)
       : '-';
-    
+
     const divisions = { I: 0, II: 0, III: 0, IV: 0, U: 0 };
     currentMarks.forEach(m => {
       if (m.division && divisions.hasOwnProperty(m.division)) {
         divisions[m.division as keyof typeof divisions]++;
       }
     });
-    
+
     return {
       total: studentPreviews.length,
       withMarks: withMarks.length,
@@ -276,44 +276,44 @@ export const Reports: React.FC = () => {
     // Normalize subject for comparison
     const subjectLower = subject.toLowerCase().trim();
     const possibleNames = subjectAliases[subjectLower] || [subjectLower];
-    
+
     // Build the class-stream combination to match against
     const classStreamCombo = studentStream ? `${classLevel}-${studentStream}`.toUpperCase() : classLevel.toUpperCase();
     const classLevelUpper = classLevel.toUpperCase();
     const studentStreamUpper = studentStream?.toUpperCase();
-    
+
     const teacher = teachers.find(t => {
       // Must be a Subject Teacher (case-insensitive check)
-      const isSubjectTeacher = t.roles && t.roles.some(role => 
-        role.toLowerCase().includes('subject') || 
+      const isSubjectTeacher = t.roles && t.roles.some(role =>
+        role.toLowerCase().includes('subject') ||
         role.toLowerCase() === 'subject teacher'
       );
       if (!isSubjectTeacher) return false;
-      
+
       // Check if teacher teaches this subject (case-insensitive with aliases)
       const teacherSubjects = t.subjects || [];
       const teachesSubject = teacherSubjects.some(teacherSubject => {
         const teacherSubjectLower = (teacherSubject || '').toLowerCase().trim();
-        return possibleNames.some(alias => 
-          teacherSubjectLower === alias || 
+        return possibleNames.some(alias =>
+          teacherSubjectLower === alias ||
           teacherSubjectLower.includes(alias) ||
           alias.includes(teacherSubjectLower)
         );
       });
       if (!teachesSubject) return false;
-      
+
       // Check teachingClasses for match first
       const teachingClasses = t.teachingClasses || [];
       if (teachingClasses.length > 0) {
         const matchesTeachingClass = teachingClasses.some(tc => {
           const tcUpper = (tc || '').toUpperCase().trim();
-          
+
           // Exact match with class-stream combo (e.g., "P4-WISDOM")
           if (tcUpper === classStreamCombo) return true;
-          
+
           // Match just the class level (legacy format, e.g., "P4")
           if (tcUpper === classLevelUpper) return true;
-          
+
           // If teacher has class-stream format, check if it matches
           if (tcUpper.includes('-')) {
             const [cls, stream] = tcUpper.split('-');
@@ -326,12 +326,12 @@ export const Reports: React.FC = () => {
         });
         if (matchesTeachingClass) return true;
       }
-      
+
       // Fallback: check assignedClass and assignedStream fields
       if (t.assignedClass) {
         const assignedClassUpper = t.assignedClass.toUpperCase();
         const assignedStreamUpper = (t.assignedStream || '').toUpperCase();
-        
+
         // Match if class matches
         if (assignedClassUpper === classLevelUpper) {
           // If no student stream or streams match
@@ -340,31 +340,31 @@ export const Reports: React.FC = () => {
           }
         }
       }
-      
+
       return false;
     });
-    
+
     return teacher ? teacher.name : "";
   };
 
   const generatePDF = async (singleStudentId?: number) => {
     if (!settings) {
-        alert("Settings not loaded. Please refresh.");
-        return;
+      alert("Settings not loaded. Please refresh.");
+      return;
     }
     setLoading(true);
-    
+
     const allStudents = await dbService.getStudents();
     let classStudents = allStudents.filter(s => s.classLevel === selectedClass);
-    
+
     if (selectedStream !== 'All') {
-        classStudents = classStudents.filter(s => s.stream === selectedStream);
+      classStudents = classStudents.filter(s => s.stream === selectedStream);
     }
-    
+
     if (singleStudentId) {
-        classStudents = classStudents.filter(s => s.id === singleStudentId);
+      classStudents = classStudents.filter(s => s.id === singleStudentId);
     } else {
-        classStudents = classStudents.filter(s => selectedStudentIds.has(s.id!));
+      classStudents = classStudents.filter(s => selectedStudentIds.has(s.id!));
     }
 
     const allMarks = await dbService.getMarks();
@@ -372,25 +372,25 @@ export const Reports: React.FC = () => {
     const year = settings.currentYear || new Date().getFullYear();
 
     if (classStudents.length === 0) {
-        alert("No students selected for report generation.");
-        setLoading(false);
-        return;
+      alert("No students selected for report generation.");
+      setLoading(false);
+      return;
     }
 
     const wholeClassStudents = allStudents.filter(s => s.classLevel === selectedClass);
 
-    const classBotMarks = allMarks.filter(m => 
-        m.term === selectedTerm && 
-        m.year === year && 
-        m.type === AssessmentType.BOT &&
-        wholeClassStudents.some(s => s.id === m.studentId)
+    const classBotMarks = allMarks.filter(m =>
+      m.term === selectedTerm &&
+      m.year === year &&
+      m.type === AssessmentType.BOT &&
+      wholeClassStudents.some(s => s.id === m.studentId)
     );
 
-    const classEotMarks = allMarks.filter(m => 
-        m.term === selectedTerm && 
-        m.year === year && 
-        m.type === AssessmentType.EOT &&
-        wholeClassStudents.some(s => s.id === m.studentId)
+    const classEotMarks = allMarks.filter(m =>
+      m.term === selectedTerm &&
+      m.year === year &&
+      m.type === AssessmentType.EOT &&
+      wholeClassStudents.some(s => s.id === m.studentId)
     );
 
     const doc = new jspdf.jsPDF();
@@ -408,447 +408,453 @@ export const Reports: React.FC = () => {
     const redColor = [185, 28, 28]; // Red for poor grades
 
     for (let i = 0; i < classStudents.length; i++) {
-        const student = classStudents[i];
-        if (i > 0) doc.addPage();
+      const student = classStudents[i];
+      if (i > 0) doc.addPage();
 
-        const botRecord = classBotMarks.find(m => m.studentId === student.id);
-        const eotRecord = classEotMarks.find(m => m.studentId === student.id);
+      const botRecord = classBotMarks.find(m => m.studentId === student.id);
+      const eotRecord = classEotMarks.find(m => m.studentId === student.id);
 
-        const botPos = calculatePositionFromMarks(student.id!, classBotMarks, selectedClass);
-        const eotPos = calculatePositionFromMarks(student.id!, classEotMarks, selectedClass);
-        
-        const isBotReport = reportType === AssessmentType.BOT;
-        const mainRecord = isBotReport ? botRecord : eotRecord;
-        const mainAgg = mainRecord ? mainRecord.aggregate : 0;
-        
-        const studentForComment = {
-          ...student,
-          classLevel: student.classLevel as any,
-          gender: student.gender as any,
-          specialCases: student.specialCases || { absenteeism: false, sickness: false, fees: false }
-        };
-        const ctComment = getClassTeacherComment(mainAgg, studentForComment);
-        const htComment = getHeadTeacherComment(mainAgg, studentForComment);
-        
-        const classTeacher = allTeachers.find(t => t.roles.includes('Class Teacher') && t.assignedClass === selectedClass && t.assignedStream === student.stream);
-        const headTeacher = allTeachers.find(t => t.roles.includes('Headteacher'));
-        const headTeacherName = headTeacher ? headTeacher.name : "Head Teacher";
-        const classTeacherName = classTeacher ? classTeacher.name : "Class Teacher";
+      const botPos = calculatePositionFromMarks(student.id!, classBotMarks, selectedClass);
+      const eotPos = calculatePositionFromMarks(student.id!, classEotMarks, selectedClass);
 
-        const textCenterX = pageWidth / 2;
-        let cursorY = 15;
+      const isBotReport = reportType === AssessmentType.BOT;
+      const mainRecord = isBotReport ? botRecord : eotRecord;
+      const mainAgg = mainRecord ? mainRecord.aggregate : 0;
 
-        // ================= DECORATIVE BORDER =================
-        doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-        doc.setLineWidth(1.5);
-        doc.rect(5, 5, pageWidth - 10, pageHeight - 10);
-        doc.setDrawColor(darkBlue[0], darkBlue[1], darkBlue[2]);
-        doc.setLineWidth(0.5);
-        doc.rect(8, 8, pageWidth - 16, pageHeight - 16);
+      const studentForComment = {
+        ...student,
+        classLevel: student.classLevel as any,
+        gender: student.gender as any,
+        specialCases: student.specialCases || { absenteeism: false, sickness: false, fees: false }
+      };
+      const ctComment = getClassTeacherComment(mainRecord?.division || 'U', studentForComment);
+      const htComment = getHeadTeacherComment(mainRecord?.division || 'U', studentForComment);
 
-        // ================= HEADER =================
-        const logoSize = 20;
-        
-        if (settings.logoBase64) {
-            try {
-                const logoData = settings.logoBase64;
-                let format = 'PNG';
-                if (logoData.startsWith('data:image/jpeg') || logoData.startsWith('data:image/jpg')) format = 'JPEG';
-                doc.addImage(logoData, format, margin, cursorY - 5, logoSize, logoSize);
-            } catch (e) {}
-        }
+      const classTeacher = allTeachers.find(t => t.roles.includes('Class Teacher') && t.assignedClass === selectedClass && t.assignedStream === student.stream);
+      const headTeacher = allTeachers.find(t => t.roles.includes('Headteacher'));
+      const headTeacherName = headTeacher ? headTeacher.name : "Head Teacher";
+      const classTeacherName = classTeacher ? classTeacher.name : "Class Teacher";
 
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(14);
-        doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
-        doc.text(settings.schoolName, textCenterX, cursorY, { align: "center" });
-        
-        cursorY += 5;
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(9);
-        doc.setTextColor(0, 0, 0);
-        doc.text(settings.addressBox, textCenterX, cursorY, { align: "center" });
-        
-        cursorY += 4;
-        doc.text(settings.contactPhones, textCenterX, cursorY, { align: "center" });
+      const textCenterX = pageWidth / 2;
+      let cursorY = 15;
 
-        cursorY += 8;
-        const termText = selectedTerm === 1 ? "ONE" : selectedTerm === 2 ? "TWO" : "THREE";
-        const reportTitle = isBotReport 
-            ? `BEGINNING OF TERM ${termText} REPORT ${year}`
-            : `END OF TERM ${termText} REPORT ${year}`;
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(11);
-        doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-        doc.text(reportTitle, textCenterX, cursorY, { align: "center" });
+      // ================= DECORATIVE BORDER =================
+      doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.setLineWidth(1.5);
+      doc.rect(5, 5, pageWidth - 10, pageHeight - 10);
+      doc.setDrawColor(darkBlue[0], darkBlue[1], darkBlue[2]);
+      doc.setLineWidth(0.5);
+      doc.rect(8, 8, pageWidth - 16, pageHeight - 16);
 
-        // ================= STUDENT INFO BOX =================
-        cursorY += 8;
-        
-        // Draw student info box with light background
-        doc.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
-        doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-        doc.setLineWidth(0.3);
-        doc.roundedRect(margin, cursorY - 4, pageWidth - margin * 2, 28, 2, 2, 'FD');
-        
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(9);
-        doc.setTextColor(0, 0, 0);
-        
-        const col1X = margin + 3;
-        const col2X = 70;
-        const col3X = 130;
+      // ================= HEADER =================
+      const logoSize = 20;
 
-        // Row 1
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
-        doc.text("NAME:", col1X, cursorY);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(0, 0, 0);
-        doc.text(student.name.toUpperCase(), col1X + 14, cursorY);
-        
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
-        doc.text("INDEX NO:", col2X, cursorY);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(0, 0, 0);
-        doc.text(student.indexNumber || '-', col2X + 20, cursorY);
-        
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
-        doc.text("GENDER:", col3X, cursorY);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(0, 0, 0);
-        doc.text(student.gender === 'M' ? 'Male' : 'Female', col3X + 18, cursorY);
-        
-        // Row 2
-        cursorY += 6;
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
-        doc.text("CLASS:", col1X, cursorY);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(0, 0, 0);
-        doc.text(student.classLevel, col1X + 14, cursorY);
-        
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
-        doc.text("STREAM:", col2X, cursorY);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(0, 0, 0);
-        doc.text(student.stream || '-', col2X + 18, cursorY);
-        
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
-        doc.text("PAYCODE:", col3X, cursorY);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(0, 0, 0);
-        doc.text(student.paycode || 'N/A', col3X + 20, cursorY);
-        
-        // Row 3
-        cursorY += 6;
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
-        doc.text("TERM:", col1X, cursorY);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(0, 0, 0);
-        doc.text(termText, col1X + 12, cursorY);
-        
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
-        doc.text("YEAR:", col2X, cursorY);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(0, 0, 0);
-        doc.text(String(year), col2X + 12, cursorY);
-        
-        // Parent info
-        const parentName = student.parentName || '-';
-        const parentContact = student.parentContact || '-';
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
-        doc.text("PARENT:", col3X, cursorY);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(0, 0, 0);
-        doc.text(parentName.substring(0, 20), col3X + 16, cursorY);
-        
-        // Row 4 - Parent contact
-        cursorY += 6;
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
-        doc.text("PARENT CONTACT:", col1X, cursorY);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(0, 0, 0);
-        doc.text(parentContact, col1X + 35, cursorY);
+      if (settings.logoBase64) {
+        try {
+          const logoData = settings.logoBase64;
+          let format = 'PNG';
+          if (logoData.startsWith('data:image/jpeg') || logoData.startsWith('data:image/jpg')) format = 'JPEG';
+          doc.addImage(logoData, format, margin, cursorY - 5, logoSize, logoSize);
+        } catch (e) { }
+      }
 
-        cursorY += 10;
-        const subjects = ['P1','P2','P3'].includes(selectedClass) ? SUBJECTS_LOWER : SUBJECTS_UPPER;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
+      doc.text(settings.schoolName, textCenterX, cursorY, { align: "center" });
 
-        const drawAssessmentTable = (startY: number, title: string, record: any, position: string) => {
-            // Section title with colored background
-            doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-            doc.rect(margin, startY - 4, pageWidth - margin * 2, 7, 'F');
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(10);
-            doc.setTextColor(255, 255, 255);
-            doc.text(title, textCenterX, startY, { align: "center" });
+      cursorY += 5;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(0, 0, 0);
+      doc.text(settings.addressBox, textCenterX, cursorY, { align: "center" });
 
-            const tableWidth = pageWidth - margin * 2;
-            const colWidths = { subject: 30, marks: 16, grade: 16, comment: 55, teacher: 25 };
-            const tableStartX = margin;
-            // Calculate teacher column X to fit within table bounds
-            const teacherColX = pageWidth - margin - colWidths.teacher;
-            let tableY = startY + 7;
-            
-            // Table header with light background
-            doc.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
-            doc.rect(margin, tableY - 3, pageWidth - margin * 2, 6, 'F');
-            
-            doc.setFontSize(9);
-            doc.setFont("helvetica", "bold");
-            doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
-            doc.text("SUBJECT", tableStartX, tableY);
-            doc.text("MARKS", tableStartX + colWidths.subject + 5, tableY);
-            doc.text("GRADE", tableStartX + colWidths.subject + colWidths.marks + 10, tableY);
-            doc.text("COMMENT", tableStartX + colWidths.subject + colWidths.marks + colWidths.grade + 15, tableY);
-            doc.text("TEACHER", teacherColX, tableY);
-            
-            doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-            doc.setLineWidth(0.5);
-            tableY += 2;
-            doc.line(tableStartX, tableY, pageWidth - margin, tableY);
-            
-            tableY += 5;
-            doc.setFont("helvetica", "normal");
-            doc.setTextColor(0, 0, 0);
+      cursorY += 4;
+      doc.text(settings.contactPhones, textCenterX, cursorY, { align: "center" });
 
-            subjects.forEach((sub, idx) => {
-                const mark = record?.marks ? (record.marks as any)[sub] : undefined;
-                const { grade } = calculateGrade(mark);
-                const teacherName = findSubjectTeacher(allTeachers, sub, selectedClass, student.stream);
-                // Get last name, handling trailing spaces
-                const nameParts = teacherName.trim().split(/\s+/).filter(p => p.length > 0);
-                const displayTeacher = nameParts.length > 0 ? nameParts[nameParts.length - 1] : '';
-                
-                let displaySubject = sub.toUpperCase();
-                if (sub === 'english') displaySubject = 'ENGLISH';
-                if (sub === 'maths') displaySubject = 'MATHS';
-                if (sub === 'science') displaySubject = 'SCIENCE';
-                if (sub === 'sst') displaySubject = 'SST';
-                if (sub === 'literacy1') displaySubject = 'LITERACY 1';
-                if (sub === 'literacy2') displaySubject = 'LITERACY 2';
-                
-                // Alternate row background
-                if (idx % 2 === 1) {
-                    doc.setFillColor(252, 252, 253);
-                    doc.rect(margin, tableY - 4, pageWidth - margin * 2, 7, 'F');
-                }
-                
-                doc.setTextColor(0, 0, 0);
-                doc.text(displaySubject, tableStartX, tableY);
-                
-                // Color code marks
-                if (mark !== undefined) {
-                    if (mark >= 80) {
-                        doc.setTextColor(greenColor[0], greenColor[1], greenColor[2]);
-                    } else if (mark < 40) {
-                        doc.setTextColor(redColor[0], redColor[1], redColor[2]);
-                    } else {
-                        doc.setTextColor(0, 0, 0);
-                    }
-                    doc.text(String(mark), tableStartX + colWidths.subject + 10, tableY, { align: 'center' });
-                }
-                
-                // Color code grades
-                if (grade !== '-') {
-                    if (grade === 'D1' || grade === 'D2') {
-                        doc.setTextColor(greenColor[0], greenColor[1], greenColor[2]);
-                    } else if (['C3', 'C4', 'C5', 'C6'].includes(grade)) {
-                        doc.setTextColor(amberColor[0], amberColor[1], amberColor[2]);
-                    } else if (['P7', 'P8', 'F9'].includes(grade)) {
-                        doc.setTextColor(redColor[0], redColor[1], redColor[2]);
-                    }
-                    doc.text(grade, tableStartX + colWidths.subject + colWidths.marks + 15, tableY, { align: 'center' });
-                }
-                
-                doc.setTextColor(0, 0, 0);
-                doc.text(mark !== undefined ? getComment(sub, mark) : '', tableStartX + colWidths.subject + colWidths.marks + colWidths.grade + 15, tableY);
-                // Width-aware truncation for teacher name to fit column
-                let truncatedTeacher = displayTeacher;
-                const maxWidth = colWidths.teacher - 2; // Leave small padding
-                while (truncatedTeacher.length > 0 && doc.getTextWidth(truncatedTeacher) > maxWidth) {
-                    truncatedTeacher = truncatedTeacher.substring(0, truncatedTeacher.length - 1);
-                }
-                if (truncatedTeacher.length < displayTeacher.length && truncatedTeacher.length > 1) {
-                    truncatedTeacher = truncatedTeacher.substring(0, truncatedTeacher.length - 1) + '.';
-                }
-                doc.text(truncatedTeacher || '', teacherColX, tableY);
-                
-                tableY += 7;
-            });
+      cursorY += 8;
+      const termText = selectedTerm === 1 ? "ONE" : selectedTerm === 2 ? "TWO" : "THREE";
+      const reportTitle = isBotReport
+        ? `BEGINNING OF TERM ${termText} REPORT ${year}`
+        : `END OF TERM ${termText} REPORT ${year}`;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.text(reportTitle, textCenterX, cursorY, { align: "center" });
 
-            doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-            doc.setLineWidth(0.5);
-            doc.line(tableStartX, tableY - 3, pageWidth - margin, tableY - 3);
+      // ================= STUDENT INFO BOX =================
+      cursorY += 8;
 
-            const agg = record ? record.aggregate : '';
-            const div = record ? record.division : '';
-            
-            // Summary row with colored background
-            doc.setFillColor(darkBlue[0], darkBlue[1], darkBlue[2]);
-            doc.rect(margin, tableY - 1, pageWidth - margin * 2, 7, 'F');
-            
-            tableY += 3;
-            doc.setFont("helvetica", "bold");
-            doc.setTextColor(255, 255, 255);
-            doc.text(`TOTAL AGGREGATE: ${agg}`, tableStartX + 5, tableY);
-            doc.text(`DIVISION: ${div}`, textCenterX, tableY, { align: 'center' });
-            doc.text(`CLASS POSN: ${position}`, pageWidth - margin - 35, tableY);
+      // Draw student info box with light background
+      doc.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
+      doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(margin, cursorY - 4, pageWidth - margin * 2, 28, 2, 2, 'FD');
 
-            return tableY + 10;
-        };
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(0, 0, 0);
 
-        if (isBotReport || (!isBotReport && botRecord)) {
-            cursorY = drawAssessmentTable(cursorY, "BEGINNING OF TERM", botRecord, botPos);
-        }
+      const col1X = margin + 3;
+      const col2X = 70;
+      const col3X = 130;
 
-        if (!isBotReport) {
-            cursorY = drawAssessmentTable(cursorY, "END OF TERM", eotRecord, eotPos);
-        }
+      // Row 1
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
+      doc.text("NAME:", col1X, cursorY);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 0);
+      doc.text(student.name.toUpperCase(), col1X + 14, cursorY);
 
-        // ================= COMMENTS SECTION =================
-        cursorY += 3;
-        
-        // Comments header
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
+      doc.text("INDEX NO:", col2X, cursorY);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 0);
+      doc.text(student.indexNumber || '-', col2X + 20, cursorY);
+
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
+      doc.text("GENDER:", col3X, cursorY);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 0);
+      doc.text(student.gender === 'M' ? 'Male' : 'Female', col3X + 18, cursorY);
+
+      // Row 2
+      cursorY += 6;
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
+      doc.text("CLASS:", col1X, cursorY);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 0);
+      doc.text(student.classLevel, col1X + 14, cursorY);
+
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
+      doc.text("STREAM:", col2X, cursorY);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 0);
+      doc.text(student.stream || '-', col2X + 18, cursorY);
+
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
+      doc.text("PAYCODE:", col3X, cursorY);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 0);
+      doc.text(student.paycode || 'N/A', col3X + 20, cursorY);
+
+      // Row 3
+      cursorY += 6;
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
+      doc.text("TERM:", col1X, cursorY);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 0);
+      doc.text(termText, col1X + 12, cursorY);
+
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
+      doc.text("YEAR:", col2X, cursorY);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 0);
+      doc.text(String(year), col2X + 12, cursorY);
+
+      // Parent info
+      const parentName = student.parentName || '-';
+      const parentContact = student.parentContact || '-';
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
+      doc.text("PARENT:", col3X, cursorY);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 0);
+      doc.text(parentName.substring(0, 20), col3X + 16, cursorY);
+
+      // Row 4 - Parent contact
+      cursorY += 6;
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
+      doc.text("PARENT CONTACT:", col1X, cursorY);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 0);
+      doc.text(parentContact, col1X + 35, cursorY);
+
+      cursorY += 10;
+      const subjects = ['P1', 'P2', 'P3'].includes(selectedClass) ? SUBJECTS_LOWER : SUBJECTS_UPPER;
+
+      const drawAssessmentTable = (startY: number, title: string, record: any, position: string) => {
+        // Section title with colored background
         doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-        doc.rect(margin, cursorY - 4, pageWidth - margin * 2, 7, 'F');
+        doc.rect(margin, startY - 4, pageWidth - margin * 2, 7, 'F');
         doc.setFont("helvetica", "bold");
         doc.setFontSize(10);
         doc.setTextColor(255, 255, 255);
-        doc.text("COMMENTS", textCenterX, cursorY, { align: "center" });
-        
-        cursorY += 10;
-        
-        // Class Teacher Comment Box
-        doc.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
-        doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-        doc.setLineWidth(0.2);
-        doc.roundedRect(margin, cursorY - 4, pageWidth - margin * 2, 18, 1, 1, 'FD');
-        
-        // Class Teacher label and name on same line
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(8);
-        doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-        doc.text("CLASS TEACHER:", margin + 2, cursorY);
-        
-        doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
-        doc.text(classTeacherName ? classTeacherName.toUpperCase() : '', margin + 32, cursorY);
-        
-        // Signature line
-        doc.setDrawColor(100, 100, 100);
-        doc.setLineWidth(0.1);
-        doc.line(pageWidth - margin - 45, cursorY, pageWidth - margin - 5, cursorY);
-        doc.setFontSize(6);
-        doc.setTextColor(100, 100, 100);
-        doc.text("Signature", pageWidth - margin - 30, cursorY + 3, { align: "center" });
-        
-        // Comment text
-        cursorY += 6;
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(8);
-        doc.setTextColor(0, 0, 0);
-        const ctLines = doc.splitTextToSize(ctComment, pageWidth - margin * 2 - 10);
-        doc.text(ctLines, margin + 2, cursorY);
-        
-        cursorY += 16;
-        
-        // Head Teacher Comment Box
-        doc.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
-        doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-        doc.setLineWidth(0.2);
-        doc.roundedRect(margin, cursorY - 4, pageWidth - margin * 2, 18, 1, 1, 'FD');
-        
-        // Head Teacher label and name on same line
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(8);
-        doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-        doc.text("HEAD TEACHER:", margin + 2, cursorY);
-        
-        doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
-        doc.text(headTeacherName.toUpperCase(), margin + 30, cursorY);
-        
-        // Signature line
-        doc.setDrawColor(100, 100, 100);
-        doc.setLineWidth(0.1);
-        doc.line(pageWidth - margin - 45, cursorY, pageWidth - margin - 5, cursorY);
-        doc.setFontSize(6);
-        doc.setTextColor(100, 100, 100);
-        doc.text("Signature", pageWidth - margin - 30, cursorY + 3, { align: "center" });
-        
-        // Comment text
-        cursorY += 6;
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(8);
-        doc.setTextColor(0, 0, 0);
-        const htLines = doc.splitTextToSize(htComment, pageWidth - margin * 2 - 10);
-        doc.text(htLines, margin + 2, cursorY);
+        doc.text(title, textCenterX, startY, { align: "center" });
 
-        // ================= GRADING KEY =================
-        const keyY = pageHeight - 58;
-        doc.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
-        doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-        doc.setLineWidth(0.2);
-        doc.roundedRect(margin, keyY - 3, pageWidth - margin * 2, 12, 1, 1, 'FD');
-        
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(7);
-        doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
-        doc.text("GRADING KEY:", margin + 2, keyY + 2);
-        
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(0, 0, 0);
-        const gradingKey = "D1 (90-100) | D2 (80-89) | C3 (70-79) | C4 (60-69) | C5 (55-59) | C6 (50-54) | P7 (45-49) | P8 (40-44) | F9 (0-39)";
-        doc.text(gradingKey, margin + 28, keyY + 2);
-        
-        doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
-        doc.text("DIVISIONS:", margin + 2, keyY + 7);
-        doc.setTextColor(0, 0, 0);
-        doc.text("I (4-12) | II (13-24) | III (25-28) | IV (29-32) | U (33-36)", margin + 22, keyY + 7);
+        const tableWidth = pageWidth - margin * 2;
+        const colWidths = { subject: 30, marks: 16, grade: 16, comment: 55, teacher: 25 };
+        const tableStartX = margin;
+        // Calculate teacher column X to fit within table bounds
+        const teacherColX = pageWidth - margin - colWidths.teacher;
+        let tableY = startY + 7;
 
-        // ================= FOOTER =================
-        const footerY = pageHeight - 42;
-        
-        doc.setFont("helvetica", "normal");
+        // Table header with light background
+        doc.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
+        doc.rect(margin, tableY - 3, pageWidth - margin * 2, 6, 'F');
+
         doc.setFontSize(9);
-        doc.setTextColor(0, 0, 0);
-        
-        const boardersDate = settings.nextTermBeginBoarders || 'TBA';
-        const dayDate = settings.nextTermBeginDay || 'TBA';
-        doc.text(`NEXT TERM STARTS ON:        BOARDERS: ${boardersDate}          DAY LEARNERS: ${dayDate}`, textCenterX, footerY, { align: "center" });
-        
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
+        doc.text("SUBJECT", tableStartX, tableY);
+        doc.text("MARKS", tableStartX + colWidths.subject + 5, tableY);
+        doc.text("GRADE", tableStartX + colWidths.subject + colWidths.marks + 10, tableY);
+        doc.text("COMMENT", tableStartX + colWidths.subject + colWidths.marks + colWidths.grade + 15, tableY);
+        doc.text("TEACHER", teacherColX, tableY);
+
         doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
         doc.setLineWidth(0.5);
-        doc.line(margin, footerY + 4, pageWidth - margin, footerY + 4);
-        
-        doc.setFontSize(8);
-        // Use school address instead of hardcoded location
-        const schoolLocation = settings.addressBox || '';
-        if (schoolLocation) {
-            doc.text(schoolLocation.toUpperCase(), textCenterX, footerY + 10, { align: "center" });
-        }
-        
-        const regInfo = [];
-        if (settings.regNumber) regInfo.push(`REG NO: ${settings.regNumber}`);
-        if (settings.centreNumber) regInfo.push(`CENTRE NO: ${settings.centreNumber}`);
-        doc.text(regInfo.join(' | '), textCenterX, footerY + 15, { align: "center" });
-        
+        tableY += 2;
+        doc.line(tableStartX, tableY, pageWidth - margin, tableY);
+
+        tableY += 5;
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(0, 0, 0);
+
+        subjects.forEach((sub, idx) => {
+          const mark = record?.marks ? (record.marks as any)[sub] : undefined;
+          const { grade } = calculateGrade(mark, settings?.gradingConfig);
+          const teacherName = findSubjectTeacher(allTeachers, sub, selectedClass, student.stream);
+          // Get last name, handling trailing spaces
+          const nameParts = teacherName.trim().split(/\s+/).filter(p => p.length > 0);
+          const displayTeacher = nameParts.length > 0 ? nameParts[nameParts.length - 1] : '';
+
+          let displaySubject = sub.toUpperCase();
+          if (sub === 'english') displaySubject = 'ENGLISH';
+          if (sub === 'maths') displaySubject = 'MATHS';
+          if (sub === 'science') displaySubject = 'SCIENCE';
+          if (sub === 'sst') displaySubject = 'SST';
+          if (sub === 'literacy1') displaySubject = 'LITERACY 1';
+          if (sub === 'literacy2') displaySubject = 'LITERACY 2';
+
+          // Alternate row background
+          if (idx % 2 === 1) {
+            doc.setFillColor(252, 252, 253);
+            doc.rect(margin, tableY - 4, pageWidth - margin * 2, 7, 'F');
+          }
+
+          doc.setTextColor(0, 0, 0);
+          doc.text(displaySubject, tableStartX, tableY);
+
+          // Color code marks
+          if (mark !== undefined) {
+            if (mark >= 80) {
+              doc.setTextColor(greenColor[0], greenColor[1], greenColor[2]);
+            } else if (mark < 40) {
+              doc.setTextColor(redColor[0], redColor[1], redColor[2]);
+            } else {
+              doc.setTextColor(0, 0, 0);
+            }
+            doc.text(String(mark), tableStartX + colWidths.subject + 10, tableY, { align: 'center' });
+          }
+
+          // Color code grades
+          if (grade !== '-') {
+            if (grade === 'D1' || grade === 'D2') {
+              doc.setTextColor(greenColor[0], greenColor[1], greenColor[2]);
+            } else if (['C3', 'C4', 'C5', 'C6'].includes(grade)) {
+              doc.setTextColor(amberColor[0], amberColor[1], amberColor[2]);
+            } else if (['P7', 'P8', 'F9'].includes(grade)) {
+              doc.setTextColor(redColor[0], redColor[1], redColor[2]);
+            }
+            doc.text(grade, tableStartX + colWidths.subject + colWidths.marks + 15, tableY, { align: 'center' });
+          }
+
+          doc.setTextColor(0, 0, 0);
+          doc.text(mark !== undefined ? getComment(sub, mark) : '', tableStartX + colWidths.subject + colWidths.marks + colWidths.grade + 15, tableY);
+          // Width-aware truncation for teacher name to fit column
+          let truncatedTeacher = displayTeacher;
+          const maxWidth = colWidths.teacher - 2; // Leave small padding
+          while (truncatedTeacher.length > 0 && doc.getTextWidth(truncatedTeacher) > maxWidth) {
+            truncatedTeacher = truncatedTeacher.substring(0, truncatedTeacher.length - 1);
+          }
+          if (truncatedTeacher.length < displayTeacher.length && truncatedTeacher.length > 1) {
+            truncatedTeacher = truncatedTeacher.substring(0, truncatedTeacher.length - 1) + '.';
+          }
+          doc.text(truncatedTeacher || '', teacherColX, tableY);
+
+          tableY += 7;
+        });
+
+        doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
         doc.setLineWidth(0.5);
-        doc.line(margin, footerY + 19, pageWidth - margin, footerY + 19);
-        
-        if (settings.motto) {
-            doc.setFont("helvetica", "bolditalic");
-            doc.setFontSize(10);
-            doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-            doc.text(`"${settings.motto}"`, textCenterX, footerY + 26, { align: "center" });
-        }
+        doc.line(tableStartX, tableY - 3, pageWidth - margin, tableY - 3);
+
+        const agg = record ? record.aggregate : '';
+        const div = record ? record.division : '';
+
+        // Summary row with colored background
+        doc.setFillColor(darkBlue[0], darkBlue[1], darkBlue[2]);
+        doc.rect(margin, tableY - 1, pageWidth - margin * 2, 7, 'F');
+
+        tableY += 3;
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(255, 255, 255);
+        doc.text(`TOTAL AGGREGATE: ${agg}`, tableStartX + 5, tableY);
+        doc.text(`DIVISION: ${div}`, textCenterX, tableY, { align: 'center' });
+        doc.text(`CLASS POSN: ${position}`, pageWidth - margin - 35, tableY);
+
+        return tableY + 10;
+      };
+
+      if (isBotReport || (!isBotReport && botRecord)) {
+        cursorY = drawAssessmentTable(cursorY, "BEGINNING OF TERM", botRecord, botPos);
+      }
+
+      if (!isBotReport) {
+        cursorY = drawAssessmentTable(cursorY, "END OF TERM", eotRecord, eotPos);
+      }
+
+      // ================= COMMENTS SECTION =================
+      cursorY += 3;
+
+      // Comments header
+      doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.rect(margin, cursorY - 4, pageWidth - margin * 2, 7, 'F');
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(255, 255, 255);
+      doc.text("COMMENTS", textCenterX, cursorY, { align: "center" });
+
+      cursorY += 10;
+
+      // Class Teacher Comment Box
+      doc.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
+      doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.setLineWidth(0.2);
+      doc.roundedRect(margin, cursorY - 4, pageWidth - margin * 2, 18, 1, 1, 'FD');
+
+      // Class Teacher label and name on same line
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.text("CLASS TEACHER:", margin + 2, cursorY);
+
+      doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
+      doc.text(classTeacherName ? classTeacherName.toUpperCase() : '', margin + 32, cursorY);
+
+      // Signature line
+      doc.setDrawColor(100, 100, 100);
+      doc.setLineWidth(0.1);
+      doc.line(pageWidth - margin - 45, cursorY, pageWidth - margin - 5, cursorY);
+      doc.setFontSize(6);
+      doc.setTextColor(100, 100, 100);
+      doc.text("Signature", pageWidth - margin - 30, cursorY + 3, { align: "center" });
+
+      // Comment text
+      cursorY += 6;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(0, 0, 0);
+      const ctLines = doc.splitTextToSize(ctComment, pageWidth - margin * 2 - 10);
+      doc.text(ctLines, margin + 2, cursorY);
+
+      cursorY += 16;
+
+      // Head Teacher Comment Box
+      doc.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
+      doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.setLineWidth(0.2);
+      doc.roundedRect(margin, cursorY - 4, pageWidth - margin * 2, 18, 1, 1, 'FD');
+
+      // Head Teacher label and name on same line
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.text("HEAD TEACHER:", margin + 2, cursorY);
+
+      doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
+      doc.text(headTeacherName.toUpperCase(), margin + 30, cursorY);
+
+      // Signature line
+      doc.setDrawColor(100, 100, 100);
+      doc.setLineWidth(0.1);
+      doc.line(pageWidth - margin - 45, cursorY, pageWidth - margin - 5, cursorY);
+      doc.setFontSize(6);
+      doc.setTextColor(100, 100, 100);
+      doc.text("Signature", pageWidth - margin - 30, cursorY + 3, { align: "center" });
+
+      // Comment text
+      cursorY += 6;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(0, 0, 0);
+      const htLines = doc.splitTextToSize(htComment, pageWidth - margin * 2 - 10);
+      doc.text(htLines, margin + 2, cursorY);
+
+      // ================= GRADING KEY =================
+      const keyY = pageHeight - 58;
+      doc.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
+      doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.setLineWidth(0.2);
+      doc.roundedRect(margin, keyY - 3, pageWidth - margin * 2, 12, 1, 1, 'FD');
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7);
+      doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
+      doc.text("GRADING KEY:", margin + 2, keyY + 2);
+
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 0);
+      const gradingKey = settings?.gradingConfig?.grades
+        .map(g => `${g.grade} (${g.minScore}-${g.maxScore})`)
+        .join(' | ') || "D1 (90-100) | D2 (80-89) | C3 (70-79) | C4 (60-69) | C5 (55-59) | C6 (50-54) | P7 (45-49) | P8 (40-44) | F9 (0-39)";
+      doc.text(gradingKey, margin + 28, keyY + 2);
+
+      doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
+      doc.text("DIVISIONS:", margin + 2, keyY + 7);
+      doc.setTextColor(0, 0, 0);
+
+      const divisionKey = settings?.gradingConfig?.divisions
+        .map(d => `${d.division} (${d.minAggregate}-${d.maxAggregate})`)
+        .join(' | ') || "I (4-12) | II (13-24) | III (25-28) | IV (29-32) | U (33-36)";
+      doc.text(divisionKey, margin + 22, keyY + 7);
+
+      // ================= FOOTER =================
+      const footerY = pageHeight - 42;
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(0, 0, 0);
+
+      const boardersDate = settings.nextTermBeginBoarders || 'TBA';
+      const dayDate = settings.nextTermBeginDay || 'TBA';
+      doc.text(`NEXT TERM STARTS ON:        BOARDERS: ${boardersDate}          DAY LEARNERS: ${dayDate}`, textCenterX, footerY, { align: "center" });
+
+      doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.setLineWidth(0.5);
+      doc.line(margin, footerY + 4, pageWidth - margin, footerY + 4);
+
+      doc.setFontSize(8);
+      // Use school address instead of hardcoded location
+      const schoolLocation = settings.addressBox || '';
+      if (schoolLocation) {
+        doc.text(schoolLocation.toUpperCase(), textCenterX, footerY + 10, { align: "center" });
+      }
+
+      const regInfo = [];
+      if (settings.regNumber) regInfo.push(`REG NO: ${settings.regNumber}`);
+      if (settings.centreNumber) regInfo.push(`CENTRE NO: ${settings.centreNumber}`);
+      doc.text(regInfo.join(' | '), textCenterX, footerY + 15, { align: "center" });
+
+      doc.setLineWidth(0.5);
+      doc.line(margin, footerY + 19, pageWidth - margin, footerY + 19);
+
+      if (settings.motto) {
+        doc.setFont("helvetica", "bolditalic");
+        doc.setFontSize(10);
+        doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+        doc.text(`"${settings.motto}"`, textCenterX, footerY + 26, { align: "center" });
+      }
     }
 
     // Use school name in filename (sanitized)
@@ -878,7 +884,7 @@ export const Reports: React.FC = () => {
           <p className={`${isDark ? 'text-gray-400' : 'text-gray-500'} mt-1`}>Generate and print student report cards</p>
         </div>
       </div>
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-1 space-y-6">
           <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} p-5 rounded-xl shadow-sm border`}>
@@ -888,11 +894,11 @@ export const Reports: React.FC = () => {
               </svg>
               Filters
             </h3>
-            
+
             <div className="space-y-4">
               <div>
                 <label className={`block text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-600'} mb-1.5`}>Class</label>
-                <select 
+                <select
                   className={inputClasses}
                   value={selectedClass}
                   onChange={(e) => setSelectedClass(e.target.value as ClassLevel)}
@@ -900,10 +906,10 @@ export const Reports: React.FC = () => {
                   {Object.values(ClassLevel).map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
-              
+
               <div>
                 <label className={`block text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-600'} mb-1.5`}>Stream</label>
-                <select 
+                <select
                   className={inputClasses}
                   value={selectedStream}
                   onChange={(e) => setSelectedStream(e.target.value)}
@@ -912,10 +918,10 @@ export const Reports: React.FC = () => {
                   {availableStreams.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
-              
+
               <div>
                 <label className={`block text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-600'} mb-1.5`}>Term</label>
-                <select 
+                <select
                   className={inputClasses}
                   value={selectedTerm}
                   onChange={(e) => setSelectedTerm(Number(e.target.value))}
@@ -925,10 +931,10 @@ export const Reports: React.FC = () => {
                   <option value={3}>Term 3</option>
                 </select>
               </div>
-              
+
               <div>
                 <label className={`block text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-600'} mb-1.5`}>Assessment Type</label>
-                <select 
+                <select
                   className={inputClasses}
                   value={reportType}
                   onChange={(e) => setReportType(e.target.value as AssessmentType)}
@@ -947,7 +953,7 @@ export const Reports: React.FC = () => {
               </svg>
               Quick Stats
             </h3>
-            
+
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-indigo-100 text-sm">Total Students</span>
@@ -965,7 +971,7 @@ export const Reports: React.FC = () => {
                 <span className="text-indigo-100 text-sm">Avg Aggregate</span>
                 <span className="font-bold text-lg">{stats.avgAggregate}</span>
               </div>
-              
+
               <div className="border-t border-indigo-400/30 pt-3 mt-3">
                 <span className="text-indigo-100 text-xs block mb-2">Divisions</span>
                 <div className="grid grid-cols-4 gap-2">
@@ -992,11 +998,11 @@ export const Reports: React.FC = () => {
 
           <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} p-5 rounded-xl shadow-sm border`}>
             <h3 className={`text-sm font-semibold ${isDark ? 'text-gray-200' : 'text-gray-700'} mb-4`}>Generate Reports</h3>
-            
+
             <div className="space-y-3">
-              <Button 
-                onClick={() => generatePDF()} 
-                disabled={loading || !settings || selectedStudentIds.size === 0} 
+              <Button
+                onClick={() => generatePDF()}
+                disabled={loading || !settings || selectedStudentIds.size === 0}
                 size="md"
                 className="w-full"
               >
@@ -1017,12 +1023,12 @@ export const Reports: React.FC = () => {
                   </span>
                 )}
               </Button>
-              
+
               <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'} text-center`}>
                 {selectedStudentIds.size} of {stats.total} students selected
               </p>
             </div>
-            
+
             {!settings && (
               <p className="mt-4 text-xs text-red-500 flex items-center gap-1">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1050,7 +1056,7 @@ export const Reports: React.FC = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </div>
-                
+
                 <div className="flex items-center gap-2">
                   <button
                     onClick={toggleAllSelection}
@@ -1110,10 +1116,10 @@ export const Reports: React.FC = () => {
                     {filteredPreviews.map((preview) => {
                       const currentMarks = reportType === AssessmentType.BOT ? preview.botMarks : preview.eotMarks;
                       const currentPosition = reportType === AssessmentType.BOT ? preview.botPosition : preview.eotPosition;
-                      
+
                       return (
-                        <tr 
-                          key={preview.student.id} 
+                        <tr
+                          key={preview.student.id}
                           className={`${isDark ? 'hover:bg-gray-700/50' : 'hover:bg-gray-50/50'} transition-colors ${selectedStudentIds.has(preview.student.id!) ? (isDark ? 'bg-indigo-900/20' : 'bg-indigo-50/30') : ''}`}
                         >
                           <td className="px-4 py-3">

@@ -65,34 +65,34 @@ const TEST_TYPES = [
 
 const Icons = {
   Plus: ({ className }: { className?: string }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12 5v14" /><path d="M5 12h14" /></svg>
   ),
   Edit: ({ className }: { className?: string }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
   ),
   Trash: ({ className }: { className?: string }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
   ),
   Check: ({ className }: { className?: string }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M20 6 9 17l-5-5"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M20 6 9 17l-5-5" /></svg>
   ),
   X: ({ className }: { className?: string }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
   ),
   Save: ({ className }: { className?: string }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" /></svg>
   ),
   ClipboardList: ({ className }: { className?: string }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="8" height="4" x="8" y="2" rx="1" ry="1" /><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><path d="M12 11h4" /><path d="M12 16h4" /><path d="M8 11h.01" /><path d="M8 16h.01" /></svg>
   ),
   BarChart: ({ className }: { className?: string }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 3v18h18"/><rect width="4" height="7" x="7" y="10" rx="1"/><rect width="4" height="12" x="15" y="5" rx="1"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 3v18h18" /><rect width="4" height="7" x="7" y="10" rx="1" /><rect width="4" height="12" x="15" y="5" rx="1" /></svg>
   ),
   FileText: ({ className }: { className?: string }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /><line x1="16" x2="8" y1="13" y2="13" /><line x1="16" x2="8" y1="17" y2="17" /><line x1="10" x2="8" y1="9" y2="9" /></svg>
   ),
   ChevronDown: ({ className }: { className?: string }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m6 9 6 6 6-6"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m6 9 6 6 6-6" /></svg>
   )
 };
 
@@ -170,7 +170,7 @@ export const Tests: React.FC = () => {
   const loadStudentsAndScores = async (session: TestSession) => {
     if (!session.id) return;
     setLoading(true);
-    
+
     const allStudents = await dbService.getStudents();
     let classStudents = allStudents.filter(s => s.classLevel === session.classLevel);
     if (session.stream) {
@@ -192,7 +192,7 @@ export const Tests: React.FC = () => {
     } catch (err) {
       console.error('Failed to load test scores:', err);
     }
-    
+
     setLoading(false);
   };
 
@@ -203,10 +203,10 @@ export const Tests: React.FC = () => {
 
   const handleRawMarkChange = (studentId: number, subject: string, value: string) => {
     if (!selectedSession) return;
-    
+
     const numVal = value === '' ? undefined : parseFloat(value);
     const maxMark = (selectedSession.maxMarks as any)[subject] || 10;
-    
+
     if (numVal !== undefined && (numVal < 0 || numVal > maxMark)) {
       showMessage(`Mark must be between 0 and ${maxMark}`, 'error');
       return;
@@ -215,19 +215,19 @@ export const Tests: React.FC = () => {
     const convertedMark = convertToPercentage(numVal, maxMark);
 
     setTestScores(prev => {
-      const existing = prev[studentId] || { 
-        testSessionId: selectedSession.id!, 
+      const existing = prev[studentId] || {
+        testSessionId: selectedSession.id!,
         studentId,
         rawMarks: {},
         convertedMarks: {}
       };
-      
+
       const newRawMarks = { ...existing.rawMarks, [subject]: numVal };
       const newConvertedMarks = { ...existing.convertedMarks, [subject]: convertedMark };
-      
+
       const classLevel = selectedSession.classLevel as ClassLevel;
-      const aggregate = calculateAggregate(newConvertedMarks as any, classLevel);
-      const division = calculateDivision(aggregate, classLevel);
+      const aggregate = calculateAggregate(newConvertedMarks as any, classLevel, settings?.gradingConfig);
+      const division = calculateDivision(aggregate, classLevel, settings?.gradingConfig);
 
       return {
         ...prev,
@@ -246,13 +246,13 @@ export const Tests: React.FC = () => {
 
   const saveAllScores = async () => {
     if (!selectedSession?.id) return;
-    
+
     setIsSaving(true);
     try {
-      const scoresToSave = Object.values(testScores).filter((score: TestScore) => 
+      const scoresToSave = Object.values(testScores).filter((score: TestScore) =>
         Object.values(score.rawMarks).some(v => v !== undefined)
       );
-      
+
       if (scoresToSave.length === 0) {
         showMessage('No scores to save', 'info');
         setIsSaving(false);
@@ -383,8 +383,8 @@ export const Tests: React.FC = () => {
   const filteredStudents = useMemo(() => {
     if (!searchQuery.trim()) return students;
     const query = searchQuery.toLowerCase();
-    return students.filter(s => 
-      s.name.toLowerCase().includes(query) || 
+    return students.filter(s =>
+      s.name.toLowerCase().includes(query) ||
       s.indexNumber?.toLowerCase().includes(query)
     );
   }, [students, searchQuery]);
@@ -509,7 +509,7 @@ export const Tests: React.FC = () => {
           if (settings.logoBase64.startsWith('data:image/jpeg')) format = 'JPEG';
           doc.addImage(settings.logoBase64, format, pageWidth / 2 - logoSize / 2, headerY, logoSize, logoSize);
           headerY += logoSize + 2;
-        } catch(e) { headerY += 2; }
+        } catch (e) { headerY += 2; }
       }
 
       doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
@@ -633,7 +633,7 @@ export const Tests: React.FC = () => {
 
         sessionSubjects.forEach(sub => {
           const mark = (row.convertedMarks as any)[sub];
-          const { grade } = calculateGrade(mark);
+          const { grade } = calculateGrade(mark, settings?.gradingConfig);
           rowData.push(mark !== undefined && mark !== null ? Math.round(mark) : '-');
           rowData.push(mark !== undefined && mark !== null ? grade : '-');
         });
@@ -681,7 +681,7 @@ export const Tests: React.FC = () => {
         alternateRowStyles: { fillColor: colors.lightGray },
         columnStyles: columnStyles,
         margin: { left: margin, right: margin },
-        didParseCell: function(data: any) {
+        didParseCell: function (data: any) {
           if (data.section === 'body') {
             const colIdx = data.column.index;
             const divColIdx = baseColIdx + 2;
@@ -740,7 +740,10 @@ export const Tests: React.FC = () => {
 
       doc.setFontSize(7);
       doc.setTextColor(colors.muted[0], colors.muted[1], colors.muted[2]);
-      doc.text('Grading: D1 (90-100), D2 (80-89), C3 (70-79), C4 (60-69), C5 (55-59), C6 (50-54), P7 (45-49), P8 (40-44), F9 (0-39)', pageWidth / 2, footerY, { align: 'center' });
+      const gradingKey = settings?.gradingConfig?.grades
+        .map(g => `${g.grade} (${g.minScore}-${g.maxScore})`)
+        .join(', ') || "D1 (90-100), D2 (80-89), C3 (70-79), C4 (60-69), C5 (55-59), C6 (50-54), P7 (45-49), P8 (40-44), F9 (0-39)";
+      doc.text(`Grading: ${gradingKey}`, pageWidth / 2, footerY, { align: 'center' });
 
       doc.setFontSize(6);
       doc.text(`Generated: ${new Date().toLocaleString()}`, margin, pageHeight - 4);
@@ -778,8 +781,8 @@ export const Tests: React.FC = () => {
       const termTestsResponse = await fetch('/api/test-sessions', { credentials: 'include' });
       const allSessions: TestSession[] = termTestsResponse.ok ? await termTestsResponse.json() : [];
 
-      const termSessions = allSessions.filter(s => 
-        s.classLevel === student.classLevel && 
+      const termSessions = allSessions.filter(s =>
+        s.classLevel === student.classLevel &&
         s.term === selectedSession.term &&
         s.year === selectedSession.year &&
         (!s.stream || s.stream === student.stream)
@@ -834,7 +837,7 @@ export const Tests: React.FC = () => {
           if (settings.logoBase64.startsWith('data:image/jpeg')) format = 'JPEG';
           doc.addImage(settings.logoBase64, format, pageWidth / 2 - logoSize / 2, headerY, logoSize, logoSize);
           headerY += logoSize + 3;
-        } catch(e) { headerY += 2; }
+        } catch (e) { headerY += 2; }
       }
 
       doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
@@ -956,7 +959,7 @@ export const Tests: React.FC = () => {
           const mark = score ? (score.convertedMarks as any)[sub] : undefined;
           if (mark !== undefined && mark !== null) {
             total += mark;
-            const { grade } = calculateGrade(mark);
+            const { grade } = calculateGrade(mark, settings?.gradingConfig);
             rowData.push(`${Math.round(mark)} (${grade})`);
           } else {
             rowData.push('-');
@@ -1008,7 +1011,7 @@ export const Tests: React.FC = () => {
         alternateRowStyles: { fillColor: colors.lightGray },
         columnStyles: columnStyles,
         margin: { left: margin, right: margin },
-        didParseCell: function(data: any) {
+        didParseCell: function (data: any) {
           if (data.section === 'body') {
             const divColIdx = totIdx + 2;
             if (data.column.index === divColIdx) {
@@ -1030,7 +1033,7 @@ export const Tests: React.FC = () => {
       const validScores = studentScores.filter(s => s.score && s.score.aggregate && s.score.aggregate > 0);
       if (validScores.length > 0) {
         const avgAggregate = validScores.reduce((sum, s) => sum + (s.score?.aggregate || 0), 0) / validScores.length;
-        const bestTest = validScores.reduce((best, current) => 
+        const bestTest = validScores.reduce((best, current) =>
           (current.score?.aggregate || 99) < (best.score?.aggregate || 99) ? current : best
         );
 
@@ -1078,7 +1081,7 @@ export const Tests: React.FC = () => {
         sessionSubjects.forEach(sub => {
           const avg = subjectAverages[sub];
           if (avg !== undefined) {
-            const { grade } = calculateGrade(avg);
+            const { grade } = calculateGrade(avg, settings?.gradingConfig);
             subjectTexts.push(`${subjectLabels[sub]}: ${Math.round(avg)}% (${grade})`);
           }
         });
@@ -1089,7 +1092,10 @@ export const Tests: React.FC = () => {
 
       doc.setFontSize(7);
       doc.setTextColor(colors.muted[0], colors.muted[1], colors.muted[2]);
-      doc.text('Grading Scale: D1 (90-100), D2 (80-89), C3 (70-79), C4 (60-69), C5 (55-59), C6 (50-54), P7 (45-49), P8 (40-44), F9 (0-39)', pageWidth / 2, summaryY + 5, { align: 'center' });
+      const gradingKey = settings?.gradingConfig?.grades
+        .map(g => `${g.grade} (${g.minScore}-${g.maxScore})`)
+        .join(', ') || "D1 (90-100), D2 (80-89), C3 (70-79), C4 (60-69), C5 (55-59), C6 (50-54), P7 (45-49), P8 (40-44), F9 (0-39)";
+      doc.text(`Grading Scale: ${gradingKey}`, pageWidth / 2, summaryY + 5, { align: 'center' });
 
       doc.setFontSize(6);
       doc.text(`Generated: ${new Date().toLocaleString()}`, margin, pageHeight - 6);
@@ -1108,7 +1114,7 @@ export const Tests: React.FC = () => {
 
   const classStats = useMemo(() => {
     if (students.length === 0 || Object.keys(testScores).length === 0) return null;
-    
+
     const studentsWithScores = students.filter(s => {
       const score = testScores[s.id!];
       return score && Object.values(score.convertedMarks).some(v => v !== undefined);
@@ -1263,8 +1269,8 @@ export const Tests: React.FC = () => {
                       min="1"
                       max="100"
                       value={(session.maxMarks as any)[sub] || 10}
-                      onChange={e => setSession({ 
-                        ...session, 
+                      onChange={e => setSession({
+                        ...session,
                         maxMarks: { ...session.maxMarks, [sub]: parseInt(e.target.value) || 10 }
                       } as any)}
                       className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-center font-medium"
@@ -1452,11 +1458,10 @@ export const Tests: React.FC = () => {
             <button
               onClick={saveAllScores}
               disabled={isSaving || !hasUnsavedChanges}
-              className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${
-                hasUnsavedChanges 
-                  ? 'bg-primary-600 hover:bg-primary-700 text-white' 
+              className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${hasUnsavedChanges
+                  ? 'bg-primary-600 hover:bg-primary-700 text-white'
                   : 'bg-gray-200 dark:bg-gray-700 text-gray-500 cursor-not-allowed'
-              }`}
+                }`}
             >
               <Icons.Save className="w-4 h-4" />
               {isSaving ? 'Saving...' : 'Save All'}
@@ -1512,7 +1517,7 @@ export const Tests: React.FC = () => {
                         {subjects.map(sub => {
                           const rawMark = (score.rawMarks as any)?.[sub];
                           const convertedMark = (score.convertedMarks as any)?.[sub];
-                          const grade = convertedMark !== undefined ? calculateGrade(convertedMark).grade : '-';
+                          const grade = convertedMark !== undefined ? calculateGrade(convertedMark, settings?.gradingConfig).grade : '-';
                           return (
                             <td key={sub} className="px-2 py-2">
                               <div className="flex flex-col items-center gap-1">
@@ -1641,16 +1646,15 @@ export const Tests: React.FC = () => {
                 {sortedStudents.map((student, idx) => {
                   const score = testScores[student.id!];
                   if (!score || !Object.values(score.convertedMarks).some(v => v !== undefined)) return null;
-                  
+
                   return (
                     <tr key={student.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
                       <td className="px-4 py-3">
-                        <span className={`w-7 h-7 inline-flex items-center justify-center rounded-full text-xs font-bold ${
-                          idx === 0 ? 'bg-yellow-100 text-yellow-700' :
-                          idx === 1 ? 'bg-gray-100 text-gray-700' :
-                          idx === 2 ? 'bg-amber-100 text-amber-700' :
-                          'bg-gray-50 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-                        }`}>
+                        <span className={`w-7 h-7 inline-flex items-center justify-center rounded-full text-xs font-bold ${idx === 0 ? 'bg-yellow-100 text-yellow-700' :
+                            idx === 1 ? 'bg-gray-100 text-gray-700' :
+                              idx === 2 ? 'bg-amber-100 text-amber-700' :
+                                'bg-gray-50 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                          }`}>
                           {idx + 1}
                         </span>
                       </td>
@@ -1707,11 +1711,10 @@ export const Tests: React.FC = () => {
   return (
     <div className="min-h-screen">
       {message && (
-        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 ${
-          messageType === 'success' ? 'bg-green-500 text-white' :
-          messageType === 'error' ? 'bg-red-500 text-white' :
-          'bg-blue-500 text-white'
-        }`}>
+        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 ${messageType === 'success' ? 'bg-green-500 text-white' :
+            messageType === 'error' ? 'bg-red-500 text-white' :
+              'bg-blue-500 text-white'
+          }`}>
           {messageType === 'success' && <Icons.Check className="w-5 h-5" />}
           {messageType === 'error' && <Icons.X className="w-5 h-5" />}
           <span>{message}</span>

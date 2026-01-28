@@ -49,31 +49,31 @@ const Icons = {
 
 export const P7ExamSets: React.FC = () => {
   const { isDark } = useTheme();
-  
+
   const [examSets, setExamSets] = useState<P7ExamSet[]>([]);
   const [scores, setScores] = useState<P7Score[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [settings, setSettings] = useState<SchoolSettings | null>(null);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
-  
+
   const [selectedStream, setSelectedStream] = useState<string>('All');
   const [selectedTerm, setSelectedTerm] = useState(1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedSet, setSelectedSet] = useState<P7ExamSet | null>(null);
-  
+
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'success' | 'error' | 'info'>('success');
-  
+
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingSet, setEditingSet] = useState<P7ExamSet | null>(null);
   const [newSetName, setNewSetName] = useState('');
   const [newSetDate, setNewSetDate] = useState('');
-  
+
   const [marksData, setMarksData] = useState<{ [studentId: number]: SubjectMarks }>({});
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  
+
   const [activeTab, setActiveTab] = useState<'sets' | 'marks' | 'analysis' | 'reports'>('sets');
   const [selectedStudentIds, setSelectedStudentIds] = useState<Set<number>>(new Set());
   const [generatingPDF, setGeneratingPDF] = useState(false);
@@ -103,18 +103,18 @@ export const P7ExamSets: React.FC = () => {
         dbService.getStudents(),
         dbService.getTeachers()
       ]);
-      
+
       setSettings(settingsData);
       setTeachers(teachersData);
-      
+
       if (settingsData) {
         setSelectedTerm(settingsData.currentTerm);
         setSelectedYear(settingsData.currentYear);
       }
-      
+
       const p7Students = studentsData.filter(s => s.classLevel === 'P7');
       setStudents(p7Students);
-      
+
       await loadExamSets();
     } catch (err) {
       console.error('Error loading data:', err);
@@ -142,7 +142,7 @@ export const P7ExamSets: React.FC = () => {
       if (response.ok) {
         const scoresData = await response.json();
         setScores(scoresData);
-        
+
         const marksMap: { [studentId: number]: SubjectMarks } = {};
         scoresData.forEach((score: P7Score) => {
           marksMap[score.studentId] = score.marks as SubjectMarks;
@@ -191,7 +191,7 @@ export const P7ExamSets: React.FC = () => {
       showMessage('Please enter a set name', 'error');
       return;
     }
-    
+
     if (filteredSets.length >= 10) {
       showMessage('Maximum 10 sets allowed per term', 'error');
       return;
@@ -231,7 +231,7 @@ export const P7ExamSets: React.FC = () => {
 
   const deleteExamSet = async (setId: number) => {
     if (!confirm('Delete this exam set and all its scores?')) return;
-    
+
     try {
       const response = await fetch(`/api/p7-exam-sets/${setId}`, { method: 'DELETE' });
       if (response.ok) {
@@ -251,7 +251,7 @@ export const P7ExamSets: React.FC = () => {
 
   const handleMarkChange = (studentId: number, subject: string, value: string) => {
     const numValue = value === '' ? undefined : Math.min(100, Math.max(0, parseInt(value) || 0));
-    
+
     setMarksData(prev => ({
       ...prev,
       [studentId]: {
@@ -264,15 +264,15 @@ export const P7ExamSets: React.FC = () => {
 
   const saveMarks = async () => {
     if (!selectedSet) return;
-    
+
     setSaving(true);
     try {
       const scoresToSave = filteredStudents.map(student => {
         const marks: SubjectMarks = marksData[student.id!] || {};
-        const aggregate = calculateAggregate(marks as { [key: string]: number | undefined }, ClassLevel.P7);
-        const division = calculateDivision(aggregate, ClassLevel.P7);
+        const aggregate = calculateAggregate(marks as { [key: string]: number | undefined }, ClassLevel.P7, settings?.gradingConfig);
+        const division = calculateDivision(aggregate, ClassLevel.P7, settings?.gradingConfig);
         const total = (marks.english || 0) + (marks.maths || 0) + (marks.science || 0) + (marks.sst || 0);
-        
+
         return {
           examSetId: selectedSet.id,
           studentId: student.id,
@@ -308,8 +308,8 @@ export const P7ExamSets: React.FC = () => {
 
   const getStudentResults = (studentId: number): { marks: SubjectMarks; aggregate: number; division: string; total: number } => {
     const marks: SubjectMarks = marksData[studentId] || {};
-    const aggregate = calculateAggregate(marks as { [key: string]: number | undefined }, ClassLevel.P7);
-    const division = calculateDivision(aggregate, ClassLevel.P7);
+    const aggregate = calculateAggregate(marks as { [key: string]: number | undefined }, ClassLevel.P7, settings?.gradingConfig);
+    const division = calculateDivision(aggregate, ClassLevel.P7, settings?.gradingConfig);
     const total = (marks.english || 0) + (marks.maths || 0) + (marks.science || 0) + (marks.sst || 0);
     return { marks, aggregate, division, total };
   };
@@ -321,7 +321,7 @@ export const P7ExamSets: React.FC = () => {
     }).filter(r => r.total > 0);
 
     results.sort((a, b) => b.total - a.total);
-    
+
     const positions: { [id: number]: number } = {};
     let currentPos = 1;
     results.forEach((r, i) => {
@@ -332,7 +332,7 @@ export const P7ExamSets: React.FC = () => {
       }
       currentPos++;
     });
-    
+
     return positions;
   };
 
@@ -343,7 +343,7 @@ export const P7ExamSets: React.FC = () => {
 
     const results = filteredStudents.map(s => getStudentResults(s.id!));
     const withMarks = results.filter(r => r.total > 0);
-    
+
     if (withMarks.length === 0) return null;
 
     const divCounts = { I: 0, II: 0, III: 0, IV: 0, U: 0 };
@@ -390,7 +390,7 @@ export const P7ExamSets: React.FC = () => {
 
   const getAllSetScoresForStudent = async (studentId: number, termSets: P7ExamSet[]) => {
     const results: { setName: string; marks: SubjectMarks; total: number; aggregate: number; division: string; position?: number }[] = [];
-    
+
     for (const set of termSets) {
       try {
         const response = await fetch(`/api/p7-scores?examSetId=${set.id}`);
@@ -417,7 +417,7 @@ export const P7ExamSets: React.FC = () => {
 
   const generateP7ReportCard = async (student: Student) => {
     if (!settings) return;
-    
+
     const termSets = examSets.filter(s => s.term === selectedTerm && s.year === selectedYear);
     if (termSets.length === 0) {
       showMessage('No exam sets found for this term', 'error');
@@ -463,14 +463,14 @@ export const P7ExamSets: React.FC = () => {
 
     let currentY = 12;
     const logoSize = 16;
-    
+
     if (settings.logoBase64) {
       try {
         let format = 'PNG';
         if (settings.logoBase64.startsWith('data:image/jpeg')) format = 'JPEG';
         doc.addImage(settings.logoBase64, format, pageWidth / 2 - logoSize / 2, currentY, logoSize, logoSize);
         currentY += logoSize + 2;
-      } catch(e) { currentY += 2; }
+      } catch (e) { currentY += 2; }
     }
 
     doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
@@ -496,13 +496,13 @@ export const P7ExamSets: React.FC = () => {
 
     doc.setFillColor(colors.cream[0], colors.cream[1], colors.cream[2]);
     doc.roundedRect(margin, currentY, pageWidth - margin * 2, 20, 2, 2, 'F');
-    
+
     doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     const labelX1 = margin + 4;
     const labelX2 = pageWidth / 2 + 4;
-    
+
     doc.text("Student Name:", labelX1, currentY + 6);
     doc.text("Index Number:", labelX2, currentY + 6);
     doc.text("Stream:", labelX1, currentY + 14);
@@ -514,7 +514,7 @@ export const P7ExamSets: React.FC = () => {
     doc.text(student.indexNumber || '-', labelX2 + 28, currentY + 6);
     doc.text(student.stream || '-', labelX1 + 16, currentY + 14);
     doc.text(student.gender === 'M' ? 'Male' : 'Female', labelX2 + 16, currentY + 14);
-    
+
     currentY += 26;
 
     const tableHeaders = ['Exam Set', 'ENG', 'MTC', 'SCI', 'SST', 'Total', 'Agg', 'Div'];
@@ -587,16 +587,16 @@ export const P7ExamSets: React.FC = () => {
 
     const avgAgg = (totalAgg / totalSets).toFixed(1);
     const avgTotal = (totalMarks / totalSets).toFixed(0);
-    const overallDiv = Number(avgAgg) <= 4 ? 'I' : Number(avgAgg) <= 12 ? 'II' : Number(avgAgg) <= 24 ? 'III' : Number(avgAgg) <= 32 ? 'IV' : 'U';
+    const overallDiv = calculateDivision(Number(avgAgg), ClassLevel.P7, settings?.gradingConfig);
 
     doc.setFillColor(colors.darkBlue[0], colors.darkBlue[1], colors.darkBlue[2]);
     doc.roundedRect(margin, currentY, pageWidth - margin * 2, 18, 2, 2, 'F');
-    
+
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
     doc.text("OVERALL PERFORMANCE SUMMARY", pageWidth / 2, currentY + 6, { align: "center" });
-    
+
     doc.setFontSize(9);
     doc.text(`Average Aggregate: ${avgAgg}   |   Average Total: ${avgTotal}   |   Overall Division: ${overallDiv}`, pageWidth / 2, currentY + 13, { align: "center" });
     currentY += 24;
@@ -626,7 +626,7 @@ export const P7ExamSets: React.FC = () => {
 
       doc.setFillColor(colors.lightGray[0], colors.lightGray[1], colors.lightGray[2]);
       doc.rect(barX, currentY + (barMaxHeight - barHeight), barWidth, barHeight, 'F');
-      
+
       doc.setFillColor(colors.primary[0], colors.primary[1], colors.primary[2]);
       doc.rect(barX, currentY + (barMaxHeight - barHeight), barWidth, barHeight, 'F');
 
@@ -640,29 +640,29 @@ export const P7ExamSets: React.FC = () => {
 
     doc.setFillColor(colors.cream[0], colors.cream[1], colors.cream[2]);
     doc.roundedRect(margin, currentY, pageWidth - margin * 2, 25, 2, 2, 'F');
-    
+
     doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
     doc.text("Class Teacher's Comment:", margin + 4, currentY + 6);
     doc.text("Head Teacher's Signature:", margin + 4, currentY + 18);
-    
+
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     const comment = overallDiv === 'I' ? 'Excellent performance! Keep up the outstanding work.' :
-                    overallDiv === 'II' ? 'Very good performance. Continue striving for excellence.' :
-                    overallDiv === 'III' ? 'Good effort. More dedication will improve your results.' :
-                    overallDiv === 'IV' ? 'Fair performance. Needs significant improvement.' :
-                    'Poor performance. Requires extra support and hard work.';
+      overallDiv === 'II' ? 'Very good performance. Continue striving for excellence.' :
+        overallDiv === 'III' ? 'Good effort. More dedication will improve your results.' :
+          overallDiv === 'IV' ? 'Fair performance. Needs significant improvement.' :
+            'Poor performance. Requires extra support and hard work.';
     doc.text(comment, margin + 50, currentY + 6);
-    
+
     doc.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
     doc.line(margin + 55, currentY + 20, margin + 90, currentY + 20);
     currentY += 30;
 
     doc.setFillColor(colors.primary[0], colors.primary[1], colors.primary[2]);
     doc.rect(0, pageHeight - 8, pageWidth, 8, 'F');
-    
+
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "italic");
     doc.setFontSize(7);
@@ -735,13 +735,13 @@ export const P7ExamSets: React.FC = () => {
 
     let currentY = 8;
     const logoSize = 12;
-    
+
     if (settings.logoBase64) {
       try {
         let format = 'PNG';
         if (settings.logoBase64.startsWith('data:image/jpeg')) format = 'JPEG';
         doc.addImage(settings.logoBase64, format, margin, currentY, logoSize, logoSize);
-      } catch(e) {}
+      } catch (e) { }
     }
 
     doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
@@ -774,7 +774,7 @@ export const P7ExamSets: React.FC = () => {
 
     doc.setFillColor(colors.primary[0], colors.primary[1], colors.primary[2]);
     doc.rect(startX, currentY, tableWidth, 8, 'F');
-    
+
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
@@ -812,7 +812,7 @@ export const P7ExamSets: React.FC = () => {
         doc.setFont("helvetica", "italic");
         doc.setFontSize(7);
         doc.text(`Page ${pageNum}`, pageWidth - margin, pageHeight - 3, { align: "right" });
-        
+
         doc.addPage();
         pageNum++;
         currentY = 15;
@@ -860,45 +860,45 @@ export const P7ExamSets: React.FC = () => {
       doc.setFontSize(7);
 
       const { student, marks, aggregate, division, total, position } = item;
-      const engGrade = calculateGrade((marks as any).english);
-      const mathGrade = calculateGrade((marks as any).maths);
-      const sciGrade = calculateGrade((marks as any).science);
-      const sstGrade = calculateGrade((marks as any).sst);
+      const engGrade = calculateGrade((marks as any).english, settings?.gradingConfig);
+      const mathGrade = calculateGrade((marks as any).maths, settings?.gradingConfig);
+      const sciGrade = calculateGrade((marks as any).science, settings?.gradingConfig);
+      const sstGrade = calculateGrade((marks as any).sst, settings?.gradingConfig);
 
       let rColX = startX;
-      
+
       doc.setFont("helvetica", "bold");
       doc.text(String(position || '-'), rColX + colWidths.pos / 2, currentY + 4, { align: "center" });
       rColX += colWidths.pos;
-      
+
       doc.setFont("helvetica", "normal");
       doc.text(student.name.substring(0, 28), rColX + 2, currentY + 4);
       rColX += colWidths.name;
-      
+
       doc.text(student.indexNumber || '-', rColX + colWidths.index / 2, currentY + 4, { align: "center" });
       rColX += colWidths.index;
-      
+
       doc.text(`${(marks as any).english || '-'} (${engGrade.grade})`, rColX + colWidths.eng / 2, currentY + 4, { align: "center" });
       rColX += colWidths.eng;
-      
+
       doc.text(`${(marks as any).maths || '-'} (${mathGrade.grade})`, rColX + colWidths.math / 2, currentY + 4, { align: "center" });
       rColX += colWidths.math;
-      
+
       doc.text(`${(marks as any).science || '-'} (${sciGrade.grade})`, rColX + colWidths.sci / 2, currentY + 4, { align: "center" });
       rColX += colWidths.sci;
-      
+
       doc.text(`${(marks as any).sst || '-'} (${sstGrade.grade})`, rColX + colWidths.sst / 2, currentY + 4, { align: "center" });
       rColX += colWidths.sst;
-      
+
       doc.setFont("helvetica", "bold");
       doc.text(String(total), rColX + colWidths.total / 2, currentY + 4, { align: "center" });
       rColX += colWidths.total;
-      
+
       doc.text(String(aggregate), rColX + colWidths.agg / 2, currentY + 4, { align: "center" });
       rColX += colWidths.agg;
-      
-      const divColor = division === 'I' ? colors.divI : division === 'II' ? colors.divII : 
-                       division === 'III' ? colors.divIII : division === 'IV' ? colors.divIV : colors.divU;
+
+      const divColor = division === 'I' ? colors.divI : division === 'II' ? colors.divII :
+        division === 'III' ? colors.divIII : division === 'IV' ? colors.divIV : colors.divU;
       doc.setTextColor(divColor[0], divColor[1], divColor[2]);
       doc.text(division, rColX + colWidths.div / 2, currentY + 4, { align: "center" });
 
@@ -910,12 +910,12 @@ export const P7ExamSets: React.FC = () => {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
     doc.text("DIVISION SUMMARY:", startX, currentY);
-    
+
     const divCounts = { I: 0, II: 0, III: 0, IV: 0, U: 0 };
     studentsWithMarks.forEach(s => {
       if (s.division in divCounts) divCounts[s.division as keyof typeof divCounts]++;
     });
-    
+
     doc.setFont("helvetica", "normal");
     const summaryText = `Div I: ${divCounts.I}  |  Div II: ${divCounts.II}  |  Div III: ${divCounts.III}  |  Div IV: ${divCounts.IV}  |  U: ${divCounts.U}  |  Pass Rate: ${(((divCounts.I + divCounts.II + divCounts.III + divCounts.IV) / studentsWithMarks.length) * 100).toFixed(1)}%`;
     doc.text(summaryText, startX + 35, currentY);
@@ -930,7 +930,7 @@ export const P7ExamSets: React.FC = () => {
 
     doc.addPage();
     pageNum++;
-    
+
     let analysisY = 12;
 
     doc.setFillColor(colors.primary[0], colors.primary[1], colors.primary[2]);
@@ -966,7 +966,7 @@ export const P7ExamSets: React.FC = () => {
     const divTableStartX = margin;
     const divColWidths = [35, 25, 30, 40];
     const divTableWidth = divColWidths.reduce((a, b) => a + b, 0);
-    
+
     doc.setFillColor(colors.primary[0], colors.primary[1], colors.primary[2]);
     doc.rect(divTableStartX, analysisY, divTableWidth, 7, 'F');
     doc.setTextColor(255, 255, 255);
@@ -975,9 +975,9 @@ export const P7ExamSets: React.FC = () => {
     let dx = divTableStartX;
     doc.text("DIVISION", dx + 2, analysisY + 5);
     dx += divColWidths[0];
-    doc.text("COUNT", dx + divColWidths[1]/2, analysisY + 5, { align: "center" });
+    doc.text("COUNT", dx + divColWidths[1] / 2, analysisY + 5, { align: "center" });
     dx += divColWidths[1];
-    doc.text("PERCENTAGE", dx + divColWidths[2]/2, analysisY + 5, { align: "center" });
+    doc.text("PERCENTAGE", dx + divColWidths[2] / 2, analysisY + 5, { align: "center" });
     dx += divColWidths[2];
     doc.text("STATUS", dx + 2, analysisY + 5);
     analysisY += 7;
@@ -997,7 +997,7 @@ export const P7ExamSets: React.FC = () => {
       }
       doc.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
       doc.line(divTableStartX, analysisY + 6, divTableStartX + divTableWidth, analysisY + 6);
-      
+
       doc.setFont("helvetica", "bold");
       doc.setFontSize(7);
       doc.setTextColor(row.color[0], row.color[1], row.color[2]);
@@ -1006,9 +1006,9 @@ export const P7ExamSets: React.FC = () => {
       rx += divColWidths[0];
       doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
       doc.setFont("helvetica", "normal");
-      doc.text(String(row.count), rx + divColWidths[1]/2, analysisY + 4, { align: "center" });
+      doc.text(String(row.count), rx + divColWidths[1] / 2, analysisY + 4, { align: "center" });
       rx += divColWidths[1];
-      doc.text(divTotal > 0 ? ((row.count / divTotal) * 100).toFixed(1) + '%' : '0%', rx + divColWidths[2]/2, analysisY + 4, { align: "center" });
+      doc.text(divTotal > 0 ? ((row.count / divTotal) * 100).toFixed(1) + '%' : '0%', rx + divColWidths[2] / 2, analysisY + 4, { align: "center" });
       rx += divColWidths[2];
       doc.text(row.status, rx + 2, analysisY + 4);
       analysisY += 6;
@@ -1022,9 +1022,9 @@ export const P7ExamSets: React.FC = () => {
     let rx = divTableStartX;
     doc.text("TOTAL", rx + 2, analysisY + 4);
     rx += divColWidths[0];
-    doc.text(String(divTotal), rx + divColWidths[1]/2, analysisY + 4, { align: "center" });
+    doc.text(String(divTotal), rx + divColWidths[1] / 2, analysisY + 4, { align: "center" });
     rx += divColWidths[1];
-    doc.text("100%", rx + divColWidths[2]/2, analysisY + 4, { align: "center" });
+    doc.text("100%", rx + divColWidths[2] / 2, analysisY + 4, { align: "center" });
     rx += divColWidths[2];
     doc.text(`Pass Rate: ${passRate}%`, rx + 2, analysisY + 4);
     analysisY += 12;
@@ -1041,7 +1041,7 @@ export const P7ExamSets: React.FC = () => {
       const min = marks.length ? Math.min(...marks) : 0;
       const sum = marks.reduce((a, b) => a + b, 0);
       const avg = marks.length ? Math.round(sum / marks.length) : 0;
-      const grade = calculateGrade(avg);
+      const grade = calculateGrade(avg, settings?.gradingConfig);
       const passCountSub = marks.filter(m => m >= 40).length;
       const passPercent = marks.length ? ((passCountSub / marks.length) * 100).toFixed(0) + '%' : '0%';
       return { subject: subjectNames[sub], entries: marks.length, avg, grade: grade.grade, max, min, passPercent };
@@ -1049,7 +1049,7 @@ export const P7ExamSets: React.FC = () => {
 
     const statsColWidths = [30, 20, 20, 18, 20, 20, 20];
     const statsTableWidth = statsColWidths.reduce((a, b) => a + b, 0);
-    
+
     doc.setFillColor(colors.darkBlue[0], colors.darkBlue[1], colors.darkBlue[2]);
     doc.rect(margin, analysisY, statsTableWidth, 7, 'F');
     doc.setTextColor(255, 255, 255);
@@ -1057,7 +1057,7 @@ export const P7ExamSets: React.FC = () => {
     doc.setFontSize(7);
     let sx = margin;
     ['SUBJECT', 'ENTRIES', 'AVERAGE', 'GRADE', 'HIGHEST', 'LOWEST', 'PASS %'].forEach((h, i) => {
-      doc.text(h, sx + (i === 0 ? 2 : statsColWidths[i]/2), analysisY + 5, i === 0 ? undefined : { align: "center" });
+      doc.text(h, sx + (i === 0 ? 2 : statsColWidths[i] / 2), analysisY + 5, i === 0 ? undefined : { align: "center" });
       sx += statsColWidths[i];
     });
     analysisY += 7;
@@ -1069,7 +1069,7 @@ export const P7ExamSets: React.FC = () => {
       }
       doc.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
       doc.line(margin, analysisY + 6, margin + statsTableWidth, analysisY + 6);
-      
+
       doc.setFont("helvetica", "bold");
       doc.setFontSize(7);
       doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
@@ -1077,22 +1077,22 @@ export const P7ExamSets: React.FC = () => {
       doc.text(stat.subject, stx + 2, analysisY + 4);
       stx += statsColWidths[0];
       doc.setFont("helvetica", "normal");
-      doc.text(String(stat.entries), stx + statsColWidths[1]/2, analysisY + 4, { align: "center" });
+      doc.text(String(stat.entries), stx + statsColWidths[1] / 2, analysisY + 4, { align: "center" });
       stx += statsColWidths[1];
-      doc.text(String(stat.avg), stx + statsColWidths[2]/2, analysisY + 4, { align: "center" });
+      doc.text(String(stat.avg), stx + statsColWidths[2] / 2, analysisY + 4, { align: "center" });
       stx += statsColWidths[2];
       const gradeColor = ['D1', 'D2'].includes(stat.grade) ? colors.divI : ['C3', 'C4', 'C5', 'C6'].includes(stat.grade) ? colors.divII : ['P7', 'P8'].includes(stat.grade) ? colors.divIII : colors.divU;
       doc.setTextColor(gradeColor[0], gradeColor[1], gradeColor[2]);
       doc.setFont("helvetica", "bold");
-      doc.text(stat.grade, stx + statsColWidths[3]/2, analysisY + 4, { align: "center" });
+      doc.text(stat.grade, stx + statsColWidths[3] / 2, analysisY + 4, { align: "center" });
       doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
       doc.setFont("helvetica", "normal");
       stx += statsColWidths[3];
-      doc.text(String(stat.max), stx + statsColWidths[4]/2, analysisY + 4, { align: "center" });
+      doc.text(String(stat.max), stx + statsColWidths[4] / 2, analysisY + 4, { align: "center" });
       stx += statsColWidths[4];
-      doc.text(String(stat.min), stx + statsColWidths[5]/2, analysisY + 4, { align: "center" });
+      doc.text(String(stat.min), stx + statsColWidths[5] / 2, analysisY + 4, { align: "center" });
       stx += statsColWidths[5];
-      doc.text(stat.passPercent, stx + statsColWidths[6]/2, analysisY + 4, { align: "center" });
+      doc.text(stat.passPercent, stx + statsColWidths[6] / 2, analysisY + 4, { align: "center" });
       analysisY += 6;
     });
     analysisY += 8;
@@ -1106,7 +1106,7 @@ export const P7ExamSets: React.FC = () => {
     const top5 = studentsWithMarks.slice(0, 5);
     const topColWidths = [15, 60, 30, 25, 20, 25];
     const topTableWidth = topColWidths.reduce((a, b) => a + b, 0);
-    
+
     doc.setFillColor(212, 175, 55);
     doc.rect(margin, analysisY, topTableWidth, 7, 'F');
     doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
@@ -1114,7 +1114,7 @@ export const P7ExamSets: React.FC = () => {
     doc.setFontSize(7);
     let tx = margin;
     ['POS', 'STUDENT NAME', 'STREAM', 'TOTAL', 'AGG', 'DIVISION'].forEach((h, i) => {
-      doc.text(h, tx + (i === 1 ? 2 : topColWidths[i]/2), analysisY + 5, i === 1 ? undefined : { align: "center" });
+      doc.text(h, tx + (i === 1 ? 2 : topColWidths[i] / 2), analysisY + 5, i === 1 ? undefined : { align: "center" });
       tx += topColWidths[i];
     });
     analysisY += 7;
@@ -1126,28 +1126,28 @@ export const P7ExamSets: React.FC = () => {
       }
       doc.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
       doc.line(margin, analysisY + 6, margin + topTableWidth, analysisY + 6);
-      
+
       const posColor = idx === 0 ? [212, 175, 55] : idx === 1 ? [156, 163, 175] : idx === 2 ? [180, 83, 9] : colors.text;
       doc.setTextColor(posColor[0], posColor[1], posColor[2]);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(7);
       let ttx = margin;
-      doc.text(String(item.position || idx + 1), ttx + topColWidths[0]/2, analysisY + 4, { align: "center" });
+      doc.text(String(item.position || idx + 1), ttx + topColWidths[0] / 2, analysisY + 4, { align: "center" });
       ttx += topColWidths[0];
       doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
       doc.text(item.student.name.substring(0, 32), ttx + 2, analysisY + 4);
       ttx += topColWidths[1];
       doc.setFont("helvetica", "normal");
-      doc.text(item.student.stream || '-', ttx + topColWidths[2]/2, analysisY + 4, { align: "center" });
+      doc.text(item.student.stream || '-', ttx + topColWidths[2] / 2, analysisY + 4, { align: "center" });
       ttx += topColWidths[2];
       doc.setFont("helvetica", "bold");
-      doc.text(String(item.total), ttx + topColWidths[3]/2, analysisY + 4, { align: "center" });
+      doc.text(String(item.total), ttx + topColWidths[3] / 2, analysisY + 4, { align: "center" });
       ttx += topColWidths[3];
-      doc.text(String(item.aggregate), ttx + topColWidths[4]/2, analysisY + 4, { align: "center" });
+      doc.text(String(item.aggregate), ttx + topColWidths[4] / 2, analysisY + 4, { align: "center" });
       ttx += topColWidths[4];
       const topDivColor = item.division === 'I' ? colors.divI : item.division === 'II' ? colors.divII : item.division === 'III' ? colors.divIII : item.division === 'IV' ? colors.divIV : colors.divU;
       doc.setTextColor(topDivColor[0], topDivColor[1], topDivColor[2]);
-      doc.text(item.division, ttx + topColWidths[5]/2, analysisY + 4, { align: "center" });
+      doc.text(item.division, ttx + topColWidths[5] / 2, analysisY + 4, { align: "center" });
       analysisY += 6;
     });
     analysisY += 8;
@@ -1219,7 +1219,7 @@ export const P7ExamSets: React.FC = () => {
           <h1 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>P7 Exam Sets</h1>
           <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'} mt-1`}>Manage multiple exam sets for P7 class (up to 10 sets)</p>
         </div>
-        
+
         <div className="flex gap-2">
           <Button
             onClick={() => setActiveTab('sets')}
@@ -1259,11 +1259,10 @@ export const P7ExamSets: React.FC = () => {
       </div>
 
       {message && (
-        <div className={`p-3 rounded-lg text-sm font-medium ${
-          messageType === 'success' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+        <div className={`p-3 rounded-lg text-sm font-medium ${messageType === 'success' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
           messageType === 'error' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
-          'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-        }`}>
+            'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+          }`}>
           {message}
         </div>
       )}
@@ -1323,11 +1322,10 @@ export const P7ExamSets: React.FC = () => {
               {filteredSets.map(set => (
                 <div
                   key={set.id}
-                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                    selectedSet?.id === set.id
-                      ? 'border-[#7B1113] bg-[#7B1113]/5'
-                      : isDark ? 'border-gray-600 hover:border-gray-500' : 'border-gray-200 hover:border-gray-300'
-                  }`}
+                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${selectedSet?.id === set.id
+                    ? 'border-[#7B1113] bg-[#7B1113]/5'
+                    : isDark ? 'border-gray-600 hover:border-gray-500' : 'border-gray-200 hover:border-gray-300'
+                    }`}
                   onClick={() => {
                     setSelectedSet(set);
                     setActiveTab('marks');
@@ -1424,7 +1422,7 @@ export const P7ExamSets: React.FC = () => {
                     {filteredStudents.map((student, idx) => {
                       const { marks, aggregate, division, total } = getStudentResults(student.id!);
                       const pos = positions[student.id!];
-                      
+
                       return (
                         <tr key={student.id} className={`border-b ${isDark ? 'border-gray-700' : 'border-gray-100'} ${idx % 2 === 0 ? '' : isDark ? 'bg-gray-750' : 'bg-gray-50/50'}`}>
                           <td className="px-3 py-2 text-sm">{idx + 1}</td>
@@ -1434,7 +1432,7 @@ export const P7ExamSets: React.FC = () => {
                           </td>
                           {subjects.map(sub => {
                             const mark = (marks as any)[sub];
-                            const grade = calculateGrade(mark);
+                            const grade = calculateGrade(mark, settings?.gradingConfig);
                             return (
                               <td key={sub} className="px-1 py-1 text-center">
                                 <input
@@ -1512,7 +1510,7 @@ export const P7ExamSets: React.FC = () => {
                           <div className="grid grid-cols-2 gap-3 mb-4">
                             {subjects.map(sub => {
                               const mark = (marks as any)[sub];
-                              const grade = calculateGrade(mark);
+                              const grade = calculateGrade(mark, settings?.gradingConfig);
                               return (
                                 <div key={sub}>
                                   <label className={`block text-xs font-medium mb-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
@@ -1651,12 +1649,11 @@ export const P7ExamSets: React.FC = () => {
                     {analysisStats.topPerformers.map((performer: any, idx: number) => (
                       <tr key={performer.student.id} className={`border-b ${isDark ? 'border-gray-700' : 'border-gray-100'}`}>
                         <td className="px-3 py-2 text-sm">
-                          <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${
-                            idx === 0 ? 'bg-yellow-100 text-yellow-800' : 
-                            idx === 1 ? 'bg-gray-100 text-gray-800' : 
-                            idx === 2 ? 'bg-orange-100 text-orange-800' : 
-                            'bg-gray-50 text-gray-600'
-                          }`}>
+                          <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${idx === 0 ? 'bg-yellow-100 text-yellow-800' :
+                            idx === 1 ? 'bg-gray-100 text-gray-800' :
+                              idx === 2 ? 'bg-orange-100 text-orange-800' :
+                                'bg-gray-50 text-gray-600'
+                            }`}>
                             {idx + 1}
                           </span>
                         </td>
@@ -1809,7 +1806,7 @@ export const P7ExamSets: React.FC = () => {
                 <Icons.X className="w-5 h-5" />
               </button>
             </div>
-            
+
             <div className="space-y-4">
               <div>
                 <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Set Name *</label>
