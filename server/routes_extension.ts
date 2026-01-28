@@ -1,7 +1,9 @@
+
 import { Express } from "express";
 import { db } from "./db";
-import { eq, and, desc, sql, inArray } from "drizzle-orm";
-import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, users, financeTransactions, feeStructures, dormitories, dormRooms, beds, boardingRollCalls, leaveRequests } from "../shared/schema";
+import { eq, and, desc, sql, inArray, gt } from "drizzle-orm";
+
+import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, teacherAttendance, users, userSchools, feeStructures, financeTransactions, conversations, conversationParticipants, messages } from "../shared/schema";
 import { requireAuth, requireAdmin, requireSuperAdmin, getActiveSchoolId, hashPassword } from "./auth";
 
 export function registerExtendedRoutes(app: Express) {
@@ -43,7 +45,7 @@ export function registerExtendedRoutes(app: Express) {
                             studentId: stu.id,
                             transactionType: 'debit',
                             amount: s.amount,
-                            description: `Term Fees - ${s.feeType}`,
+                            description: `Term Fees - ${s.feeType} `,
                             term: s.term || 1,
                             year: s.year || new Date().getFullYear(),
                             transactionDate: today
@@ -120,10 +122,10 @@ export function registerExtendedRoutes(app: Express) {
             if (isNaN(studentId)) return res.status(400).json({ message: "Invalid key" });
 
             const transactionsAsc = await db.execute(sql`
-                    SELECT 
-                        *,
-                        SUM(CASE WHEN transaction_type = 'debit' THEN amount ELSE -amount END) 
-                        OVER (ORDER BY transaction_date ASC, id ASC) as running_balance
+SELECT
+    *,
+    SUM(CASE WHEN transaction_type = 'debit' THEN amount ELSE - amount END)
+OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                     FROM finance_transactions
                     WHERE student_id = ${studentId} AND school_id = ${schoolId}
                     ORDER BY transaction_date ASC, id ASC
@@ -254,7 +256,7 @@ export function registerExtendedRoutes(app: Express) {
                 const currentYearDob = new Date(today.getFullYear(), d.getMonth(), d.getDate());
                 return currentYearDob >= today && currentYearDob <= nextWeek;
             }).map(s => ({
-                title: `${s.name}'s Birthday`,
+                title: `${s.name} 's Birthday`,
                 date: new Date(today.getFullYear(), new Date(s.dob!).getMonth(), new Date(s.dob!).getDate()).toISOString(),
                 type: 'birthday'
             })).slice(0, 5);
@@ -398,6 +400,295 @@ export function registerExtendedRoutes(app: Express) {
         }
     });
 
+
+    // --- Messaging Extensions ---
+
+    app.get("/api/conversations/unread-count", requireAuth, async (req, res) => {
+        try {
+            if (!req.user) return res.sendStatus(401);
+
+            const result = await db.select({ count: sql<number>`count(*)` })
+                .from(conversationParticipants)
+                .innerJoin(conversations, eq(conversationParticipants.conversationId, conversations.id))
+                .where(and(
+                    eq(conversationParticipants.userId, req.user.id),
+                    eq(conversationParticipants.isArchived, false),
+                    sql`${conversations.lastMessageAt} > ${conversationParticipants.lastReadAt} OR ${conversationParticipants.lastReadAt} IS NULL`
+                ));
+
+            res.json({ unreadCount: Number(result[0]?.count || 0) });
+        } catch (error: any) {
+            console.error("Unread count error:", error);
+            res.status(500).json({ message: "Failed to count unread messages" });
+        }
+    });
+
+    // List users for messaging (in same school)
+    app.get("/api/messaging/users", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school" });
+
+            // Get users linked to this school (teachers, admins)
+            const usersInSchool = await db.select({
+                id: users.id,
+                name: users.name,
+                role: users.role,
+                email: users.email
+            })
+                .from(userSchools)
+                .innerJoin(users, eq(userSchools.userId, users.id))
+                .where(eq(userSchools.schoolId, schoolId));
+
+            // Filter out current user
+            const filtered = usersInSchool.filter(u => u.id !== req.user!.id);
+            res.json(filtered);
+        } catch (error: any) {
+            console.error("Fetch users error:", error);
+            res.status(500).json({ message: "Failed to fetch users" });
+        }
+    });
+
+    // Get all conversations for current user
+    app.get("/api/conversations", requireAuth, async (req, res) => {
+        try {
+            if (!req.user) return res.sendStatus(401);
+
+            // Get conversation IDs for user
+            const myConvos = await db.select().from(conversationParticipants)
+                .where(eq(conversationParticipants.userId, req.user.id));
+
+            const conversationIds = myConvos.map(c => c.conversationId);
+
+            if (conversationIds.length === 0) return res.json([]);
+
+            // Get conversations details
+            const convos = await db.select().from(conversations)
+                .where(inArray(conversations.id, conversationIds))
+                .orderBy(desc(conversations.lastMessageAt));
+
+            // Fetch participants and last message for each
+            const results = await Promise.all(convos.map(async (conv) => {
+                const parts = await db.select({
+                    id: users.id,
+                    name: users.name,
+                    role: users.role
+                })
+                    .from(conversationParticipants)
+                    .innerJoin(users, eq(conversationParticipants.userId, users.id))
+                    .where(eq(conversationParticipants.conversationId, conv.id));
+
+                const lastMsg = await db.select().from(messages)
+                    .where(eq(messages.conversationId, conv.id))
+                    .orderBy(desc(messages.createdAt))
+                    .limit(1);
+
+                // Calculate unread
+                const myPart = myConvos.find(c => c.conversationId === conv.id);
+                let unreadCount = 0;
+                if (myPart) {
+                    const unread = await db.select({ count: sql<number>`count(*)` })
+                        .from(messages)
+                        .where(and(
+                            eq(messages.conversationId, conv.id),
+                            // messages newer than read time
+                            myPart.lastReadAt ? gt(messages.createdAt, myPart.lastReadAt) : sql`1=1`
+                        ));
+                    unreadCount = Number(unread[0]?.count || 0);
+                }
+
+                return {
+                    ...conv,
+                    participants: parts,
+                    lastMessage: lastMsg[0] || null,
+                    unreadCount
+                };
+            }));
+
+            res.json(results);
+        } catch (error: any) {
+            console.error("Fetch conversations error:", error);
+            res.status(500).json({ message: "Failed to fetch conversations" });
+        }
+    });
+
+    // Create new conversation
+    app.post("/api/conversations", requireAuth, async (req, res) => {
+        try {
+            const { subject, participantIds, initialMessage, type } = req.body;
+            const schoolId = getActiveSchoolId(req);
+
+            if (!schoolId) return res.status(400).json({ message: "No active school" });
+            if (!subject || !participantIds || !initialMessage) {
+                return res.status(400).json({ message: "Missing required fields" });
+            }
+
+            const senderId = req.user!.id;
+
+            // Create conversation
+            const [newConv] = await db.insert(conversations).values({
+                schoolId,
+                subject,
+                type: type || 'direct',
+                createdById: senderId,
+                lastMessageAt: new Date()
+            }).returning();
+
+            // Add participants (sender + recipients)
+            const allParticipants = [...new Set([senderId, ...participantIds])];
+
+            await db.insert(conversationParticipants).values(
+                allParticipants.map((uid: number) => ({
+                    conversationId: newConv.id,
+                    userId: uid,
+                    joinedAt: new Date(),
+                    lastReadAt: uid === senderId ? new Date() : null // Sender has read it
+                }))
+            );
+
+            // Create initial message
+            await db.insert(messages).values({
+                conversationId: newConv.id,
+                senderId: senderId,
+                content: initialMessage,
+                createdAt: new Date()
+            });
+
+            res.status(201).json(newConv);
+        } catch (error: any) {
+            console.error("Create conversation error:", error);
+            res.status(500).json({ message: "Failed to create conversation" });
+        }
+    });
+
+    // Get single conversation
+    app.get("/api/conversations/:id", requireAuth, async (req, res) => {
+        try {
+            const convId = parseInt(req.params.id);
+            if (isNaN(convId)) return res.status(400).json({ message: "Invalid ID" });
+
+            // Verify access
+            const access = await db.select().from(conversationParticipants)
+                .where(and(eq(conversationParticipants.conversationId, convId), eq(conversationParticipants.userId, req.user!.id)));
+
+            if (access.length === 0) return res.status(403).json({ message: "Access denied" });
+
+            const [conv] = await db.select().from(conversations).where(eq(conversations.id, convId));
+            if (!conv) return res.status(404).json({ message: "Conversation not found" });
+
+            const participants = await db.select({
+                id: users.id,
+                name: users.name,
+                role: users.role
+            })
+                .from(conversationParticipants)
+                .innerJoin(users, eq(conversationParticipants.userId, users.id))
+                .where(eq(conversationParticipants.conversationId, convId));
+
+            res.json({ ...conv, participants });
+        } catch (error: any) {
+            console.error("Get conversation error:", error);
+            res.status(500).json({ message: "Failed to fetch conversation" });
+        }
+    });
+
+    // Get messages for conversation
+    app.get("/api/conversations/:id/messages", requireAuth, async (req, res) => {
+        try {
+            const convId = parseInt(req.params.id);
+            if (isNaN(convId)) return res.status(400).json({ message: "Invalid ID" });
+
+            // Verify access
+            const access = await db.select().from(conversationParticipants)
+                .where(and(eq(conversationParticipants.conversationId, convId), eq(conversationParticipants.userId, req.user!.id)));
+
+            if (access.length === 0) return res.status(403).json({ message: "Access denied" });
+
+            const msgs = await db.select({
+                id: messages.id,
+                conversationId: messages.conversationId,
+                senderId: messages.senderId,
+                content: messages.content,
+                createdAt: messages.createdAt,
+                sender: {
+                    id: users.id,
+                    name: users.name,
+                    role: users.role
+                }
+            })
+                .from(messages)
+                .innerJoin(users, eq(messages.senderId, users.id))
+                .where(eq(messages.conversationId, convId))
+                .orderBy(sql`${messages.createdAt} ASC`); // Oldest first for chat
+
+            res.json(msgs);
+        } catch (error: any) {
+            console.error("Get messages error:", error);
+            res.status(500).json({ message: "Failed to fetch messages" });
+        }
+    });
+
+    // Send message
+    app.post("/api/conversations/:id/messages", requireAuth, async (req, res) => {
+        try {
+            const convId = parseInt(req.params.id);
+            if (isNaN(convId)) return res.status(400).json({ message: "Invalid ID" });
+            const { content } = req.body;
+            if (!content) return res.status(400).json({ message: "Message content required" });
+
+            // Verify access
+            const access = await db.select().from(conversationParticipants)
+                .where(and(eq(conversationParticipants.conversationId, convId), eq(conversationParticipants.userId, req.user!.id)));
+
+            if (access.length === 0) return res.status(403).json({ message: "Access denied" });
+
+            // Insert message
+            const [newMsg] = await db.insert(messages).values({
+                conversationId: convId,
+                senderId: req.user!.id,
+                content,
+                createdAt: new Date()
+            }).returning();
+
+            // Update conversation timestamp
+            await db.update(conversations)
+                .set({ lastMessageAt: new Date() })
+                .where(eq(conversations.id, convId));
+
+            // Populate sender info for return
+            const sender = await db.select({
+                id: users.id,
+                name: users.name,
+                role: users.role
+            }).from(users).where(eq(users.id, req.user!.id));
+
+            res.json({ ...newMsg, sender: sender[0] });
+        } catch (error: any) {
+            console.error("Send message error:", error);
+            res.status(500).json({ message: "Failed to send message" });
+        }
+    });
+
+    // Mark as read
+    app.post("/api/conversations/:id/read", requireAuth, async (req, res) => {
+        try {
+            const convId = parseInt(req.params.id);
+            if (isNaN(convId)) return res.status(400).json({ message: "Invalid ID" });
+
+            await db.update(conversationParticipants)
+                .set({ lastReadAt: new Date() })
+                .where(and(
+                    eq(conversationParticipants.conversationId, convId),
+                    eq(conversationParticipants.userId, req.user!.id)
+                ));
+
+            res.json({ success: true });
+        } catch (error: any) {
+            console.error("Read mark error:", error);
+            res.status(500).json({ message: "Failed to mark as read" });
+        }
+    });
+
     app.post("/api/students/promote", requireAuth, async (req, res) => {
         // Placeholder
         res.json({ promotedCount: 0, graduatedCount: 0, skippedCount: 0, message: "Promotion logic placeholder" });
@@ -457,10 +748,13 @@ export function registerExtendedRoutes(app: Express) {
                 return res.status(403).json({ message: "Unauthorized to update this school" });
             }
 
+            // Exclude system fields that shouldn't be updated directly or might cause type issues (e.g., date strings vs Date objects)
+            const { id, createdAt, updatedAt, ...updateData } = req.body;
+
             const updated = await db.update(schools)
                 .set({
-                    ...req.body,
-                    // Sanitize or ensure we don't overwrite ID 
+                    ...updateData,
+                    updatedAt: new Date()
                 })
                 .where(eq(schools.id, schoolId))
                 .returning();
@@ -1184,15 +1478,15 @@ export function registerExtendedRoutes(app: Express) {
                 id: users.id,
                 username: users.username,
                 name: users.name,
-                role: userSchoolRoles.role,
+                role: userSchools.role,
                 email: users.email,
                 phone: users.phone,
                 isSuperAdmin: users.isSuperAdmin,
                 createdAt: users.createdAt
             })
                 .from(users)
-                .leftJoin(userSchoolRoles, and(eq(userSchoolRoles.userId, users.id), eq(userSchoolRoles.schoolId, schoolId)))
-                .where(eq(userSchoolRoles.schoolId, schoolId));
+                .leftJoin(userSchools, and(eq(userSchools.userId, users.id), eq(userSchools.schoolId, schoolId)))
+                .where(eq(userSchools.schoolId, schoolId));
 
             res.json(schoolUsers);
         } catch (error: any) {
@@ -1207,16 +1501,16 @@ export function registerExtendedRoutes(app: Express) {
             const userId = parseInt(req.params.id);
 
             const assignments = await db.select({
-                schoolId: userSchoolRoles.schoolId,
+                schoolId: userSchools.schoolId,
                 schoolName: schools.name,
                 schoolCode: schools.code,
-                role: userSchoolRoles.role,
-                isPrimary: userSchoolRoles.isPrimary,
-                isActive: userSchoolRoles.isActive
+                role: userSchools.role,
+                isPrimary: userSchools.isPrimary,
+                isActive: userSchools.isActive
             })
-                .from(userSchoolRoles)
-                .leftJoin(schools, eq(schools.id, userSchoolRoles.schoolId))
-                .where(eq(userSchoolRoles.userId, userId));
+                .from(userSchools)
+                .leftJoin(schools, eq(schools.id, userSchools.schoolId))
+                .where(eq(userSchools.userId, userId));
 
             res.json(assignments);
         } catch (error: any) {
@@ -1232,18 +1526,18 @@ export function registerExtendedRoutes(app: Express) {
             const { schoolId, role, isPrimary } = req.body;
 
             // Check if assignment already exists
-            const existing = await db.select().from(userSchoolRoles)
-                .where(and(eq(userSchoolRoles.userId, userId), eq(userSchoolRoles.schoolId, schoolId)))
+            const existing = await db.select().from(userSchools)
+                .where(and(eq(userSchools.userId, userId), eq(userSchools.schoolId, schoolId)))
                 .limit(1);
 
             if (existing.length > 0) {
                 // Update existing
-                await db.update(userSchoolRoles)
+                await db.update(userSchools)
                     .set({ role, isPrimary: isPrimary || false, isActive: true })
-                    .where(and(eq(userSchoolRoles.userId, userId), eq(userSchoolRoles.schoolId, schoolId)));
+                    .where(and(eq(userSchools.userId, userId), eq(userSchools.schoolId, schoolId)));
             } else {
                 // Create new assignment
-                await db.insert(userSchoolRoles).values({
+                await db.insert(userSchools).values({
                     userId,
                     schoolId,
                     role,
@@ -1265,8 +1559,8 @@ export function registerExtendedRoutes(app: Express) {
             const userId = parseInt(req.params.id);
             const schoolId = parseInt(req.params.schoolId);
 
-            await db.delete(userSchoolRoles)
-                .where(and(eq(userSchoolRoles.userId, userId), eq(userSchoolRoles.schoolId, schoolId)));
+            await db.delete(userSchools)
+                .where(and(eq(userSchools.userId, userId), eq(userSchools.schoolId, schoolId)));
 
             res.json({ message: "User removed from school successfully" });
         } catch (error: any) {
@@ -1316,7 +1610,7 @@ export function registerExtendedRoutes(app: Express) {
             }).returning();
 
             // Assign user to current school
-            await db.insert(userSchoolRoles).values({
+            await db.insert(userSchools).values({
                 userId: newUser.id,
                 schoolId,
                 role: role || "teacher",
@@ -1349,9 +1643,9 @@ export function registerExtendedRoutes(app: Express) {
             // Update role in school assignment too
             const schoolId = getActiveSchoolId(req);
             if (schoolId) {
-                await db.update(userSchoolRoles)
+                await db.update(userSchools)
                     .set({ role })
-                    .where(and(eq(userSchoolRoles.userId, userId), eq(userSchoolRoles.schoolId, schoolId)));
+                    .where(and(eq(userSchools.userId, userId), eq(userSchools.schoolId, schoolId)));
             }
 
             res.json({ message: "User updated successfully" });
@@ -1367,7 +1661,7 @@ export function registerExtendedRoutes(app: Express) {
             const userId = parseInt(req.params.id);
 
             // Remove all school assignments first
-            await db.delete(userSchoolRoles).where(eq(userSchoolRoles.userId, userId));
+            await db.delete(userSchools).where(eq(userSchools.userId, userId));
 
             // Delete the user
             await db.delete(users).where(eq(users.id, userId));
