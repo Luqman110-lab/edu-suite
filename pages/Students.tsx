@@ -12,7 +12,7 @@ import { StudentFormWizard } from '../components/StudentFormWizard';
 import { AttendanceSummaryCard, PerformanceTrendCard, BirthdayBadge } from '../components/StudentProfileCards';
 const FaceEnrollment = React.lazy(() => import('../client/src/components/FaceEnrollment'));
 
-const ITEMS_PER_PAGE = 25;
+const ITEMS_PER_PAGE = 100;
 
 const ProfileHeader = ({ student, onEdit, onBack, onPrintID, onEnrollFace, hasFaceEnrolled, isDark }: { student: Student; onEdit: () => void; onBack: () => void; onPrintID: () => void; onEnrollFace: () => void; hasFaceEnrolled: boolean; isDark: boolean }) => (
   <div className={`rounded-lg shadow-sm border overflow-hidden mb-6 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
