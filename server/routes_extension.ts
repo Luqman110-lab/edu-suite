@@ -1,7 +1,73 @@
 
 import { Express } from "express";
 import { db } from "./db";
-import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, teacherAttendance, classes, streams, users, userSchools } from "../shared/schema";
+import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, teacherAttendance, classes, streams, users, userSchools, financeTransactions } from "../shared/schema";
+
+// ... existing code ...
+
+app.post("/api/expense-categories", requireAuth, async (req, res) => {
+    try {
+        const schoolId = getActiveSchoolId(req);
+        if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+        const { name, color, description } = req.body;
+
+        const newCategory = await db.insert(expenseCategories).values({
+            schoolId,
+            name,
+            color: color || '#6554C0',
+            description
+        }).returning();
+
+        res.json(newCategory[0]);
+    } catch (error: any) {
+        console.error("Create expense category error:", error);
+        res.status(500).json({ message: "Failed to create expense category: " + error.message });
+    }
+});
+
+app.get("/api/finance-transactions/:studentId", requireAuth, async (req, res) => {
+    try {
+        const schoolId = getActiveSchoolId(req);
+        if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+        const studentId = parseInt(req.params.studentId);
+        if (isNaN(studentId)) return res.status(400).json({ message: "Invalid key" });
+
+        // Using Window Function for Running Balance as requested
+        const transactions = await db.execute(sql`
+                SELECT 
+                    *,
+                    SUM(CASE WHEN transaction_type = 'debit' THEN amount ELSE -amount END) 
+                    OVER (ORDER BY transaction_date ASC, id ASC) as running_balance
+                FROM finance_transactions
+                WHERE student_id = ${studentId} AND school_id = ${schoolId}
+                ORDER BY transaction_date DESC, id DESC
+            `);
+
+        // Note: client wants chronological to see history? 
+        // "Sort the list chronologically so I can see the history from two years ago up to today."
+        // So ORDER BY transaction_date ASC.
+        // But usually ledgers are shown newest first? "from two years ago up to today" implies ASC.
+        // I offered DESC in my SQL previously. Let's stick to user request: "history from two years ago up to today" -> ASC.
+
+        // Re-running with correct sort for display (though window function needs its own order, usually match)
+        const transactionsAsc = await db.execute(sql`
+                SELECT 
+                    *,
+                    SUM(CASE WHEN transaction_type = 'debit' THEN amount ELSE -amount END) 
+                    OVER (ORDER BY transaction_date ASC, id ASC) as running_balance
+                FROM finance_transactions
+                WHERE student_id = ${studentId} AND school_id = ${schoolId}
+                ORDER BY transaction_date ASC, id ASC
+            `);
+
+        res.json(transactionsAsc.rows);
+    } catch (error: any) {
+        console.error("Get finance transactions error:", error);
+        res.status(500).json({ message: "Failed to fetch transactions: " + error.message });
+    }
+});
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { requireAuth, requireAdmin, requireSuperAdmin, getActiveSchoolId, hashPassword } from "./auth";
 

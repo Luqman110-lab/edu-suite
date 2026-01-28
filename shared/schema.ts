@@ -797,7 +797,45 @@ export const insertFeeStructureSchema = createInsertSchema(feeStructures, {
 });
 export const selectFeeStructureSchema = createSelectSchema(feeStructures);
 export type FeeStructure = typeof feeStructures.$inferSelect;
+// ... previous code
 export type InsertFeeStructure = typeof feeStructures.$inferInsert;
+
+export const financeTransactions = pgTable("finance_transactions", {
+  id: serial("id").primaryKey(),
+  schoolId: integer("school_id").references(() => schools.id, { onDelete: "cascade" }),
+  studentId: integer("student_id").notNull().references(() => students.id, { onDelete: "cascade" }),
+  // 'debit' = charge (increases balance), 'credit' = payment (decreases balance)
+  transactionType: text("transaction_type").notNull(),
+  amount: integer("amount").notNull(),
+  description: text("description"),
+  term: integer("term").notNull(),
+  year: integer("year").notNull(),
+  transactionDate: text("transaction_date").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  schoolIdx: index("finance_transactions_school_idx").on(table.schoolId),
+  studentIdx: index("finance_transactions_student_idx").on(table.studentId),
+}));
+
+export const financeTransactionsRelations = relations(financeTransactions, ({ one }) => ({
+  school: one(schools, {
+    fields: [financeTransactions.schoolId],
+    references: [schools.id],
+  }),
+  student: one(students, {
+    fields: [financeTransactions.studentId],
+    references: [students.id],
+  }),
+}));
+
+export const insertFinanceTransactionSchema = createInsertSchema(financeTransactions, {
+  transactionType: z.enum(["debit", "credit"]),
+  amount: z.number().min(0, "Amount must be positive"),
+  transactionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
+});
+export const selectFinanceTransactionSchema = createSelectSchema(financeTransactions);
+export type FinanceTransaction = typeof financeTransactions.$inferSelect;
+export type InsertFinanceTransaction = typeof financeTransactions.$inferInsert;
 
 export const expenseCategories = pgTable("expense_categories", {
   id: serial("id").primaryKey(),

@@ -10,6 +10,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { StudentIDCard, BulkIDCardPrint } from '../components/StudentIDCard';
 import { StudentFormWizard } from '../components/StudentFormWizard';
 import { AttendanceSummaryCard, PerformanceTrendCard, BirthdayBadge } from '../components/StudentProfileCards';
+import { StudentLedger } from './components/StudentLedger';
 const FaceEnrollment = React.lazy(() => import('../client/src/components/FaceEnrollment'));
 
 const ITEMS_PER_PAGE = 100;
@@ -1624,6 +1625,10 @@ export const Students: React.FC = () => {
             schoolSettings={settings}
             isDark={isDark}
           />
+
+          <div className="mt-8">
+            <StudentLedger studentId={selectedStudent.id!} />
+          </div>
 
           <AcademicHistory studentId={selectedStudent.id!} isDark={isDark} />
         </div>
