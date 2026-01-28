@@ -9,7 +9,7 @@ async function handleResponse<T>(res: Response): Promise<T> {
     try {
       const json = JSON.parse(text);
       message = json.message || text;
-    } catch {}
+    } catch { }
     throw new Error(message);
   }
   if (res.status === 204) {
@@ -34,32 +34,32 @@ async function apiRequest<T>(
 
 export const authService = {
   getCurrentUser: () => apiRequest<AuthUser>('GET', '/user'),
-  
+
   login: (username: string, password: string) =>
     apiRequest<AuthUser>('POST', '/login', { username, password }),
-  
+
   register: (data: { username: string; password: string; name: string; role?: string; email?: string; phone?: string }) =>
     apiRequest<AuthUser>('POST', '/register', data),
-  
+
   logout: () => apiRequest<void>('POST', '/logout'),
-  
+
   switchSchool: (schoolId: number) =>
     apiRequest<AuthUser>('POST', '/switch-school', { schoolId }),
-  
+
   getSchools: () => apiRequest<School[]>('GET', '/schools'),
-  
+
   createSchool: (school: Partial<School>) =>
     apiRequest<School>('POST', '/schools', school),
-  
+
   updateSchool: (id: number, data: Partial<School>) =>
     apiRequest<School>('PUT', `/schools/${id}`, data),
-  
+
   deleteSchool: (id: number) =>
     apiRequest<void>('DELETE', `/schools/${id}`),
-  
+
   addUserToSchool: (schoolId: number, userId: number, role: string) =>
     apiRequest<void>('POST', `/schools/${schoolId}/users`, { userId, role }),
-  
+
   removeUserFromSchool: (schoolId: number, userId: number) =>
     apiRequest<void>('DELETE', `/schools/${schoolId}/users/${userId}`),
 };
@@ -118,38 +118,38 @@ export type { SchoolSettings, SecurityConfig, GradingConfig, SubjectConfig, Repo
 
 export const apiService = {
   getStudents: () => apiRequest<Student[]>('GET', '/students'),
-  
-  addStudent: (student: Omit<Student, 'id'>) => 
+
+  addStudent: (student: Omit<Student, 'id'>) =>
     apiRequest<Student>('POST', '/students', student),
-  
+
   addStudents: (students: Omit<Student, 'id'>[]) =>
     apiRequest<Student[]>('POST', '/students/batch', { students }),
-  
+
   updateStudent: (student: Student) =>
     apiRequest<Student>('PUT', `/students/${student.id}`, student),
-  
+
   deleteStudent: (id: number) =>
     apiRequest<void>('DELETE', `/students/${id}`),
-  
+
   deleteStudents: (ids: number[]) =>
     apiRequest<void>('DELETE', '/students', { ids }),
 
   getTeachers: () => apiRequest<Teacher[]>('GET', '/teachers'),
-  
+
   addTeacher: (teacher: Omit<Teacher, 'id'>) =>
     apiRequest<Teacher>('POST', '/teachers', teacher),
-  
+
   updateTeacher: (teacher: Teacher) =>
     apiRequest<Teacher>('PUT', `/teachers/${teacher.id}`, teacher),
-  
+
   deleteTeacher: (id: number) =>
     apiRequest<void>('DELETE', `/teachers/${id}`),
 
   getMarks: () => apiRequest<MarkRecord[]>('GET', '/marks'),
-  
+
   saveMark: (mark: Omit<MarkRecord, 'id'>) =>
     apiRequest<MarkRecord>('POST', '/marks', mark),
-  
+
   saveMarks: (marks: Omit<MarkRecord, 'id'>[]) =>
     apiRequest<MarkRecord[]>('POST', '/marks/batch', { marks }),
 
@@ -182,7 +182,7 @@ export const apiService = {
       },
     };
   },
-  
+
   saveSettings: (settings: SchoolSettings) =>
     apiRequest<SchoolSettings>('PUT', '/settings', settings),
 
@@ -249,7 +249,7 @@ export const apiService = {
 
   importData: async (jsonContent: string) => {
     const data = JSON.parse(jsonContent);
-    
+
     const idMapping: { [oldId: number]: number } = {};
 
     if (data.students && data.students.length > 0) {
@@ -262,14 +262,14 @@ export const apiService = {
         }
       }
     }
-    
+
     if (data.teachers && data.teachers.length > 0) {
       for (const t of data.teachers) {
         const { id, ...teacherWithoutId } = t;
         await apiService.addTeacher(teacherWithoutId);
       }
     }
-    
+
     if (data.marks && data.marks.length > 0) {
       const updatedMarks = data.marks.map((mark: any) => {
         const { id, ...markWithoutId } = mark;
@@ -279,32 +279,32 @@ export const apiService = {
         }
         return null;
       }).filter(Boolean);
-      
+
       if (updatedMarks.length > 0) {
         await apiService.saveMarks(updatedMarks);
       }
     }
-    
+
     if (data.settings && data.settings.length > 0) {
       await apiService.saveSettings(data.settings[0]);
     }
   },
 
-  mergeData: async (jsonContent: string, options: { 
-    updateStudentNames?: boolean; 
+  mergeData: async (jsonContent: string, options: {
+    updateStudentNames?: boolean;
     addNewStudents?: boolean;
     addNewTeachers?: boolean;
     skipMarks?: boolean;
   } = {}) => {
-    const { 
-      updateStudentNames = true, 
+    const {
+      updateStudentNames = true,
       addNewStudents = true,
       addNewTeachers = true,
-      skipMarks = true 
+      skipMarks = true
     } = options;
 
     const data = JSON.parse(jsonContent);
-    
+
     const stats = {
       studentsAdded: 0,
       studentsUpdated: 0,
@@ -353,7 +353,7 @@ export const apiService = {
       if (studentsToAdd.length > 0) {
         await apiService.addStudents(studentsToAdd);
       }
-      
+
       if (studentsToUpdate.length > 0) {
         await apiRequest<void>('PUT', '/students/batch', { students: studentsToUpdate });
       }
@@ -381,7 +381,7 @@ export const apiService = {
 
     if (data.marks && data.marks.length > 0 && !skipMarks) {
       const existingMarks = await apiService.getMarks();
-      const existingKeys = new Set(existingMarks.map(m => 
+      const existingKeys = new Set(existingMarks.map(m =>
         `${m.studentId}-${m.year}-${m.term}-${m.type}`
       ));
 
@@ -396,7 +396,7 @@ export const apiService = {
           stats.skipped++;
         }
       }
-      
+
       if (newMarks.length > 0) {
         await apiService.saveMarks(newMarks);
       }

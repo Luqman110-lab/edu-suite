@@ -27,6 +27,40 @@ export default function FeeStructures() {
   const [saving, setSaving] = useState(false);
   const [filterYear, setFilterYear] = useState(new Date().getFullYear());
   const [filterClass, setFilterClass] = useState('');
+  const [generating, setGenerating] = useState(false);
+
+  const handleGenerateInvoices = async () => {
+    if (!confirm(`Generate invoices for Term ${form.term || 'current'} ${filterYear}? This will create debit transactions for all active students based on these fee structures.`)) return;
+
+    setGenerating(true);
+    try {
+      // Default to Term 1 if not set in form, or maybe ask user? 
+      // For now, let's assume Term 1 if not specified, or use the Settings context if available (todo).
+      // Actually, let's use a hardcoded term or just 1 for now to match the "form" state which relies on manual input
+      const termToUse = form.term ? parseInt(form.term) : 1;
+
+      const res = await fetch('/api/finance/generate-invoices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          term: termToUse,
+          year: filterYear
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        alert(data.message);
+      } else {
+        alert('Failed: ' + data.message);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error');
+    }
+    setGenerating(false);
+  };
 
   const [form, setForm] = useState({
     classLevel: 'P1',
@@ -144,7 +178,12 @@ export default function FeeStructures() {
           <h1 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Fee Structures</h1>
           <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Define fees per class, term, and year</p>
         </div>
-        <Button onClick={() => setShowModal(true)}>Add Fee Structure</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleGenerateInvoices} disabled={generating}>
+            {generating ? 'Processing...' : 'Generate Invoices'}
+          </Button>
+          <Button onClick={() => setShowModal(true)}>Add Fee Structure</Button>
+        </div>
       </div>
 
       <div className="flex gap-4 items-center">
@@ -176,7 +215,7 @@ export default function FeeStructures() {
           const classStructures = groupedByClass[cls];
           if (filterClass && filterClass !== cls) return null;
           const total = classStructures.reduce((sum, s) => sum + s.amount, 0);
-          
+
           return (
             <div key={cls} className={`rounded-xl ${isDark ? 'bg-gray-800' : 'bg-white'} shadow-sm overflow-hidden`}>
               <div className={`px-6 py-4 border-b ${isDark ? 'border-gray-700 bg-gray-700/50' : 'border-gray-200 bg-gray-50'}`}>

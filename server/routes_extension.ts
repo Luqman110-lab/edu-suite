@@ -3,7 +3,7 @@ import { Express } from "express";
 import { db } from "./db";
 import { eq, and, desc, sql, inArray, gt } from "drizzle-orm";
 
-import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, teacherAttendance, users, userSchools, feeStructures, financeTransactions, conversations, conversationParticipants, messages } from "../shared/schema";
+import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, teacherAttendance, users, userSchools, feeStructures, financeTransactions, conversations, conversationParticipants, messages, promotionHistory } from "../shared/schema";
 import { requireAuth, requireAdmin, requireSuperAdmin, getActiveSchoolId, hashPassword } from "./auth";
 
 export function registerExtendedRoutes(app: Express) {
@@ -192,15 +192,30 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                 amount: feePayments.amountPaid
             }).from(feePayments).where(and(eq(feePayments.schoolId, schoolId), eq(feePayments.isDeleted, false)));
 
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
             const trends_map: Record<string, number> = {};
+
+            // Initialize all months with 0
+            months.forEach(m => trends_map[m] = 0);
+
             payments.forEach(p => {
-                const month = p.date ? new Date(p.date).toLocaleString('default', { month: 'short' }) : 'Unknown';
-                trends_map[month] = (trends_map[month] || 0) + Number(p.amount);
+                if (p.date) {
+                    const date = new Date(p.date);
+                    // Only include current year? Or last 12 months? Let's do current year for simplicity or specific logic
+                    // If date is valid
+                    if (!isNaN(date.getTime())) {
+                        const month = date.toLocaleString('default', { month: 'short' });
+                        trends_map[month] = (trends_map[month] || 0) + Number(p.amount);
+                    }
+                }
             });
 
-            // Ensure chronological order or handled by frontend? Frontend expects array. 
-            // We'll just return the mapped objects.
-            const data = Object.entries(trends_map).map(([name, revenue]) => ({ name, revenue, expenses: revenue * 0.4 })).slice(0, 12);
+            const data = months.map(name => ({
+                name,
+                revenue: trends_map[name] || 0,
+                expenses: (trends_map[name] || 0) * 0.4 // Still estimating expenses for now as we don't have expense dates linked well yet
+            }));
+
             res.json(data);
         } catch (error: any) {
             res.status(500).json({ message: error.message });
@@ -229,13 +244,57 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     });
 
     app.get("/api/dashboard/academic-performance", requireAuth, async (req, res) => {
-        // Mock data scoped to school not needed yet as it's static structure
-        res.json([
-            { subject: 'Math', average: 75 },
-            { subject: 'English', average: 82 },
-            { subject: 'Science', average: 68 },
-            { subject: 'SST', average: 71 }
-        ]);
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            // Get current school settings to determine term/year
+            const school = await db.query.schools.findFirst({
+                where: eq(schools.id, schoolId)
+            });
+
+            if (!school) return res.status(404).json({ message: "School not found" });
+
+            const currentTerm = school.currentTerm || 1;
+            const currentYear = school.currentYear || new Date().getFullYear();
+
+            // Fetch all marks for current term/year
+            const allMarks = await db.select().from(marks)
+                .where(and(
+                    eq(marks.schoolId, schoolId),
+                    eq(marks.term, currentTerm),
+                    eq(marks.year, currentYear)
+                ));
+
+            // Subjects to aggregate
+            const subjects = ['english', 'maths', 'science', 'sst', 'literacy1', 'literacy2'];
+            const totals: Record<string, { sum: number, count: number }> = {};
+
+            subjects.forEach(sub => totals[sub] = { sum: 0, count: 0 });
+
+            allMarks.forEach(record => {
+                const m = record.marks as any;
+                if (m) {
+                    subjects.forEach(sub => {
+                        const val = m[sub];
+                        if (typeof val === 'number') {
+                            totals[sub].sum += val;
+                            totals[sub].count++;
+                        }
+                    });
+                }
+            });
+
+            const data = subjects.map(sub => ({
+                subject: sub.charAt(0).toUpperCase() + sub.slice(1),
+                average: totals[sub].count > 0 ? Math.round(totals[sub].sum / totals[sub].count) : 0
+            })).filter(d => d.average > 0); // Only return subjects with data
+
+            res.json(data);
+        } catch (error: any) {
+            console.error("Academic performance error:", error);
+            res.status(500).json({ message: error.message });
+        }
     });
 
     app.get("/api/dashboard/upcoming-events", requireAuth, async (req, res) => {
@@ -690,8 +749,83 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     });
 
     app.post("/api/students/promote", requireAuth, async (req, res) => {
-        // Placeholder
-        res.json({ promotedCount: 0, graduatedCount: 0, skippedCount: 0, message: "Promotion logic placeholder" });
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            const { studentIds, targetStream } = req.body;
+            if (!Array.isArray(studentIds) || studentIds.length === 0) {
+                return res.status(400).json({ message: "No students selected for promotion" });
+            }
+
+            const activeStudents = await db.select().from(students)
+                .where(and(
+                    inArray(students.id, studentIds),
+                    eq(students.schoolId, schoolId)
+                ));
+
+            let promotedCount = 0;
+            let graduatedCount = 0;
+            let skippedCount = 0;
+
+            const classMap: Record<string, string> = {
+                'Baby': 'Middle', 'Middle': 'Top', 'Top': 'P1',
+                'P1': 'P2', 'P2': 'P3', 'P3': 'P4', 'P4': 'P5', 'P5': 'P6', 'P6': 'P7',
+                'P7': 'Alumni'
+            };
+
+            for (const student of activeStudents) {
+                const currentClass = student.classLevel;
+                const nextClass = classMap[currentClass];
+
+                if (!nextClass) {
+                    skippedCount++;
+                    continue;
+                }
+
+                const isGraduating = currentClass === 'P7';
+                const updates: any = {
+                    classLevel: nextClass,
+                    stream: targetStream || student.stream // Update stream if provided, else keep current
+                };
+
+                // If graduating, we might want to mark them as alumni or inactive?
+                // For now, we just move them to 'Alumni' class.
+                if (isGraduating) {
+                    graduatedCount++;
+                } else {
+                    promotedCount++;
+                }
+
+                await db.update(students)
+                    .set(updates)
+                    .where(eq(students.id, student.id));
+
+                // Record history
+                await db.insert(promotionHistory).values({
+                    schoolId,
+                    studentId: student.id,
+                    fromClass: currentClass,
+                    toClass: nextClass,
+                    fromStream: student.stream,
+                    toStream: updates.stream,
+                    academicYear: new Date().getFullYear(),
+                    term: 1, // Assuming promotion happens for Term 1
+                    promotedBy: req.user!.id
+                });
+            }
+
+            res.json({
+                promotedCount,
+                graduatedCount,
+                skippedCount,
+                message: `Successfully processed ${studentIds.length} students.`
+            });
+
+        } catch (error: any) {
+            console.error("Promotion error:", error);
+            res.status(500).json({ message: "Failed to promote students: " + error.message });
+        }
     });
 
     app.get("/api/face-embeddings", async (req, res) => {
@@ -1215,6 +1349,144 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         } catch (error: any) {
             console.error("Create expense category error:", error);
             res.status(500).json({ message: "Failed to create expense category: " + error.message });
+        }
+    });
+
+    // --- Fee Structures API ---
+
+    app.get("/api/fee-structures", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            const fees = await db.select().from(feeStructures)
+                .where(and(eq(feeStructures.schoolId, schoolId), eq(feeStructures.isActive, true)))
+                .orderBy(feeStructures.classLevel);
+
+            res.json(fees);
+        } catch (error: any) {
+            console.error("Get fee structures error:", error);
+            res.status(500).json({ message: "Failed to fetch fee structures: " + error.message });
+        }
+    });
+
+    app.post("/api/fee-structures", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            const { classLevel, feeType, amount, term, year, boardingStatus, description } = req.body;
+
+            const newFee = await db.insert(feeStructures).values({
+                schoolId,
+                classLevel,
+                feeType,
+                amount,
+                term,
+                year,
+                boardingStatus: boardingStatus || 'all',
+                description
+            }).returning();
+
+            res.json(newFee[0]);
+        } catch (error: any) {
+            console.error("Create fee structure error:", error);
+            res.status(500).json({ message: "Failed to create fee structure: " + error.message });
+        }
+    });
+
+    app.delete("/api/fee-structures/:id", requireAuth, async (req, res) => {
+        try {
+            const id = parseInt(req.params.id);
+            if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+
+            // Hard delete for now as it's configuration data, but check dependencies if needed
+            // OR soft delete
+            await db.update(feeStructures).set({ isActive: false }).where(eq(feeStructures.id, id));
+
+            res.json({ message: "Fee structure deleted" });
+        } catch (error: any) {
+            console.error("Delete fee structure error:", error);
+            res.status(500).json({ message: "Failed to delete fee structure: " + error.message });
+        }
+    });
+
+    // --- Invoice Generation (Debits) ---
+
+    app.post("/api/finance/generate-invoices", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            const { term, year, classLevel } = req.body;
+            if (!term || !year) return res.status(400).json({ message: "Term and Year are required" });
+
+            // 1. Get relevant Fee Structures
+            let feesQuery = db.select().from(feeStructures)
+                .where(and(
+                    eq(feeStructures.schoolId, schoolId),
+                    eq(feeStructures.term, term),
+                    eq(feeStructures.year, year),
+                    eq(feeStructures.isActive, true)
+                ));
+
+            if (classLevel) {
+                feesQuery = feesQuery.where(eq(feeStructures.classLevel, classLevel)); // If filtering by class
+            }
+
+            const relevantFees = await feesQuery;
+
+            if (relevantFees.length === 0) {
+                return res.status(400).json({ message: `No fee structures found for Term ${term} ${year}` });
+            }
+
+            // 2. Get Students
+            const studentsQuery = db.select().from(students)
+                .where(and(eq(students.schoolId, schoolId), eq(students.isActive, true)));
+
+            const activeStudents = await studentsQuery;
+
+            let invoiceCount = 0;
+            const errors = [];
+
+            // 3. Generate Invoices Loop
+            for (const student of activeStudents) {
+                // Filter fees applicable to this student
+                const studentFees = relevantFees.filter(fee =>
+                    (fee.classLevel === student.classLevel) &&
+                    (fee.boardingStatus === 'all' || fee.boardingStatus === student.boardingStatus)
+                );
+
+                for (const fee of studentFees) {
+                    // Check if already invoiced (avoid duplicates)
+                    const existingTx = await db.select().from(financeTransactions).where(and(
+                        eq(financeTransactions.schoolId, schoolId),
+                        eq(financeTransactions.studentId, student.id),
+                        eq(financeTransactions.transactionType, 'debit'),
+                        eq(financeTransactions.description, `Tuition Due - ${fee.feeType} (${term}/${year})`) // Simple dedupe check
+                    )).limit(1);
+
+                    if (existingTx.length === 0) {
+                        await db.insert(financeTransactions).values({
+                            schoolId,
+                            studentId: student.id,
+                            transactionType: 'debit',
+                            amount: fee.amount,
+                            description: `Tuition Due - ${fee.feeType} (${term}/${year})`,
+                            term,
+                            year,
+                            transactionDate: new Date().toISOString().split('T')[0]
+                        });
+                        invoiceCount++;
+                    }
+                }
+            }
+
+            res.json({ message: `Generated ${invoiceCount} invoices`, count: invoiceCount });
+
+        } catch (error: any) {
+            console.error("Generate invoices error:", error);
+            res.status(500).json({ message: "Failed to generate invoices: " + error.message });
         }
     });
 

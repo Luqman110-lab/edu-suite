@@ -467,13 +467,13 @@ export const MarksEntry: React.FC = () => {
   const performSave = async () => {
     const year = settings?.currentYear || new Date().getFullYear();
     try {
-      const promises = students.map(student => {
+      const recordsToSave = students.map(student => {
         const studentMarks = marksData[student.id!] || {};
 
         const aggregate = calculateAggregate(studentMarks as any, selectedClass, settings?.gradingConfig);
         const division = calculateDivision(aggregate, selectedClass, settings?.gradingConfig);
 
-        const record: MarkRecord = {
+        return {
           studentId: student.id!,
           term: selectedTerm,
           year,
@@ -483,14 +483,16 @@ export const MarksEntry: React.FC = () => {
           division,
           comment: comments[student.id!] || '',
           status: absentStudents.has(student.id!) ? 'absent' : sickStudents.has(student.id!) ? 'sick' : 'present'
-        };
-        return dbService.saveMark(record);
+        } as MarkRecord;
       });
 
-      await Promise.all(promises);
+      await dbService.saveMarksBatch(recordsToSave);
+
       setHasUnsavedChanges(false);
+      setLastSaved(new Date());
       return true;
     } catch (err) {
+      console.error(err);
       return false;
     }
   };
