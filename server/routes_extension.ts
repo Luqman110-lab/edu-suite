@@ -3,7 +3,7 @@ import { Express } from "express";
 import { db } from "./db";
 import { eq, and, desc, sql, inArray, gt } from "drizzle-orm";
 
-import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, teacherAttendance, users, userSchools, feeStructures, financeTransactions, conversations, conversationParticipants, messages, promotionHistory } from "../shared/schema";
+import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, teacherAttendance, users, userSchools, feeStructures, financeTransactions, conversations, conversationParticipants, messages, promotionHistory, studentFeeOverrides, dormitories, dormRooms, beds, boardingRollCalls, leaveRequests } from "../shared/schema";
 import { requireAuth, requireAdmin, requireSuperAdmin, getActiveSchoolId, hashPassword } from "./auth";
 
 export function registerExtendedRoutes(app: Express) {
@@ -1283,7 +1283,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
             const expenseRecords = await db.select().from(expenses)
-                .where(and(eq(expenses.schoolId, schoolId), eq(expenses.isActive, true)))
+                .where(and(eq(expenses.schoolId, schoolId)))
                 .orderBy(desc(expenses.expenseDate));
             res.json(expenseRecords);
         } catch (error: any) {
@@ -1297,7 +1297,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-            const { amount, description, categoryId, expenseDate, receiptNumber, vendor } = req.body;
+            const { amount, description, categoryId, expenseDate, referenceNumber, vendor } = req.body;
 
             const newExpense = await db.insert(expenses).values({
                 schoolId,
@@ -1305,7 +1305,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                 description,
                 categoryId,
                 expenseDate: expenseDate || new Date().toISOString().split('T')[0],
-                receiptNumber,
+                referenceNumber,
                 vendor,
                 createdBy: req.user?.id
             }).returning();
@@ -1504,19 +1504,18 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             if (!term || !year) return res.status(400).json({ message: "Term and Year are required" });
 
             // 1. Get relevant Fee Structures
-            let feesQuery = db.select().from(feeStructures)
-                .where(and(
-                    eq(feeStructures.schoolId, schoolId),
-                    eq(feeStructures.term, term),
-                    eq(feeStructures.year, year),
-                    eq(feeStructures.isActive, true)
-                ));
+            const conditions = [
+                eq(feeStructures.schoolId, schoolId),
+                eq(feeStructures.term, term),
+                eq(feeStructures.year, year),
+                eq(feeStructures.isActive, true)
+            ];
 
             if (classLevel) {
-                feesQuery = feesQuery.where(eq(feeStructures.classLevel, classLevel)); // If filtering by class
+                conditions.push(eq(feeStructures.classLevel, classLevel));
             }
 
-            const relevantFees = await feesQuery;
+            const relevantFees = await db.select().from(feeStructures).where(and(...conditions));
 
             if (relevantFees.length === 0) {
                 return res.status(400).json({ message: `No fee structures found for Term ${term} ${year}` });
@@ -1859,8 +1858,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                 schoolName: schools.name,
                 schoolCode: schools.code,
                 role: userSchools.role,
-                isPrimary: userSchools.isPrimary,
-                isActive: userSchools.isActive
+                isPrimary: userSchools.isPrimary
             })
                 .from(userSchools)
                 .leftJoin(schools, eq(schools.id, userSchools.schoolId))
@@ -1887,7 +1885,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             if (existing.length > 0) {
                 // Update existing
                 await db.update(userSchools)
-                    .set({ role, isPrimary: isPrimary || false, isActive: true })
+                    .set({ role, isPrimary: isPrimary || false })
                     .where(and(eq(userSchools.userId, userId), eq(userSchools.schoolId, schoolId)));
             } else {
                 // Create new assignment
@@ -1895,8 +1893,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                     userId,
                     schoolId,
                     role,
-                    isPrimary: isPrimary || false,
-                    isActive: true
+                    isPrimary: isPrimary || false
                 });
             }
 
@@ -1968,8 +1965,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                 userId: newUser.id,
                 schoolId,
                 role: role || "teacher",
-                isPrimary: true,
-                isActive: true
+                isPrimary: true
             });
 
             res.status(201).json({ message: "User created successfully", user: { id: newUser.id, username: newUser.username, name: newUser.name } });
@@ -2320,8 +2316,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                 bed: beds,
                 student: {
                     id: students.id,
-                    firstName: students.firstName,
-                    lastName: students.lastName,
+                    name: students.name,
                     classLevel: students.classLevel
                 }
             })
@@ -2339,7 +2334,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
 
             const flattenedBeds = allBeds.map(item => ({
                 ...item.bed,
-                studentName: item.student ? `${item.student.firstName} ${item.student.lastName}` : null,
+                studentName: item.student ? item.student.name : null,
                 classLevel: item.student?.classLevel
             }));
 

@@ -1,17 +1,14 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, Input, Spinner } from '../components/UIComponents';
+import { Button } from '../components/Button';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Loader2, ArrowLeft, Printer, CheckCircle } from 'lucide-react';
+import { Search, Loader2, ArrowLeft, ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/use-auth';
 
-// Define types locally if not exported centrally, or just use any for speed then refine
+// Define types locally
 interface Student {
     id: number;
     name: string;
@@ -95,19 +92,6 @@ export default function RecordPayment() {
         enabled: !!selectedStudent,
     });
 
-    const { data: recentPayments } = useQuery<FeePayment[]>({
-        queryKey: ['recent-payments-student', selectedStudent?.id],
-        queryFn: async () => {
-            // We reuse the generic endpoint but filtering by student would be better.
-            // For now, let's fetch all and filter or add a specific endpoint if volume is high.
-            // Actually, the main Finance View shows all payments.
-            // Let's assume we might need a specific endpoint or just fetch last few.
-            // For now, let's just use the `finance-transactions` endpoint which shows balance.
-            return [];
-        },
-        enabled: false // Skipping history for now to focus on recording
-    });
-
     const createPaymentMutation = useMutation({
         mutationFn: async (data: any) => {
             const res = await apiRequest('POST', '/api/fee-payments', data);
@@ -184,6 +168,29 @@ export default function RecordPayment() {
         });
     };
 
+    // Helper for Select elements
+    const renderSelect = (label: string, value: string, onChange: (val: string) => void, options: { value: string, label: string }[]) => (
+        <div className="w-full">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                {label}
+            </label>
+            <div className="relative">
+                <select
+                    className="w-full px-4 py-2.5 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 appearance-none transition-all"
+                    value={value}
+                    onChange={(e) => onChange(e.target.value)}
+                >
+                    {options.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                </select>
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <ChevronDown className="w-5 h-5 text-gray-400" />
+                </div>
+            </div>
+        </div>
+    );
+
     return (
         <div className="p-6 max-w-4xl mx-auto space-y-6">
             <div className="flex items-center gap-4">
@@ -196,53 +203,52 @@ export default function RecordPayment() {
 
             {!selectedStudent ? (
                 <Card>
-                    <CardHeader>
-                        <CardTitle>Find Student</CardTitle>
-                        <CardDescription>Search by name or admission number</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="relative">
-                            <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                            <Input
-                                placeholder="Search students..."
-                                className="pl-9"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                            />
-                        </div>
-                        {isSearching && <div className="p-4 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto" /></div>}
+                    <div className="mb-6">
+                        <h3 className="text-lg font-bold">Find Student</h3>
+                        <p className="text-sm text-gray-500">Search by name or admission number</p>
+                    </div>
 
-                        {searchResults && searchResults.length > 0 && (
-                            <div className="mt-4 border rounded-md divide-y">
-                                {searchResults.map(student => (
-                                    <div
-                                        key={student.id}
-                                        className="p-3 hover:bg-gray-50 cursor-pointer flex justify-between items-center"
-                                        onClick={() => handleSearchSelect(student)}
-                                    >
-                                        <div>
-                                            <p className="font-medium">{student.name}</p>
-                                            <p className="text-sm text-gray-500">{student.classLevel} {student.stream} • {student.studentId || 'No ID'}</p>
-                                        </div>
-                                        <Button variant="outline" size="sm">Select</Button>
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" style={{ zIndex: 10 }} />
+                        <Input
+                            placeholder="Search students..."
+                            className="pl-10"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
+                    {isSearching && <div className="p-4 text-center"><Spinner /></div>}
+
+                    {searchResults && searchResults.length > 0 && (
+                        <div className="mt-4 border rounded-md divide-y">
+                            {searchResults.map(student => (
+                                <div
+                                    key={student.id}
+                                    className="p-3 hover:bg-gray-50 cursor-pointer flex justify-between items-center"
+                                    onClick={() => handleSearchSelect(student)}
+                                >
+                                    <div>
+                                        <p className="font-medium">{student.name}</p>
+                                        <p className="text-sm text-gray-500">{student.classLevel} {student.stream} • {student.studentId || 'No ID'}</p>
                                     </div>
-                                ))}
-                            </div>
-                        )}
-                        {searchQuery.length >= 2 && searchResults?.length === 0 && !isSearching && (
-                            <div className="text-center p-4 text-gray-500">No students found</div>
-                        )}
-                    </CardContent>
+                                    <Button variant="outline" size="sm">Select</Button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    {searchQuery.length >= 2 && searchResults?.length === 0 && !isSearching && (
+                        <div className="text-center p-4 text-gray-500">No students found</div>
+                    )}
                 </Card>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {/* Student Info Card */}
                     <Card className="md:col-span-1 h-fit">
-                        <CardHeader>
-                            <CardTitle>{selectedStudent.name}</CardTitle>
-                            <CardDescription>Student Details</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-2">
+                        <div className="mb-4">
+                            <h3 className="text-lg font-bold">{selectedStudent.name}</h3>
+                            <p className="text-sm text-gray-500">Student Details</p>
+                        </div>
+                        <div className="space-y-3">
                             <div className="flex justify-between text-sm">
                                 <span className="text-gray-500">Class:</span>
                                 <span className="font-medium">{selectedStudent.classLevel} {selectedStudent.stream}</span>
@@ -253,7 +259,6 @@ export default function RecordPayment() {
                             </div>
                             <div className="pt-4 border-t mt-4">
                                 <div className="text-xs text-gray-400 uppercase tracking-wider mb-2">Expected Fees (Current Term)</div>
-                                {/* Simple preview of what they should pay */}
                                 {feeStructures?.filter(f =>
                                     f.classLevel === selectedStudent.classLevel &&
                                     f.year === parseInt(year) &&
@@ -267,96 +272,77 @@ export default function RecordPayment() {
                                 ))}
                                 {(!feeStructures || feeStructures.length === 0) && <p className="text-sm text-gray-400 italic">No fee structure found for this term.</p>}
                             </div>
-                        </CardContent>
+                        </div>
                     </Card>
 
                     {/* Payment Form */}
                     <Card className="md:col-span-2">
-                        <CardHeader>
-                            <CardTitle>New Transaction</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <form onSubmit={handleSubmit} className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label>Term</Label>
-                                        <Select value={term} onValueChange={setTerm}>
-                                            <SelectTrigger><SelectValue /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="1">Term 1</SelectItem>
-                                                <SelectItem value="2">Term 2</SelectItem>
-                                                <SelectItem value="3">Term 3</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Year</Label>
-                                        <Input type="number" value={year} onChange={e => setYear(e.target.value)} />
-                                    </div>
-                                </div>
+                        <div className="mb-6">
+                            <h3 className="text-lg font-bold">New Transaction</h3>
+                        </div>
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                {renderSelect("Term", term, setTerm, [
+                                    { value: "1", label: "Term 1" },
+                                    { value: "2", label: "Term 2" },
+                                    { value: "3", label: "Term 3" }
+                                ])}
+                                <Input
+                                    label="Year"
+                                    type="number"
+                                    value={year}
+                                    onChange={e => setYear(e.target.value)}
+                                />
+                            </div>
 
+                            {renderSelect("Fee Type", feeType, setFeeType, [
+                                { value: "Tuition", label: "Tuition" },
+                                { value: "Transport", label: "Transport" },
+                                { value: "Uniform", label: "Uniform" },
+                                { value: "Meals", label: "Meals" },
+                                { value: "Development", label: "Development" },
+                                { value: "Registration", label: "Registration" },
+                                { value: "Other", label: "Other" }
+                            ])}
+
+                            <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <Label>Fee Type</Label>
-                                    <Select value={feeType} onValueChange={setFeeType}>
-                                        <SelectTrigger><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="Tuition">Tuition</SelectItem>
-                                            <SelectItem value="Transport">Transport</SelectItem>
-                                            <SelectItem value="Uniform">Uniform</SelectItem>
-                                            <SelectItem value="Meals">Meals</SelectItem>
-                                            <SelectItem value="Development">Development</SelectItem>
-                                            <SelectItem value="Registration">Registration</SelectItem>
-                                            <SelectItem value="Other">Other</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label>Amount Due (Auto-calculated)</Label>
-                                        <div className="p-2 bg-gray-100 rounded-md font-medium text-right">
-                                            {getAmountDue().toLocaleString()} UGX
-                                        </div>
-                                        {overrides?.some(o => o.feeType === feeType && o.term === parseInt(term) && o.year === parseInt(year)) && (
-                                            <p className="text-xs text-amber-600">Custom amount applied</p>
-                                        )}
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Amount Due (Auto)</label>
+                                    <div className="px-4 py-2.5 bg-gray-100 dark:bg-gray-800 rounded-xl font-medium text-right border border-transparent">
+                                        {getAmountDue().toLocaleString()} UGX
                                     </div>
-                                    <div className="space-y-2">
-                                        <Label>Amount Paid <span className="text-red-500">*</span></Label>
-                                        <Input
-                                            type="number"
-                                            value={amountPaid}
-                                            onChange={e => setAmountPaid(e.target.value)}
-                                            placeholder="Enter amount"
-                                            required
-                                        />
-                                    </div>
+                                    {overrides?.some(o => o.feeType === feeType && o.term === parseInt(term) && o.year === parseInt(year)) && (
+                                        <p className="text-xs text-amber-600">Custom amount applied</p>
+                                    )}
                                 </div>
+                                <Input
+                                    label="Amount Paid *"
+                                    type="number"
+                                    value={amountPaid}
+                                    onChange={e => setAmountPaid(e.target.value)}
+                                    placeholder="Enter amount"
+                                    required
+                                />
+                            </div>
 
-                                <div className="space-y-2">
-                                    <Label>Payment Method</Label>
-                                    <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                                        <SelectTrigger><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="Cash">Cash</SelectItem>
-                                            <SelectItem value="Bank Deposit">Bank Deposit</SelectItem>
-                                            <SelectItem value="Mobile Money">Mobile Money</SelectItem>
-                                            <SelectItem value="Cheque">Cheque</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
+                            {renderSelect("Payment Method", paymentMethod, setPaymentMethod, [
+                                { value: "Cash", label: "Cash" },
+                                { value: "Bank Deposit", label: "Bank Deposit" },
+                                { value: "Mobile Money", label: "Mobile Money" },
+                                { value: "Cheque", label: "Cheque" }
+                            ])}
 
-                                <div className="space-y-2">
-                                    <Label>Notes</Label>
-                                    <Input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Receipt number, breakdown, etc." />
-                                </div>
+                            <Input
+                                label="Notes"
+                                value={notes}
+                                onChange={e => setNotes(e.target.value)}
+                                placeholder="Receipt number, breakdown, etc."
+                            />
 
-                                <Button type="submit" className="w-full" disabled={createPaymentMutation.isPending}>
-                                    {createPaymentMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                                    Record Payment
-                                </Button>
-                            </form>
-                        </CardContent>
+                            <Button type="submit" fullWidth disabled={createPaymentMutation.isPending} loading={createPaymentMutation.isPending}>
+                                Record Payment
+                            </Button>
+                        </form>
                     </Card>
                 </div>
             )}
