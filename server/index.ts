@@ -28,6 +28,7 @@ const isProduction = process.env.NODE_ENV === "production";
 app.use((req, res, next) => {
   const start = Date.now();
   const reqPath = req.path;
+  console.log(`[DEBUG] Incoming request: ${req.method} ${req.path}`);
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
 
   const originalResJson = res.json;
@@ -55,13 +56,13 @@ app.use((req, res, next) => {
   next();
 });
 
-import { registerExtendedRoutes } from "./routes_extension";
+
+
 
 (async () => {
   // CRITICAL: registerRoutes MUST be called first to initialize passport middleware
+  // Note: registerRoutes internally calls registerExtendedRoutes and setupAuth
   const server = registerRoutes(app);
-  // Now register extended routes after auth is set up
-  registerExtendedRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -79,16 +80,23 @@ import { registerExtendedRoutes } from "./routes_extension";
   });
 
   if (isProduction) {
-    const distPath = path.resolve(__dirname, "../dist");
+    // In Docker, WORKDIR is /app. dist is at /app/dist.
+    const distPath = path.join(process.cwd(), "dist");
+    console.log(`Checking for dist at: ${distPath}`);
+
     if (fs.existsSync(distPath)) {
+      console.log(`Serving static files from ${distPath}`);
       app.use(express.static(distPath));
-      app.get("/{*path}", (_req, res) => {
+      // Fallback for SPA
+      app.use((_req, res) => {
         res.sendFile(path.join(distPath, "index.html"));
       });
+    } else {
+      console.error(`Dist directory not found at ${distPath}. CWD: ${process.cwd()}`);
     }
   }
 
-  const port = isProduction ? 5000 : 3001;
+  const port = process.env.PORT ? parseInt(process.env.PORT, 10) : (isProduction ? 5000 : 3001);
   server.listen(port, "0.0.0.0", () => {
     console.log(`Server running on port ${port}${isProduction ? " (production)" : ""}`);
   });
