@@ -134,6 +134,8 @@ export default function Finance() {
           <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Overview of school finances</p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          <Button onClick={() => navigate('/app/finance/record-payment')}>Record Payment</Button>
+          <Button variant="outline" onClick={() => navigate('/app/finance/student-fees')}>Individual Fees</Button>
           <Button variant="outline" onClick={() => navigate('/app/fee-structures')}>Fee Structures</Button>
           <Button variant="outline" onClick={() => navigate('/app/expenses')}>Expenses</Button>
           <Button variant="outline" onClick={() => navigate('/app/scholarships')}>Scholarships</Button>
@@ -269,11 +271,10 @@ export default function Finance() {
                 </div>
                 <div className="text-right">
                   <p className={`font-medium text-green-600`}>{formatCurrency(p.amountPaid)}</p>
-                  <span className={`text-xs px-2 py-1 rounded-full ${
-                    p.status === 'paid' ? 'bg-green-100 text-green-700' :
-                    p.status === 'partial' ? 'bg-yellow-100 text-yellow-700' :
-                    'bg-red-100 text-red-700'
-                  }`}>{p.status}</span>
+                  <span className={`text-xs px-2 py-1 rounded-full ${p.status === 'paid' ? 'bg-green-100 text-green-700' :
+                      p.status === 'partial' ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-red-100 text-red-700'
+                    }`}>{p.status}</span>
                 </div>
               </div>
             ))}

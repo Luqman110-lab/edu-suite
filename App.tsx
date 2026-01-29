@@ -28,6 +28,8 @@ import { GateAttendance } from './pages/GateAttendance';
 import { ClassAttendance } from './pages/ClassAttendance';
 import { TeacherAttendance } from './pages/TeacherAttendance';
 import { AttendanceSettings } from './pages/AttendanceSettings';
+import RecordPayment from './pages/RecordPayment';
+import StudentFees from './pages/StudentFees';
 import { BoardingDashboard } from './pages/BoardingDashboard';
 import { DormitoryManager } from './pages/DormitoryManager';
 import { BoardingAttendance } from './pages/BoardingAttendance';
@@ -97,7 +99,10 @@ export default function App() {
                         <Route path="tests" element={<Tests />} />
                         <Route path="p7" element={<P7ExamSets />} />
                         <Route path="analytics" element={<Analytics />} />
+
                         <Route path="finance" element={<Finance />} />
+                        <Route path="finance/record-payment" element={<RecordPayment />} />
+                        <Route path="finance/student-fees" element={<StudentFees />} />
                         <Route path="fee-structures" element={<FeeStructures />} />
                         <Route path="expenses" element={<Expenses />} />
                         <Route path="scholarships" element={<Scholarships />} />

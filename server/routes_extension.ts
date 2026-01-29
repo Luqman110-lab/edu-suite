@@ -1411,6 +1411,88 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
+    // --- Student Search ---
+    app.get("/api/students/search", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            const query = req.query.q as string;
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            if (!query || query.length < 2) return res.json([]);
+
+            const results = await db.select().from(students)
+                .where(and(
+                    eq(students.schoolId, schoolId),
+                    eq(students.isActive, true),
+                    sql`LOWER(${students.name}) LIKE ${`%${query.toLowerCase()}%`}`
+                ))
+                .limit(20);
+            res.json(results);
+        } catch (error: any) {
+            res.status(500).json({ message: "Search failed: " + error.message });
+        }
+    });
+
+    // --- Student Fee Overrides ---
+    app.get("/api/student-fee-overrides/:studentId", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+            const studentId = parseInt(req.params.studentId);
+
+            const overrides = await db.select().from(studentFeeOverrides)
+                .where(and(
+                    eq(studentFeeOverrides.studentId, studentId),
+                    eq(studentFeeOverrides.schoolId, schoolId),
+                    eq(studentFeeOverrides.isActive, true)
+                ));
+            res.json(overrides);
+        } catch (error: any) {
+            res.status(500).json({ message: "Failed to fetch overrides: " + error.message });
+        }
+    });
+
+    app.post("/api/student-fee-overrides", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+            const { studentId, feeType, customAmount, term, year, reason } = req.body;
+
+            // Check for existing override
+            const existing = await db.select().from(studentFeeOverrides)
+                .where(and(
+                    eq(studentFeeOverrides.studentId, studentId),
+                    eq(studentFeeOverrides.feeType, feeType),
+                    eq(studentFeeOverrides.term, term),
+                    eq(studentFeeOverrides.year, year),
+                    eq(studentFeeOverrides.schoolId, schoolId)
+                ))
+                .limit(1);
+
+            if (existing.length > 0) {
+                const updated = await db.update(studentFeeOverrides)
+                    .set({ customAmount, reason, updatedAt: new Date() })
+                    .where(eq(studentFeeOverrides.id, existing[0].id))
+                    .returning();
+                return res.json(updated[0]);
+            }
+
+            const newOverride = await db.insert(studentFeeOverrides).values({
+                schoolId,
+                studentId,
+                feeType,
+                customAmount,
+                term,
+                year,
+                reason,
+                createdBy: req.user?.id
+            }).returning();
+            res.json(newOverride[0]);
+        } catch (error: any) {
+            res.status(500).json({ message: "Failed to save override: " + error.message });
+        }
+    });
+
     // --- Invoice Generation (Debits) ---
 
     app.post("/api/finance/generate-invoices", requireAuth, async (req, res) => {
