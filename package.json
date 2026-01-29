@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "concurrently \"tsx server/index.ts\" \"vite\"",
     "build": "vite build",
@@ -22,7 +25,7 @@
     "@types/pg": "^8.16.0",
     "@types/qrcode": "^1.5.6",
     "@types/ws": "^8.18.1",
-    "@vitejs/plugin-react": "^5.0.0",
+    "@vitejs/plugin-react": "^4.2.1",
     "compression": "^1.8.1",
     "connect-pg-simple": "^10.0.0",
     "date-fns": "^4.1.0",
@@ -36,22 +39,22 @@
     "express-session": "^1.18.2",
     "helmet": "^8.1.0",
     "idb": "^8.0.0",
-    "lucide-react": "^0.563.0",
+    "lucide-react": "^0.344.0",
     "papaparse": "^5.5.3",
     "passport": "^0.7.0",
     "passport-local": "^1.0.0",
     "pg": "^8.17.2",
     "qrcode": "^1.5.4",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "react-router-dom": "^7.9.6",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.22.0",
     "recharts": "^3.4.1",
     "resend": "^6.5.2",
     "sharp": "^0.34.5",
     "trust-proxy": "^1.0.0",
     "tsx": "^4.20.6",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.3",
+    "typescript": "^5.3.3",
+    "vite": "^5.1.0",
     "vite-plugin-pwa": "^1.1.0",
     "ws": "^8.18.3",
     "xlsx": "^0.18.5",
@@ -64,6 +67,8 @@
     "@types/helmet": "^0.0.48",
     "@types/node": "^22.14.0",
     "baseline-browser-mapping": "^2.9.18",
-    "concurrently": "^9.2.1"
+    "concurrently": "^8.2.2",
+    "@types/react": "^18.2.55",
+    "@types/react-dom": "^18.2.19"
   }
 }
