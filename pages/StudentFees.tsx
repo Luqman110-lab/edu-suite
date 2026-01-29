@@ -6,6 +6,9 @@ import { Button } from '../components/Button';
 import { useToast } from '@/hooks/use-toast';
 import { Search, Loader2, ArrowLeft, ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { StudentLedger } from './components/StudentLedger';
+import { FeePaymentHistory } from '@/components/FeePaymentHistory';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface Student {
     id: number;
@@ -27,6 +30,7 @@ interface StudentFeeOverride {
 
 export default function StudentFees() {
     const { toast } = useToast();
+    const { isDark } = useTheme();
     const navigate = useNavigate();
     const queryClient = useQueryClient();
     const [searchQuery, setSearchQuery] = useState('');
@@ -270,6 +274,18 @@ export default function StudentFees() {
                             </div>
                         )}
                     </Card>
+
+                    <div className="md:col-span-3 space-y-6">
+                        <FeePaymentHistory
+                            studentId={selectedStudent.id}
+                            studentName={selectedStudent.name}
+                            classLevel={selectedStudent.classLevel}
+                            currentYear={new Date().getFullYear()} // Default to current year or fetch from settings if needed context
+                            isDark={isDark}
+                        />
+
+                        <StudentLedger studentId={selectedStudent.id} />
+                    </div>
                 </div>
             )}
         </div>

@@ -4,13 +4,12 @@ import Papa from 'papaparse';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { dbService } from '../services/api';
-import { Student, ClassLevel, Gender, MarkRecord, SchoolSettings, FeePayment, StudentFeeOverride, FeeStructure } from '../types';
+import { Student, ClassLevel, Gender, MarkRecord, SchoolSettings } from '../types';
 import { Button } from '../components/Button';
 import { useTheme } from '../contexts/ThemeContext';
 import { StudentIDCard, BulkIDCardPrint } from '../components/StudentIDCard';
 import { StudentFormWizard } from '../components/StudentFormWizard';
 import { AttendanceSummaryCard, PerformanceTrendCard, BirthdayBadge } from '../components/StudentProfileCards';
-import { StudentLedger } from './components/StudentLedger';
 const FaceEnrollment = React.lazy(() => import('../client/src/components/FaceEnrollment'));
 
 const ITEMS_PER_PAGE = 100;
@@ -167,9 +166,7 @@ const PersonalInfoCard = ({ student, isDark }: { student: Student; isDark: boole
           {(!student.specialCases.fees && !student.specialCases.sickness && !student.specialCases.absenteeism) && (
             <span className={`text-sm italic ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>No flags</span>
           )}
-          {student.specialCases.fees && (
-            <span className="px-2 py-1 bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300 text-xs rounded-md font-medium border border-red-200 dark:border-red-800">Fees Balance</span>
-          )}
+
           {student.specialCases.sickness && (
             <span className="px-2 py-1 bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300 text-xs rounded-md font-medium border border-yellow-200 dark:border-yellow-800">Medical Issues</span>
           )}
@@ -290,158 +287,7 @@ const MedicalInfoCard = ({ student, isDark }: { student: Student; isDark: boolea
 );
 
 
-// Helper for loose class matching (e.g. "P 1" == "P1")
-const normalizeClassHelper = (raw: string): string => {
-  if (!raw) return '';
-  return raw.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-};
 
-const FeePaymentHistory = ({ studentId, studentName, classLevel, boardingStatus, currentYear, schoolSettings, isDark }: {
-  studentId: number;
-  studentName: string;
-  classLevel: string;
-  boardingStatus?: string;
-  currentYear: number;
-  schoolSettings?: SchoolSettings | null;
-  isDark: boolean;
-}) => {
-  const [payments, setPayments] = useState<FeePayment[]>([]);
-  const [feeStructures, setFeeStructures] = useState<FeeStructure[]>([]);
-  const [overrides, setOverrides] = useState<StudentFeeOverride[]>([]);
-  const [loading, setLoading] = useState(true);
-
-
-  useEffect(() => {
-    fetchAllData();
-  }, [studentId, classLevel]);
-
-  const fetchAllData = async () => {
-    try {
-      const [paymentsRes, structuresRes, overridesRes] = await Promise.all([
-        fetch(`/api/fee-payments/student/${studentId}`, { credentials: 'include' }),
-        fetch('/api/fee-structures', { credentials: 'include' }),
-        fetch(`/api/student-fee-overrides?studentId=${studentId}`, { credentials: 'include' })
-      ]);
-
-      if (paymentsRes.ok) setPayments(await paymentsRes.json());
-      if (structuresRes.ok) {
-        const allStructures = await structuresRes.json();
-        const filtered = allStructures.filter((fs: FeeStructure) =>
-          normalizeClassHelper(fs.classLevel) === normalizeClassHelper(classLevel) && fs.isActive !== false &&
-          (!fs.boardingStatus || fs.boardingStatus === 'all' || fs.boardingStatus === boardingStatus)
-        );
-        setFeeStructures(filtered);
-      }
-      if (overridesRes.ok) setOverrides(await overridesRes.json());
-    } catch (err) {
-      console.error('Failed to fetch data', err);
-    }
-    setLoading(false);
-  };
-
-  const getExpectedFeeAmount = (feeType: string, year?: number) => {
-    const yr = year || currentYear;
-    const override = overrides.find(o => o.feeType === feeType && o.year === yr && o.isActive !== false);
-    if (override) return override.customAmount;
-    const structure = feeStructures.find(fs => fs.feeType === feeType && (!fs.year || fs.year === yr));
-    return structure?.amount || 0;
-  };
-
-  const getRemainingBalance = (feeType: string, term: number, year: number) => {
-    const expectedAmount = getExpectedFeeAmount(feeType, year);
-    const paidForThisFee = payments
-      .filter(p => p.feeType === feeType && p.term === term && p.year === year)
-      .reduce((sum, p) => sum + (p.amountPaid || 0), 0);
-    return Math.max(expectedAmount - paidForThisFee, 0);
-  };
-
-  const calculateExpectedTotal = () => {
-    const feeTypes = [...new Set([...feeStructures.map(fs => fs.feeType), ...overrides.filter(o => o.year === currentYear).map(o => o.feeType)])];
-    return feeTypes.reduce((sum, feeType) => sum + getExpectedFeeAmount(feeType), 0);
-  };
-
-
-  const formatCurrency = (amount: number) => `UGX ${amount.toLocaleString()}`;
-
-
-
-  const expectedTotal = calculateExpectedTotal();
-  const recordedDue = payments.reduce((sum, p) => sum + (p.amountDue || 0), 0);
-  const totalDue = expectedTotal > 0 ? expectedTotal : recordedDue;
-  const totalPaid = payments.reduce((sum, p) => sum + (p.amountPaid || 0), 0);
-  const totalBalance = totalDue - totalPaid;
-
-  if (loading) return <div className={`p-4 text-center ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Loading payments...</div>;
-
-  return (
-    <div className={`rounded-lg shadow-sm border overflow-hidden ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-      <div className={`px-6 py-4 border-b flex items-center justify-between ${isDark ? 'bg-gray-750 border-gray-700' : 'bg-green-50 border-green-100'}`}>
-        <div className="flex items-center gap-2">
-          <span className="text-lg">💰</span>
-          <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-green-800'}`}>Fee Payment History</h3>
-        </div>
-
-      </div>
-
-      <div className={`grid grid-cols-3 gap-4 p-4 border-b ${isDark ? 'border-gray-700 bg-gray-750' : 'border-gray-100 bg-gray-50'}`}>
-        <div className="text-center">
-          <p className={`text-xs uppercase ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Total Due</p>
-          <p className={`text-lg font-bold ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>{formatCurrency(totalDue)}</p>
-        </div>
-        <div className="text-center">
-          <p className={`text-xs uppercase ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Total Paid</p>
-          <p className="text-lg font-bold text-green-600">{formatCurrency(totalPaid)}</p>
-        </div>
-        <div className="text-center">
-          <p className={`text-xs uppercase ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Balance</p>
-          <p className={`text-lg font-bold ${totalBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>{formatCurrency(totalBalance)}</p>
-        </div>
-      </div>
-
-      {payments.length === 0 ? (
-        <div className={`p-8 text-center ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>No payment records found.</div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className={isDark ? 'bg-gray-750' : 'bg-gray-50'}>
-              <tr>
-                <th className={`px-4 py-3 text-left text-xs font-medium uppercase ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Date</th>
-                <th className={`px-4 py-3 text-left text-xs font-medium uppercase ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Type</th>
-                <th className={`px-4 py-3 text-left text-xs font-medium uppercase ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Term</th>
-                <th className={`px-4 py-3 text-right text-xs font-medium uppercase ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Due</th>
-                <th className={`px-4 py-3 text-right text-xs font-medium uppercase ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Paid</th>
-                <th className={`px-4 py-3 text-center text-xs font-medium uppercase ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Status</th>
-
-              </tr>
-            </thead>
-            <tbody className={`divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
-              {payments.map((payment) => (
-                <tr key={payment.id} className={isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}>
-                  <td className={`px-4 py-3 text-sm ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>{payment.paymentDate || '-'}</td>
-                  <td className={`px-4 py-3 text-sm ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>{payment.feeType}</td>
-                  <td className={`px-4 py-3 text-sm ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>T{payment.term} {payment.year}</td>
-                  <td className={`px-4 py-3 text-sm text-right ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>{formatCurrency(payment.amountDue)}</td>
-                  <td className="px-4 py-3 text-sm text-right text-green-600 font-medium">{formatCurrency(payment.amountPaid)}</td>
-                  <td className="px-4 py-3 text-center">
-                    <span className={`px-2 py-1 text-xs rounded-full font-medium ${payment.status === 'paid' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' :
-                      payment.status === 'partial' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300' :
-                        'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
-                      }`}>
-                      {payment.status === 'paid' ? 'Paid' : payment.status === 'partial' ? 'Partial' : 'Pending'}
-                    </span>
-                  </td>
-
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-
-    </div>
-  );
-};
 
 const Toast = ({ message, type, onClose }: { message: string; type: 'success' | 'error' | 'warning'; onClose: () => void }) => {
   useEffect(() => {
@@ -580,14 +426,14 @@ export const Students: React.FC = () => {
     const total = students.length;
     const males = students.filter(s => s.gender === 'M').length;
     const females = students.filter(s => s.gender === 'F').length;
-    const withFees = students.filter(s => s.specialCases?.fees).length;
+
 
     const classDistribution: { [key: string]: number } = {};
     students.forEach(s => {
       classDistribution[s.classLevel] = (classDistribution[s.classLevel] || 0) + 1;
     });
 
-    return { total, males, females, withFees, classDistribution };
+    return { total, males, females, classDistribution };
   }, [students]);
 
   const availableStreams = useMemo(() => {
@@ -1049,7 +895,7 @@ export const Students: React.FC = () => {
 
   if (filterStatus !== 'All') {
     filteredStudents = filteredStudents.filter(s => {
-      if (filterStatus === 'fees') return s.specialCases?.fees;
+
       if (filterStatus === 'medical') return s.specialCases?.sickness;
       if (filterStatus === 'absent') return s.specialCases?.absenteeism;
       if (filterStatus === 'active') return !s.specialCases?.fees && !s.specialCases?.sickness && !s.specialCases?.absenteeism;
@@ -1157,19 +1003,9 @@ export const Students: React.FC = () => {
 
           <EmergencyContactsCard student={selectedStudent} isDark={isDark} />
 
-          <FeePaymentHistory
-            studentId={selectedStudent.id!}
-            studentName={selectedStudent.name}
-            classLevel={selectedStudent.classLevel}
-            boardingStatus={selectedStudent.boardingStatus}
-            currentYear={settings?.currentYear || new Date().getFullYear()}
-            schoolSettings={settings}
-            isDark={isDark}
-          />
 
-          <div className="mt-8">
-            <StudentLedger studentId={selectedStudent.id!} />
-          </div>
+
+
 
           <AcademicHistory studentId={selectedStudent.id!} isDark={isDark} />
         </div>
@@ -1295,7 +1131,7 @@ export const Students: React.FC = () => {
         <StatCard label="Total Students" value={stats.total} icon="👨‍🎓" color={isDark ? 'bg-blue-900 text-blue-300' : 'bg-blue-100 text-blue-600'} isDark={isDark} />
         <StatCard label="Male" value={stats.males} icon="👦" color={isDark ? 'bg-cyan-900 text-cyan-300' : 'bg-cyan-100 text-cyan-600'} isDark={isDark} />
         <StatCard label="Female" value={stats.females} icon="👧" color={isDark ? 'bg-pink-900 text-pink-300' : 'bg-pink-100 text-pink-600'} isDark={isDark} />
-        <StatCard label="Fees Pending" value={stats.withFees} icon="💰" color={isDark ? 'bg-red-900 text-red-300' : 'bg-red-100 text-red-600'} isDark={isDark} />
+
       </div>
 
       <div className={`p-4 rounded-lg shadow border ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
@@ -1351,7 +1187,7 @@ export const Students: React.FC = () => {
             >
               <option value="All">All Status</option>
               <option value="active">Active</option>
-              <option value="fees">Fees Pending</option>
+
               <option value="medical">Medical Issues</option>
               <option value="absent">Chronic Absenteeism</option>
             </select>
@@ -1499,8 +1335,8 @@ export const Students: React.FC = () => {
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap cursor-pointer" onClick={() => handleViewProfile(student)}>
-                      {student.specialCases?.fees ?
-                        <span className="text-xs text-red-600 font-medium bg-red-50 dark:bg-red-900 dark:text-red-300 px-2 py-1 rounded">Fees Issue</span> :
+                      {student.specialCases?.sickness || student.specialCases?.absenteeism ?
+                        <span className="text-xs text-yellow-600 font-medium bg-yellow-50 dark:bg-yellow-900 dark:text-yellow-300 px-2 py-1 rounded">Flagged</span> :
                         <span className="text-xs text-green-600 font-medium bg-green-50 dark:bg-green-900 dark:text-green-300 px-2 py-1 rounded">Active</span>
                       }
                     </td>
@@ -1585,8 +1421,8 @@ export const Students: React.FC = () => {
                 <span className={isDark ? 'text-gray-400' : 'text-gray-500'}>{student.gender === 'M' ? 'Male' : 'Female'}</span>
                 {student.paycode && <span className={isDark ? 'text-gray-400' : 'text-gray-500'}>Pay: {student.paycode}</span>}
               </div>
-              {student.specialCases?.fees ?
-                <span className="text-xs text-red-600 font-medium bg-red-50 dark:bg-red-900 dark:text-red-300 px-2 py-0.5 rounded">Fees</span> :
+              {student.specialCases?.sickness || student.specialCases?.absenteeism ?
+                <span className="text-xs text-yellow-600 font-medium bg-yellow-50 dark:bg-yellow-900 dark:text-yellow-300 px-2 py-0.5 rounded">Flagged</span> :
                 <span className="text-xs text-green-600 font-medium bg-green-50 dark:bg-green-900 dark:text-green-300 px-2 py-0.5 rounded">Active</span>
               }
             </div>
@@ -1767,207 +1603,7 @@ export const Students: React.FC = () => {
   );
 };
 
-const FEE_TYPES = ['Tuition', 'Boarding', 'Transport', 'Uniform', 'Books', 'Exam', 'Development', 'Other'];
 
-const CustomFeesSection = ({ studentId, classLevel, boardingStatus, currentYear, isDark }: {
-  studentId: number;
-  classLevel: string;
-  boardingStatus?: string;
-  currentYear: number;
-  isDark: boolean;
-}) => {
-  const [feeStructures, setFeeStructures] = useState<FeeStructure[]>([]);
-  const [overrides, setOverrides] = useState<StudentFeeOverride[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [editingFee, setEditingFee] = useState<{ feeType: string; amount: number; reason: string } | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (studentId) {
-      fetchData();
-    }
-  }, [studentId, classLevel]);
-
-  const fetchData = async () => {
-    try {
-      const [structuresRes, overridesRes] = await Promise.all([
-        fetch('/api/fee-structures', { credentials: 'include' }),
-        fetch(`/api/student-fee-overrides?studentId=${studentId}`, { credentials: 'include' })
-      ]);
-      if (structuresRes.ok) {
-        const allStructures = await structuresRes.json();
-        const filtered = allStructures.filter((fs: FeeStructure) =>
-          fs.classLevel === classLevel && fs.isActive !== false &&
-          (!fs.boardingStatus || fs.boardingStatus === 'all' || fs.boardingStatus === boardingStatus)
-        );
-        setFeeStructures(filtered);
-      }
-      if (overridesRes.ok) {
-        setOverrides(await overridesRes.json());
-      }
-    } catch (err) {
-      console.error('Failed to fetch fee data', err);
-    }
-    setLoading(false);
-  };
-
-  const getOverrideForFeeType = (feeType: string) => {
-    return overrides.find(o => o.feeType === feeType && o.year === currentYear && o.isActive !== false);
-  };
-
-  const getDefaultAmount = (feeType: string) => {
-    const structure = feeStructures.find(fs => fs.feeType === feeType && (!fs.year || fs.year === currentYear));
-    return structure?.amount || 0;
-  };
-
-  const handleSaveOverride = async (feeType: string, customAmount: number, reason: string) => {
-    setSaving(true);
-    try {
-      const existingOverride = getOverrideForFeeType(feeType);
-      if (existingOverride) {
-        await fetch(`/api/student-fee-overrides/${existingOverride.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ feeType, customAmount, year: currentYear, reason, isActive: true })
-        });
-      } else {
-        await fetch('/api/student-fee-overrides', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ studentId, feeType, customAmount, year: currentYear, reason })
-        });
-      }
-      await fetchData();
-      setEditingFee(null);
-    } catch (err) {
-      console.error('Failed to save fee override', err);
-    }
-    setSaving(false);
-  };
-
-  const handleRemoveOverride = async (overrideId: number) => {
-    try {
-      await fetch(`/api/student-fee-overrides/${overrideId}`, {
-        method: 'DELETE',
-        credentials: 'include'
-      });
-      await fetchData();
-    } catch (err) {
-      console.error('Failed to remove override', err);
-    }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-UG', { style: 'currency', currency: 'UGX', minimumFractionDigits: 0 }).format(amount);
-  };
-
-  if (loading) {
-    return <div className={`p-4 text-center text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Loading fee information...</div>;
-  }
-
-  const allFeeTypes = [...new Set([...feeStructures.map(fs => fs.feeType), ...FEE_TYPES])];
-
-  return (
-    <div className="space-y-3">
-      <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-        Set custom fee amounts for this student. These override the default fees for their class.
-      </div>
-
-      {allFeeTypes.map(feeType => {
-        const defaultAmount = getDefaultAmount(feeType);
-        const override = getOverrideForFeeType(feeType);
-        const isEditing = editingFee?.feeType === feeType;
-
-        return (
-          <div key={feeType} className={`p-3 rounded-lg border ${isDark ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <span className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{feeType}</span>
-                  {override && (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">Custom</span>
-                  )}
-                </div>
-                <div className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Default: {formatCurrency(defaultAmount)}
-                  {override && (
-                    <span className="ml-2 font-medium text-green-600">→ Custom: {formatCurrency(override.customAmount)}</span>
-                  )}
-                </div>
-                {override?.reason && (
-                  <div className={`text-xs mt-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                    Reason: {override.reason}
-                  </div>
-                )}
-              </div>
-
-              {isEditing ? (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    className={`w-28 px-2 py-1 text-sm rounded border ${isDark ? 'bg-gray-600 border-gray-500 text-white' : 'bg-white border-gray-300'}`}
-                    value={editingFee.amount}
-                    onChange={e => setEditingFee({ ...editingFee, amount: parseInt(e.target.value) || 0 })}
-                    placeholder="Amount"
-                  />
-                  <input
-                    type="text"
-                    className={`w-32 px-2 py-1 text-sm rounded border ${isDark ? 'bg-gray-600 border-gray-500 text-white' : 'bg-white border-gray-300'}`}
-                    value={editingFee.reason}
-                    onChange={e => setEditingFee({ ...editingFee, reason: e.target.value })}
-                    placeholder="Reason (optional)"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleSaveOverride(feeType, editingFee.amount, editingFee.reason)}
-                    disabled={saving}
-                    className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700"
-                  >
-                    {saving ? '...' : 'Save'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEditingFee(null)}
-                    className={`px-2 py-1 text-xs rounded ${isDark ? 'bg-gray-600 text-gray-300' : 'bg-gray-200 text-gray-600'}`}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setEditingFee({ feeType, amount: override?.customAmount || defaultAmount, reason: override?.reason || '' })}
-                    className={`px-2 py-1 text-xs rounded ${isDark ? 'bg-gray-600 text-gray-300 hover:bg-gray-500' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}
-                  >
-                    {override ? 'Edit' : 'Set Custom'}
-                  </button>
-                  {override && (
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveOverride(override.id!)}
-                      className="px-2 py-1 text-xs text-red-600 hover:text-red-700"
-                    >
-                      Remove
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      })}
-
-      {feeStructures.length === 0 && overrides.length === 0 && (
-        <div className={`text-center py-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-          No fee structures defined for {classLevel}. Go to Finance → Fee Structures to set up fees.
-        </div>
-      )}
-    </div>
-  );
-};
 
 const StudentModal = ({ isOpen, onClose, onSubmit, formData, setFormData, isEdit, settings, isDark }: any) => {
   const inputClasses = `mt-1 block w-full rounded-lg border px-4 py-3 shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/50 focus:outline-none text-base transition-all duration-200 ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`;
@@ -2110,15 +1746,7 @@ const StudentModal = ({ isOpen, onClose, onSubmit, formData, setFormData, isEdit
           <div>
             <h3 className={`text-sm font-medium uppercase tracking-wider mb-3 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Administrative Flags</h3>
             <div className={`p-4 rounded-lg border grid grid-cols-1 sm:grid-cols-3 gap-3 ${isDark ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
-              <label className={`flex items-center space-x-3 cursor-pointer p-3 rounded-lg transition-colors ${isDark ? 'hover:bg-gray-600' : 'hover:bg-gray-100'}`}>
-                <input
-                  type="checkbox"
-                  className="w-5 h-5 rounded text-primary-600 focus:ring-primary-500"
-                  checked={formData.specialCases?.fees}
-                  onChange={e => setFormData({ ...formData, specialCases: { ...formData.specialCases!, fees: e.target.checked } })}
-                />
-                <span className={`text-base ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Fees Defaulter</span>
-              </label>
+
               <label className={`flex items-center space-x-3 cursor-pointer p-3 rounded-lg transition-colors ${isDark ? 'hover:bg-gray-600' : 'hover:bg-gray-100'}`}>
                 <input
                   type="checkbox"
@@ -2140,18 +1768,7 @@ const StudentModal = ({ isOpen, onClose, onSubmit, formData, setFormData, isEdit
             </div>
           </div>
 
-          {isEdit && formData.id && (
-            <div>
-              <h3 className={`text-sm font-medium uppercase tracking-wider mb-3 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Custom Fees</h3>
-              <CustomFeesSection
-                studentId={formData.id}
-                classLevel={formData.classLevel || 'P1'}
-                boardingStatus={formData.boardingStatus}
-                currentYear={settings?.currentYear || new Date().getFullYear()}
-                isDark={isDark}
-              />
-            </div>
-          )}
+
 
           <div className={`flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 border-t mt-4 ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
             <Button variant="outline" type="button" onClick={onClose} className="w-full sm:w-auto py-3 text-base">Cancel</Button>
