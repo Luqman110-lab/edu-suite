@@ -798,6 +798,9 @@ export const invoices = pgTable("invoices", {
   dueDate: text("due_date"),
   status: text("status").default("unpaid"), // unpaid, partial, paid, overdue
   notes: text("notes"),
+  reminderSentAt: timestamp("reminder_sent_at"),
+  reminderCount: integer("reminder_count").default(0),
+  lastReminderType: text("last_reminder_type"), // 'sms', 'email'
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
@@ -2320,74 +2323,6 @@ export type ClassTimetable = typeof classTimetables.$inferSelect;
 export type InsertClassTimetable = typeof classTimetables.$inferInsert;
 
 // ============ FINANCE MODULE TABLES ============
-
-// Invoices - student fee invoices
-export const invoices = pgTable("invoices", {
-  id: serial("id").primaryKey(),
-  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
-  studentId: integer("student_id").notNull().references(() => students.id, { onDelete: "cascade" }),
-  invoiceNumber: text("invoice_number").notNull(),
-  term: integer("term").notNull(),
-  year: integer("year").notNull(),
-  totalAmount: real("total_amount").notNull().default(0),
-  amountPaid: real("amount_paid").notNull().default(0),
-  balance: real("balance").notNull().default(0),
-  dueDate: timestamp("due_date"),
-  status: text("status").notNull().default("unpaid"), // 'unpaid', 'partial', 'paid', 'overdue'
-  // Reminder tracking
-  reminderSentAt: timestamp("reminder_sent_at"),
-  reminderCount: integer("reminder_count").default(0),
-  lastReminderType: text("last_reminder_type"), // 'sms', 'email'
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => ({
-  schoolIdx: index("invoices_school_idx").on(table.schoolId),
-  studentIdx: index("invoices_student_idx").on(table.studentId),
-  termYearIdx: index("invoices_term_year_idx").on(table.term, table.year),
-  statusIdx: index("invoices_status_idx").on(table.status),
-  uniqueInvoice: unique("unique_student_term_year").on(table.studentId, table.term, table.year),
-}));
-
-export const invoicesRelations = relations(invoices, ({ one, many }) => ({
-  school: one(schools, {
-    fields: [invoices.schoolId],
-    references: [schools.id],
-  }),
-  student: one(students, {
-    fields: [invoices.studentId],
-    references: [students.id],
-  }),
-  items: many(invoiceItems),
-}));
-
-export const insertInvoiceSchema = createInsertSchema(invoices);
-export const selectInvoiceSchema = createSelectSchema(invoices);
-export type Invoice = typeof invoices.$inferSelect;
-export type InsertInvoice = typeof invoices.$inferInsert;
-
-// Invoice Items - line items on an invoice
-export const invoiceItems = pgTable("invoice_items", {
-  id: serial("id").primaryKey(),
-  invoiceId: integer("invoice_id").notNull().references(() => invoices.id, { onDelete: "cascade" }),
-  feeType: text("fee_type").notNull(), // 'tuition', 'boarding', 'transport', etc.
-  description: text("description"),
-  amount: real("amount").notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
-}, (table) => ({
-  invoiceIdx: index("invoice_items_invoice_idx").on(table.invoiceId),
-}));
-
-export const invoiceItemsRelations = relations(invoiceItems, ({ one }) => ({
-  invoice: one(invoices, {
-    fields: [invoiceItems.invoiceId],
-    references: [invoices.id],
-  }),
-}));
-
-export const insertInvoiceItemSchema = createInsertSchema(invoiceItems);
-export const selectInvoiceItemSchema = createSelectSchema(invoiceItems);
-export type InvoiceItem = typeof invoiceItems.$inferSelect;
-export type InsertInvoiceItem = typeof invoiceItems.$inferInsert;
 
 // Payment Plans - installment plans for students
 export const paymentPlans = pgTable("payment_plans", {
