@@ -3,7 +3,7 @@ import { Express } from "express";
 import { db } from "./db";
 import { eq, and, desc, asc, sql, inArray, gt } from "drizzle-orm";
 
-import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, teacherAttendance, users, userSchools, feeStructures, financeTransactions, conversations, conversationParticipants, messages, promotionHistory, studentFeeOverrides, dormitories, dormRooms, beds, boardingRollCalls, leaveRequests } from "../shared/schema";
+import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, teacherAttendance, users, userSchools, feeStructures, financeTransactions, conversations, conversationParticipants, messages, promotionHistory, studentFeeOverrides, dormitories, dormRooms, beds, boardingRollCalls, leaveRequests, auditLogs } from "../shared/schema";
 import { requireAuth, requireAdmin, requireSuperAdmin, getActiveSchoolId, hashPassword } from "./auth";
 
 export function registerExtendedRoutes(app: Express) {
@@ -1818,6 +1818,233 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         } catch (error: any) {
             console.error("Admin schools error:", error);
             res.status(500).json({ message: "Failed to fetch schools: " + error.message });
+        }
+    });
+
+    // Platform-wide statistics for super admin dashboard
+    app.get("/api/admin/stats", requireSuperAdmin, async (req, res) => {
+        try {
+            const [schoolCount] = await db.select({ count: sql<number>`count(*)` }).from(schools);
+            const [activeSchoolCount] = await db.select({ count: sql<number>`count(*)` }).from(schools).where(eq(schools.isActive, true));
+            const [userCount] = await db.select({ count: sql<number>`count(*)` }).from(users);
+            const [studentCount] = await db.select({ count: sql<number>`count(*)` }).from(students).where(eq(students.isActive, true));
+            const [teacherCount] = await db.select({ count: sql<number>`count(*)` }).from(teachers);
+
+            // Recent activity - last 7 days
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+            const recentLogins = await db.select({
+                id: auditLogs.id,
+                userName: auditLogs.userName,
+                action: auditLogs.action,
+                entityType: auditLogs.entityType,
+                entityName: auditLogs.entityName,
+                createdAt: auditLogs.createdAt,
+            }).from(auditLogs)
+                .where(gt(auditLogs.createdAt, sevenDaysAgo))
+                .orderBy(desc(auditLogs.createdAt))
+                .limit(20);
+
+            res.json({
+                totalSchools: Number(schoolCount.count),
+                activeSchools: Number(activeSchoolCount.count),
+                totalUsers: Number(userCount.count),
+                totalStudents: Number(studentCount.count),
+                totalTeachers: Number(teacherCount.count),
+                recentActivity: recentLogins,
+            });
+        } catch (error: any) {
+            console.error("Admin stats error:", error);
+            res.status(500).json({ message: "Failed to fetch stats: " + error.message });
+        }
+    });
+
+    // Get all users for super admin
+    app.get("/api/admin/users", requireSuperAdmin, async (req, res) => {
+        try {
+            const allUsers = await db.select({
+                id: users.id,
+                username: users.username,
+                name: users.name,
+                role: users.role,
+                email: users.email,
+                phone: users.phone,
+                isSuperAdmin: users.isSuperAdmin,
+                createdAt: users.createdAt,
+            }).from(users).orderBy(desc(users.createdAt));
+
+            // Get school assignments for each user
+            const usersWithSchools = await Promise.all(allUsers.map(async (user) => {
+                const schoolAssignments = await db.select({
+                    schoolId: userSchools.schoolId,
+                    schoolName: schools.name,
+                    role: userSchools.role,
+                    isPrimary: userSchools.isPrimary,
+                }).from(userSchools)
+                    .leftJoin(schools, eq(schools.id, userSchools.schoolId))
+                    .where(eq(userSchools.userId, user.id));
+
+                return {
+                    ...user,
+                    schools: schoolAssignments,
+                    schoolCount: schoolAssignments.length,
+                };
+            }));
+
+            res.json(usersWithSchools);
+        } catch (error: any) {
+            console.error("Admin users error:", error);
+            res.status(500).json({ message: "Failed to fetch users: " + error.message });
+        }
+    });
+
+    // Update user (super admin only)
+    app.put("/api/admin/users/:id", requireSuperAdmin, async (req, res) => {
+        try {
+            const userId = parseInt(req.params.id);
+            if (isNaN(userId)) return res.status(400).json({ message: "Invalid user ID" });
+
+            const { name, email, phone, role, isSuperAdmin } = req.body;
+
+            const updateData: Record<string, any> = {};
+            if (name !== undefined) updateData.name = name;
+            if (email !== undefined) updateData.email = email;
+            if (phone !== undefined) updateData.phone = phone;
+            if (role !== undefined) updateData.role = role;
+            if (isSuperAdmin !== undefined) updateData.isSuperAdmin = isSuperAdmin;
+
+            const updated = await db.update(users)
+                .set(updateData)
+                .where(eq(users.id, userId))
+                .returning();
+
+            if (updated.length === 0) return res.status(404).json({ message: "User not found" });
+
+            // Log the action
+            await db.insert(auditLogs).values({
+                userId: req.user?.id,
+                userName: req.user?.name,
+                action: 'update',
+                entityType: 'user',
+                entityId: userId,
+                entityName: updated[0].name,
+                details: { changes: updateData },
+                ipAddress: req.ip,
+            });
+
+            const { password, ...userWithoutPassword } = updated[0];
+            res.json(userWithoutPassword);
+        } catch (error: any) {
+            console.error("Update user error:", error);
+            res.status(500).json({ message: "Failed to update user: " + error.message });
+        }
+    });
+
+    // Reset user password (super admin only)
+    app.post("/api/admin/users/:id/reset-password", requireSuperAdmin, async (req, res) => {
+        try {
+            const userId = parseInt(req.params.id);
+            if (isNaN(userId)) return res.status(400).json({ message: "Invalid user ID" });
+
+            const { newPassword } = req.body;
+            if (!newPassword || newPassword.length < 6) {
+                return res.status(400).json({ message: "Password must be at least 6 characters" });
+            }
+
+            const hashedPassword = await hashPassword(newPassword);
+            const updated = await db.update(users)
+                .set({ password: hashedPassword })
+                .where(eq(users.id, userId))
+                .returning();
+
+            if (updated.length === 0) return res.status(404).json({ message: "User not found" });
+
+            // Log the action
+            await db.insert(auditLogs).values({
+                userId: req.user?.id,
+                userName: req.user?.name,
+                action: 'reset_password',
+                entityType: 'user',
+                entityId: userId,
+                entityName: updated[0].name,
+                ipAddress: req.ip,
+            });
+
+            res.json({ message: "Password reset successfully" });
+        } catch (error: any) {
+            console.error("Reset password error:", error);
+            res.status(500).json({ message: "Failed to reset password: " + error.message });
+        }
+    });
+
+    // Delete user (super admin only)
+    app.delete("/api/admin/users/:id", requireSuperAdmin, async (req, res) => {
+        try {
+            const userId = parseInt(req.params.id);
+            if (isNaN(userId)) return res.status(400).json({ message: "Invalid user ID" });
+
+            // Don't allow deleting yourself
+            if (userId === req.user?.id) {
+                return res.status(400).json({ message: "Cannot delete your own account" });
+            }
+
+            const [userToDelete] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+            if (!userToDelete) return res.status(404).json({ message: "User not found" });
+
+            await db.delete(users).where(eq(users.id, userId));
+
+            // Log the action
+            await db.insert(auditLogs).values({
+                userId: req.user?.id,
+                userName: req.user?.name,
+                action: 'delete',
+                entityType: 'user',
+                entityId: userId,
+                entityName: userToDelete.name,
+                ipAddress: req.ip,
+            });
+
+            res.json({ message: "User deleted successfully" });
+        } catch (error: any) {
+            console.error("Delete user error:", error);
+            res.status(500).json({ message: "Failed to delete user: " + error.message });
+        }
+    });
+
+    // Get audit logs
+    app.get("/api/admin/audit-logs", requireSuperAdmin, async (req, res) => {
+        try {
+            const { action, entityType, limit = '50', offset = '0' } = req.query;
+
+            let query = db.select().from(auditLogs).orderBy(desc(auditLogs.createdAt));
+
+            const conditions = [];
+            if (action && typeof action === 'string') {
+                conditions.push(eq(auditLogs.action, action));
+            }
+            if (entityType && typeof entityType === 'string') {
+                conditions.push(eq(auditLogs.entityType, entityType));
+            }
+
+            if (conditions.length > 0) {
+                query = query.where(and(...conditions)) as any;
+            }
+
+            const logs = await query.limit(parseInt(limit as string)).offset(parseInt(offset as string));
+
+            // Get total count
+            const [totalCount] = await db.select({ count: sql<number>`count(*)` }).from(auditLogs);
+
+            res.json({
+                logs,
+                total: Number(totalCount.count),
+                limit: parseInt(limit as string),
+                offset: parseInt(offset as string),
+            });
+        } catch (error: any) {
+            console.error("Audit logs error:", error);
+            res.status(500).json({ message: "Failed to fetch audit logs: " + error.message });
         }
     });
 

@@ -169,6 +169,25 @@ export const userSchools = pgTable("user_schools", {
   schoolIdx: index("user_schools_school_idx").on(table.schoolId),
 }));
 
+// Audit Logs for tracking admin actions
+export const auditLogs = pgTable("audit_logs", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+  userName: text("user_name"),
+  action: text("action").notNull(), // 'create', 'update', 'delete', 'login', 'logout', 'switch_school'
+  entityType: text("entity_type"), // 'school', 'user', 'student', 'teacher', 'fee_structure'
+  entityId: integer("entity_id"),
+  entityName: text("entity_name"),
+  details: json("details").$type<Record<string, any>>(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  userIdx: index("audit_logs_user_idx").on(table.userId),
+  actionIdx: index("audit_logs_action_idx").on(table.action),
+  createdAtIdx: index("audit_logs_created_at_idx").on(table.createdAt),
+}));
+
 export const students = pgTable("students", {
   id: serial("id").primaryKey(),
   schoolId: integer("school_id").references(() => schools.id, { onDelete: "cascade" }),
