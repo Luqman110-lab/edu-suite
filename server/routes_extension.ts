@@ -210,6 +210,8 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const { term, year, dueDate, classLevel } = req.body;
             if (!term || !year) return res.status(400).json({ message: "Term and year are required" });
 
+            console.log(`[InvoiceGen] Request: Term=${term}, Year=${year}, SchoolId=${schoolId}`);
+
             // Get active fee structures for the term/year
             const structures = await db.select().from(feeStructures)
                 .where(and(
@@ -218,6 +220,8 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                     eq(feeStructures.year, year),
                     eq(feeStructures.isActive, true)
                 ));
+
+            console.log(`[InvoiceGen] Found ${structures.length} fee structures`);
 
             if (structures.length === 0) {
                 return res.status(400).json({ message: "No fee structures found for this term/year" });
@@ -229,6 +233,8 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
 
             const activeStudents = await db.select().from(students)
                 .where(and(...studentConditions));
+
+            console.log(`[InvoiceGen] Found ${activeStudents.length} active students`);
 
             if (activeStudents.length === 0) {
                 return res.status(400).json({ message: "No active students found" });
@@ -258,6 +264,8 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                     (!s.boardingStatus || s.boardingStatus === student.boardingStatus || s.boardingStatus === 'all')
                 );
 
+                // console.log(`[InvoiceGen] Student ${student.name} (${student.classLevel}): ${applicableStructures.length} fees`);
+
                 if (applicableStructures.length === 0) continue;
 
                 const totalAmount = applicableStructures.reduce((sum, s) => sum + s.amount, 0);
@@ -273,7 +281,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                     totalAmount,
                     amountPaid: 0,
                     balance: totalAmount,
-                    dueDate: dueDate || null,
+                    dueDate: dueDate ? new Date(dueDate) : null,
                     status: 'unpaid',
                 }).returning();
 
@@ -289,6 +297,8 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
 
                 invoicesCreated++;
             }
+
+            console.log(`[InvoiceGen] Completed. Created: ${invoicesCreated}, Skipped: ${invoicesSkipped}`);
 
             res.json({
                 message: `Generated ${invoicesCreated} invoices, skipped ${invoicesSkipped} existing`,
