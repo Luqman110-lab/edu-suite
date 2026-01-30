@@ -45,13 +45,8 @@ interface Invoice {
     createdAt: string;
 }
 
-interface Debtor {
-    id: number;
-    studentName: string;
-    studentClass: string;
-    studentStream: string;
+interface Debtor extends Invoice {
     parentPhone: string;
-    balance: number;
     daysOverdue: number;
     agingCategory: string;
 }
@@ -649,6 +644,7 @@ export default function FinancialHub() {
                                     <th className={`px-4 py-3 text-right text-xs font-medium ${textSecondary} uppercase`}>Balance</th>
                                     <th className={`px-4 py-3 text-center text-xs font-medium ${textSecondary} uppercase`}>Days Overdue</th>
                                     <th className={`px-4 py-3 text-center text-xs font-medium ${textSecondary} uppercase`}>Status</th>
+                                    <th className={`px-4 py-3 text-center text-xs font-medium ${textSecondary} uppercase`}>Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -670,6 +666,22 @@ export default function FinancialHub() {
                                             >
                                                 {d.agingCategory === 'current' ? 'Current' : `${d.agingCategory} days`}
                                             </span>
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                            <button
+                                                onClick={() => downloadInvoicePDF(d)}
+                                                className="text-blue-500 hover:text-blue-700 text-sm font-medium mr-3"
+                                                title="Download PDF"
+                                            >
+                                                📄
+                                            </button>
+                                            <button
+                                                onClick={() => sendReminder(d.id, 'sms')}
+                                                className="text-green-500 hover:text-green-700 text-sm font-medium"
+                                                title="Send SMS Reminder"
+                                            >
+                                                <MessageSquare className="w-4 h-4 inline" />
+                                            </button>
                                         </td>
                                     </tr>
                                 ))}
