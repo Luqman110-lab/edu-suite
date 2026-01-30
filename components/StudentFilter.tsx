@@ -1,12 +1,15 @@
 
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, X } from 'lucide-react';
+import { Search, Filter, X, User } from 'lucide-react';
 import { Input, Select } from './UIComponents';
 import { Button } from './Button';
+import { apiRequest } from '@/lib/queryClient';
 
 interface StudentFilterProps {
     onFilterChange: (filters: FilterState) => void;
     className?: string;
+    simpleSelect?: boolean;
+    onSelect?: (student: any) => void;
 }
 
 export interface FilterState {
@@ -18,7 +21,7 @@ export interface FilterState {
     sortOrder?: string;
 }
 
-export function StudentFilter({ onFilterChange, className = '' }: StudentFilterProps) {
+export function StudentFilter({ onFilterChange, className = '', simpleSelect, onSelect }: StudentFilterProps) {
     const [filters, setFilters] = useState<FilterState>({
         searchQuery: '',
         classLevel: '',
@@ -29,6 +32,7 @@ export function StudentFilter({ onFilterChange, className = '' }: StudentFilterP
     });
 
     const [debouncedSearch, setDebouncedSearch] = useState('');
+    const [searchResults, setSearchResults] = useState<any[]>([]);
 
     // Debounce search input
     useEffect(() => {
@@ -38,10 +42,28 @@ export function StudentFilter({ onFilterChange, className = '' }: StudentFilterP
         return () => clearTimeout(timer);
     }, [filters.searchQuery]);
 
+    // Simplified Search for single select
+    useEffect(() => {
+        if (!simpleSelect || !debouncedSearch) return;
+
+        const fetchStudents = async () => {
+            try {
+                const res = await apiRequest('GET', `/api/students?query=${debouncedSearch}`);
+                const data = await res.json();
+                setSearchResults(data);
+            } catch (err) {
+                console.error("Failed to search students", err);
+            }
+        };
+        fetchStudents();
+    }, [debouncedSearch, simpleSelect]);
+
     // Trigger parent change when filters change (using debounced search)
     useEffect(() => {
-        onFilterChange({ ...filters, searchQuery: debouncedSearch });
-    }, [debouncedSearch, filters.classLevel, filters.stream, filters.boardingStatus, filters.sortBy, filters.sortOrder, onFilterChange]);
+        if (!simpleSelect) {
+            onFilterChange({ ...filters, searchQuery: debouncedSearch });
+        }
+    }, [debouncedSearch, filters.classLevel, filters.stream, filters.boardingStatus, filters.sortBy, filters.sortOrder, onFilterChange, simpleSelect]);
 
     const updateFilter = (key: keyof FilterState, value: string) => {
         setFilters(prev => ({ ...prev, [key]: value }));
@@ -56,9 +78,59 @@ export function StudentFilter({ onFilterChange, className = '' }: StudentFilterP
             sortBy: 'name',
             sortOrder: 'asc'
         });
+        setSearchResults([]);
     };
 
     const hasActiveFilters = filters.classLevel || filters.stream || filters.boardingStatus || filters.searchQuery;
+
+    if (simpleSelect) {
+        return (
+            <div className={`space-y-4 ${className} relative`}>
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
+                    <Input
+                        placeholder="Search student by name..."
+                        className="pl-10 w-full"
+                        value={filters.searchQuery}
+                        onChange={(e) => updateFilter('searchQuery', e.target.value)}
+                    />
+                    {filters.searchQuery && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 p-0"
+                            onClick={clearFilters}
+                        >
+                            <X className="w-4 h-4" />
+                        </Button>
+                    )}
+                </div>
+
+                {filters.searchQuery && searchResults.length > 0 && (
+                    <div className="absolute z-10 w-full bg-white dark:bg-gray-800 border rounded-lg shadow-lg max-h-60 overflow-y-auto mt-1">
+                        {searchResults.map(student => (
+                            <div
+                                key={student.id}
+                                className="p-3 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center gap-3 border-b last:border-0"
+                                onClick={() => {
+                                    onSelect?.(student);
+                                    clearFilters();
+                                }}
+                            >
+                                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                                    <User className="w-4 h-4" />
+                                </div>
+                                <div>
+                                    <div className="font-medium">{student.name}</div>
+                                    <div className="text-xs text-gray-500">{student.classLevel} {student.stream}</div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        );
+    }
 
     return (
         <div className={`space-y-4 ${className}`}>

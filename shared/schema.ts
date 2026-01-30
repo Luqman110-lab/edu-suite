@@ -2322,6 +2322,47 @@ export const selectClassTimetableSchema = createSelectSchema(classTimetables);
 export type ClassTimetable = typeof classTimetables.$inferSelect;
 export type InsertClassTimetable = typeof classTimetables.$inferInsert;
 
+// Mobile Money Transactions
+export const mobileMoneyTransactions = pgTable("mobile_money_transactions", {
+  id: serial("id").primaryKey(),
+  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
+  paymentId: integer("payment_id").references(() => feePayments.id, { onDelete: "set null" }), // Link if applicable
+  provider: text("provider").notNull(), // 'mtn', 'airtel'
+  phoneNumber: text("phone_number").notNull(),
+  amount: real("amount").notNull(),
+  currency: text("currency").default("UGX"),
+  status: text("status").notNull().default("pending"), // 'pending', 'success', 'failed'
+  externalReference: text("external_reference"), // Provider's transaction ID
+  description: text("description"),
+  entityType: text("entity_type"), // 'invoice', 'plan_installment', 'general_payment'
+  entityId: integer("entity_id"), // ID of the invoice or plan
+  transactionDate: timestamp("transaction_date").defaultNow(),
+  callbackReceivedAt: timestamp("callback_received_at"),
+  rawCallbackData: json("raw_callback_data"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  schoolIdx: index("momo_tx_school_idx").on(table.schoolId),
+  statusIdx: index("momo_tx_status_idx").on(table.status),
+  extRefIdx: index("momo_tx_ext_ref_idx").on(table.externalReference),
+}));
+
+export const mobileMoneyTransactionsRelations = relations(mobileMoneyTransactions, ({ one }) => ({
+  school: one(schools, {
+    fields: [mobileMoneyTransactions.schoolId],
+    references: [schools.id],
+  }),
+  payment: one(feePayments, {
+    fields: [mobileMoneyTransactions.paymentId],
+    references: [feePayments.id],
+  }),
+}));
+
+export const insertMobileMoneyTransactionSchema = createInsertSchema(mobileMoneyTransactions);
+export const selectMobileMoneyTransactionSchema = createSelectSchema(mobileMoneyTransactions);
+export type MobileMoneyTransaction = typeof mobileMoneyTransactions.$inferSelect;
+export type InsertMobileMoneyTransaction = typeof mobileMoneyTransactions.$inferInsert;
+
 // ============ FINANCE MODULE TABLES ============
 
 // Payment Plans - installment plans for students

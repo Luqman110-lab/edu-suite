@@ -5,6 +5,7 @@ import { eq, and, desc, asc, sql, inArray, gt } from "drizzle-orm";
 
 import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, teacherAttendance, users, userSchools, feeStructures, financeTransactions, conversations, conversationParticipants, messages, promotionHistory, studentFeeOverrides, dormitories, dormRooms, beds, boardingRollCalls, leaveRequests, auditLogs, invoices, invoiceItems, paymentPlans, planInstallments } from "../shared/schema";
 import { requireAuth, requireAdmin, requireSuperAdmin, getActiveSchoolId, hashPassword } from "./auth";
+import { MobileMoneyService } from "./services/MobileMoneyService";
 
 export function registerExtendedRoutes(app: Express) {
 
@@ -689,6 +690,54 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         } catch (error: any) {
             console.error("Pay installment error:", error);
             res.status(500).json({ message: "Failed to record payment" });
+        }
+    });
+
+    // --- Mobile Money Endpoints ---
+
+    // Initiate Payment
+    app.post("/api/finance/momo/pay", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            const { phoneNumber, amount, provider, description, entityType, entityId } = req.body;
+
+            // Optional: Create a fee_payment record first if standard checking is required
+            // For now, we go straight to MoMo
+
+            const transaction = await MobileMoneyService.initiatePayment({
+                schoolId,
+                phoneNumber,
+                amount: parseFloat(amount),
+                provider,
+                reference: `INV-${entityId}`, // Simplified reference
+                description,
+                entityType,
+                entityId
+            });
+
+            res.json({
+                success: true,
+                message: "Payment initiated",
+                transactionId: transaction.id,
+                status: transaction.status
+            });
+
+        } catch (error: any) {
+            console.error("MoMo Pay error:", error);
+            res.status(500).json({ message: "Failed to initiate payment" });
+        }
+    });
+
+    // Check Transaction Status
+    app.get("/api/finance/momo/transaction/:id", requireAuth, async (req, res) => {
+        try {
+            const id = parseInt(req.params.id);
+            const transaction = await MobileMoneyService.checkStatus(id);
+            if (!transaction) return res.status(404).json({ message: "Transaction not found" });
+            res.json(transaction);
+        } catch (error: any) {
+            console.error("MoMo Status error:", error);
+            res.status(500).json({ message: "Failed to check status" });
         }
     });
 

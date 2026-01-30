@@ -417,6 +417,17 @@ export default function FinancialHub() {
                     </div>
                     <div className={`text-xs ${textSecondary} mt-1`}>Expenses: {formatCurrency(hubStats?.totalExpenses || 0)}</div>
                 </div>
+
+                <div className={`${bgCard} rounded-xl p-6 border ${borderColor} bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-900/10 dark:to-orange-900/10`}>
+                    <div className={`text-sm font-bold text-yellow-700 dark:text-yellow-500 flex items-center gap-2`}>
+                        📱 Mobile Money
+                        <span className="bg-yellow-200 text-yellow-800 text-[10px] px-1.5 rounded-full">BETA</span>
+                    </div>
+                    <div className="text-2xl font-bold text-gray-800 dark:text-gray-100 mt-1">
+                        {formatCurrency(0)}
+                    </div>
+                    <div className="text-xs text-yellow-600/80 mt-1">Wallet Balance (Mock)</div>
+                </div>
             </div>
 
             {/* Charts Section */}
