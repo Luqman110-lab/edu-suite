@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import { Button } from '../components/Button';
+import { useToast } from '@/hooks/use-toast';
 
 interface FeeStructure {
   id: number;
@@ -19,6 +20,7 @@ const CLASSES = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7'];
 
 export default function FeeStructures() {
   const { isDark } = useTheme();
+  const { toast } = useToast();
   const [structures, setStructures] = useState<FeeStructure[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -51,13 +53,13 @@ export default function FeeStructures() {
 
       const data = await res.json();
       if (res.ok) {
-        alert(data.message);
+        toast({ title: 'Success', description: data.message });
       } else {
-        alert('Failed: ' + data.message);
+        toast({ title: 'Failed', description: data.message, variant: 'destructive' });
       }
     } catch (err) {
       console.error(err);
-      alert('Network error');
+      toast({ title: 'Network Error', description: 'Could not connect to server.', variant: 'destructive' });
     }
     setGenerating(false);
   };

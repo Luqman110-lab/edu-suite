@@ -50,7 +50,6 @@ export default function StudentFees() {
     const [reason, setReason] = useState('');
 
     // Search
-    // Search
     const hasActiveFilters = filters.classLevel || filters.stream || filters.boardingStatus || (filters.searchQuery && filters.searchQuery.length >= 2);
 
     const { data: searchResults, isLoading: isSearching } = useQuery<Student[]>({

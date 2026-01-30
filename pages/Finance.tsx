@@ -50,6 +50,7 @@ export default function Finance() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -69,6 +70,7 @@ export default function Finance() {
       if (categoriesRes.ok) setCategories(await categoriesRes.json());
     } catch (err) {
       console.error('Failed to fetch financial data', err);
+      setError('Failed to load financial data. Please try again.');
     }
     setLoading(false);
   };
@@ -122,6 +124,15 @@ export default function Finance() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className={`p-6 rounded-xl text-center ${isDark ? 'bg-red-900/30 text-red-400' : 'bg-red-50 text-red-600'}`}>
+        <p className="font-semibold">{error}</p>
+        <button onClick={fetchData} className="mt-4 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition">Retry</button>
       </div>
     );
   }
@@ -272,8 +283,8 @@ export default function Finance() {
                 <div className="text-right">
                   <p className={`font-medium text-green-600`}>{formatCurrency(p.amountPaid)}</p>
                   <span className={`text-xs px-2 py-1 rounded-full ${p.status === 'paid' ? 'bg-green-100 text-green-700' :
-                      p.status === 'partial' ? 'bg-yellow-100 text-yellow-700' :
-                        'bg-red-100 text-red-700'
+                    p.status === 'partial' ? 'bg-yellow-100 text-yellow-700' :
+                      'bg-red-100 text-red-700'
                     }`}>{p.status}</span>
                 </div>
               </div>
