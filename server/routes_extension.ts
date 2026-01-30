@@ -24,7 +24,7 @@ export function registerExtendedRoutes(app: Express) {
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
-            const data = { ...req.body, schoolId };
+            const data = { ...req.body, schoolId, isActive: true };
             const newStructure = await db.insert(feeStructures).values(data).returning();
 
             // Auto-invoice active students in this class
@@ -1416,7 +1416,8 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                 term,
                 year,
                 boardingStatus: boardingStatus || 'all',
-                description
+                description,
+                isActive: true
             }).returning();
 
             res.json(newFee[0]);
