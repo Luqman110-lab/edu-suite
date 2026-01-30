@@ -39,6 +39,7 @@ import { VisitorLog } from './pages/VisitorLog';
 import { Messages, ConversationView } from './pages/Messages';
 import { Supervision } from './pages/Supervision';
 import { Planning } from './pages/Planning';
+import FinancialHub from './pages/FinancialHub';
 
 function LandingWrapper() {
   const { user, isLoading } = useAuth();
@@ -103,6 +104,7 @@ export default function App() {
                         <Route path="analytics" element={<Analytics />} />
 
                         <Route path="finance" element={<Finance />} />
+                        <Route path="finance-hub" element={<FinancialHub />} />
                         <Route path="finance/record-payment" element={<RecordPayment />} />
                         <Route path="finance/student-fees" element={<StudentFees />} />
                         <Route path="fee-structures" element={<FeeStructures />} />

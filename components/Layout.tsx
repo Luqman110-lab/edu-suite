@@ -417,7 +417,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         { path: '/app/messages', label: 'Messages', icon: MessageSquare },
       ]
     },
-    { path: '/app/finance', label: 'Finance', icon: BadgeDollarSign },
+    { path: '/app/finance-hub', label: 'Financial Hub', icon: BadgeDollarSign },
+    { path: '/app/finance', label: 'Finance (Legacy)', icon: BadgeDollarSign },
     { path: '/app/analytics', label: 'Analytics', icon: BarChart3 },
     { path: '/app/settings', label: 'Settings', icon: Settings },
     ...(isSuperAdmin ? [{ path: '/app/admin', label: 'Admin Console', icon: School2 }] : []),

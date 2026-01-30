@@ -3,7 +3,7 @@ import { Express } from "express";
 import { db } from "./db";
 import { eq, and, desc, asc, sql, inArray, gt } from "drizzle-orm";
 
-import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, teacherAttendance, users, userSchools, feeStructures, financeTransactions, conversations, conversationParticipants, messages, promotionHistory, studentFeeOverrides, dormitories, dormRooms, beds, boardingRollCalls, leaveRequests, auditLogs } from "../shared/schema";
+import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, teacherAttendance, users, userSchools, feeStructures, financeTransactions, conversations, conversationParticipants, messages, promotionHistory, studentFeeOverrides, dormitories, dormRooms, beds, boardingRollCalls, leaveRequests, auditLogs, invoices, invoiceItems } from "../shared/schema";
 import { requireAuth, requireAdmin, requireSuperAdmin, getActiveSchoolId, hashPassword } from "./auth";
 
 export function registerExtendedRoutes(app: Express) {
@@ -135,6 +135,374 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         } catch (error: any) {
             console.error("Get finance transactions error:", error);
             res.status(500).json({ message: "Failed to fetch transactions: " + error.message });
+        }
+    });
+
+    // --- Invoice Management Endpoints ---
+
+    // List invoices with filters
+    app.get("/api/invoices", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            const { studentId, term, year, status, limit = '50', offset = '0' } = req.query;
+
+            let query = db.select({
+                invoice: invoices,
+                studentName: students.name,
+                studentClass: students.classLevel,
+                studentStream: students.stream,
+            }).from(invoices)
+                .leftJoin(students, eq(invoices.studentId, students.id))
+                .where(eq(invoices.schoolId, schoolId))
+                .orderBy(desc(invoices.createdAt));
+
+            const conditions = [eq(invoices.schoolId, schoolId)];
+            if (studentId) conditions.push(eq(invoices.studentId, parseInt(studentId as string)));
+            if (term) conditions.push(eq(invoices.term, parseInt(term as string)));
+            if (year) conditions.push(eq(invoices.year, parseInt(year as string)));
+            if (status && typeof status === 'string') conditions.push(eq(invoices.status, status));
+
+            const results = await db.select({
+                invoice: invoices,
+                studentName: students.name,
+                studentClass: students.classLevel,
+                studentStream: students.stream,
+            }).from(invoices)
+                .leftJoin(students, eq(invoices.studentId, students.id))
+                .where(and(...conditions))
+                .orderBy(desc(invoices.createdAt))
+                .limit(parseInt(limit as string))
+                .offset(parseInt(offset as string));
+
+            // Flatten results
+            const flatResults = results.map(r => ({
+                ...r.invoice,
+                studentName: r.studentName,
+                studentClass: r.studentClass,
+                studentStream: r.studentStream,
+            }));
+
+            res.json(flatResults);
+        } catch (error: any) {
+            console.error("Get invoices error:", error);
+            res.status(500).json({ message: "Failed to fetch invoices: " + error.message });
+        }
+    });
+
+    // Get single invoice with items
+    app.get("/api/invoices/:id", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            const invoiceId = parseInt(req.params.id);
+            if (isNaN(invoiceId)) return res.status(400).json({ message: "Invalid invoice ID" });
+
+            const [invoice] = await db.select({
+                invoice: invoices,
+                studentName: students.name,
+                studentClass: students.classLevel,
+                studentStream: students.stream,
+            }).from(invoices)
+                .leftJoin(students, eq(invoices.studentId, students.id))
+                .where(and(eq(invoices.id, invoiceId), eq(invoices.schoolId, schoolId)));
+
+            if (!invoice) return res.status(404).json({ message: "Invoice not found" });
+
+            const items = await db.select().from(invoiceItems)
+                .where(eq(invoiceItems.invoiceId, invoiceId));
+
+            res.json({
+                ...invoice.invoice,
+                studentName: invoice.studentName,
+                studentClass: invoice.studentClass,
+                studentStream: invoice.studentStream,
+                items,
+            });
+        } catch (error: any) {
+            console.error("Get invoice error:", error);
+            res.status(500).json({ message: "Failed to fetch invoice: " + error.message });
+        }
+    });
+
+    // Generate invoices for a term
+    app.post("/api/invoices/generate", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            const { term, year, dueDate, classLevel } = req.body;
+            if (!term || !year) return res.status(400).json({ message: "Term and year are required" });
+
+            // Get active fee structures for the term/year
+            const structures = await db.select().from(feeStructures)
+                .where(and(
+                    eq(feeStructures.schoolId, schoolId),
+                    eq(feeStructures.term, term),
+                    eq(feeStructures.year, year),
+                    eq(feeStructures.isActive, true)
+                ));
+
+            if (structures.length === 0) {
+                return res.status(400).json({ message: "No fee structures found for this term/year" });
+            }
+
+            // Get active students (optionally filtered by class)
+            let studentConditions = [eq(students.schoolId, schoolId), eq(students.isActive, true)];
+            if (classLevel) studentConditions.push(eq(students.classLevel, classLevel));
+
+            const activeStudents = await db.select().from(students)
+                .where(and(...studentConditions));
+
+            if (activeStudents.length === 0) {
+                return res.status(400).json({ message: "No active students found" });
+            }
+
+            let invoicesCreated = 0;
+            let invoicesSkipped = 0;
+
+            for (const student of activeStudents) {
+                // Check if invoice already exists
+                const existing = await db.select().from(invoices)
+                    .where(and(
+                        eq(invoices.schoolId, schoolId),
+                        eq(invoices.studentId, student.id),
+                        eq(invoices.term, term),
+                        eq(invoices.year, year)
+                    )).limit(1);
+
+                if (existing.length > 0) {
+                    invoicesSkipped++;
+                    continue;
+                }
+
+                // Get applicable fee structures for this student
+                const applicableStructures = structures.filter(s =>
+                    s.classLevel === student.classLevel &&
+                    (!s.boardingStatus || s.boardingStatus === student.boardingStatus || s.boardingStatus === 'all')
+                );
+
+                if (applicableStructures.length === 0) continue;
+
+                const totalAmount = applicableStructures.reduce((sum, s) => sum + s.amount, 0);
+                const invoiceNumber = `INV-${year}-T${term}-${student.id.toString().padStart(5, '0')}`;
+
+                // Create invoice
+                const [newInvoice] = await db.insert(invoices).values({
+                    schoolId,
+                    studentId: student.id,
+                    invoiceNumber,
+                    term,
+                    year,
+                    totalAmount,
+                    amountPaid: 0,
+                    balance: totalAmount,
+                    dueDate: dueDate || null,
+                    status: 'unpaid',
+                }).returning();
+
+                // Create invoice items
+                for (const structure of applicableStructures) {
+                    await db.insert(invoiceItems).values({
+                        invoiceId: newInvoice.id,
+                        feeType: structure.feeType,
+                        description: `${structure.feeType} - ${structure.classLevel}`,
+                        amount: structure.amount,
+                    });
+                }
+
+                invoicesCreated++;
+            }
+
+            res.json({
+                message: `Generated ${invoicesCreated} invoices, skipped ${invoicesSkipped} existing`,
+                invoicesCreated,
+                invoicesSkipped,
+            });
+        } catch (error: any) {
+            console.error("Generate invoices error:", error);
+            res.status(500).json({ message: "Failed to generate invoices: " + error.message });
+        }
+    });
+
+    // Update invoice (mark as paid, update amount, etc)
+    app.put("/api/invoices/:id", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            const invoiceId = parseInt(req.params.id);
+            if (isNaN(invoiceId)) return res.status(400).json({ message: "Invalid invoice ID" });
+
+            const { amountPaid, status, notes, dueDate } = req.body;
+
+            const updateData: Record<string, any> = { updatedAt: new Date() };
+            if (amountPaid !== undefined) {
+                updateData.amountPaid = amountPaid;
+                // Get current invoice to calculate new balance
+                const [current] = await db.select().from(invoices).where(eq(invoices.id, invoiceId));
+                if (current) {
+                    updateData.balance = current.totalAmount - amountPaid;
+                    if (amountPaid >= current.totalAmount) updateData.status = 'paid';
+                    else if (amountPaid > 0) updateData.status = 'partial';
+                }
+            }
+            if (status !== undefined) updateData.status = status;
+            if (notes !== undefined) updateData.notes = notes;
+            if (dueDate !== undefined) updateData.dueDate = dueDate;
+
+            const updated = await db.update(invoices)
+                .set(updateData)
+                .where(and(eq(invoices.id, invoiceId), eq(invoices.schoolId, schoolId)))
+                .returning();
+
+            if (updated.length === 0) return res.status(404).json({ message: "Invoice not found" });
+
+            res.json(updated[0]);
+        } catch (error: any) {
+            console.error("Update invoice error:", error);
+            res.status(500).json({ message: "Failed to update invoice: " + error.message });
+        }
+    });
+
+    // Debtors aging report
+    app.get("/api/finance/debtors", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            const { term, year, classLevel } = req.query;
+
+            const conditions = [
+                eq(invoices.schoolId, schoolId),
+                gt(invoices.balance, 0), // Only invoices with balance
+            ];
+
+            if (term) conditions.push(eq(invoices.term, parseInt(term as string)));
+            if (year) conditions.push(eq(invoices.year, parseInt(year as string)));
+
+            const debtorInvoices = await db.select({
+                invoice: invoices,
+                studentName: students.name,
+                studentClass: students.classLevel,
+                studentStream: students.stream,
+                parentPhone: students.parentPhone,
+            }).from(invoices)
+                .leftJoin(students, eq(invoices.studentId, students.id))
+                .where(and(...conditions))
+                .orderBy(desc(invoices.balance));
+
+            // Calculate aging
+            const now = new Date();
+            const debtors = debtorInvoices.map(d => {
+                const createdDate = new Date(d.invoice.createdAt || now);
+                const daysOverdue = Math.floor((now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
+
+                let agingCategory = 'current';
+                if (daysOverdue > 90) agingCategory = '90+';
+                else if (daysOverdue > 60) agingCategory = '61-90';
+                else if (daysOverdue > 30) agingCategory = '31-60';
+                else if (daysOverdue > 0) agingCategory = '1-30';
+
+                return {
+                    ...d.invoice,
+                    studentName: d.studentName,
+                    studentClass: d.studentClass,
+                    studentStream: d.studentStream,
+                    parentPhone: d.parentPhone,
+                    daysOverdue,
+                    agingCategory,
+                };
+            });
+
+            // Optionally filter by class
+            const filtered = classLevel
+                ? debtors.filter(d => d.studentClass === classLevel)
+                : debtors;
+
+            // Summary stats
+            const summary = {
+                totalDebtors: filtered.length,
+                totalOutstanding: filtered.reduce((sum, d) => sum + d.balance, 0),
+                current: filtered.filter(d => d.agingCategory === 'current').reduce((sum, d) => sum + d.balance, 0),
+                days1to30: filtered.filter(d => d.agingCategory === '1-30').reduce((sum, d) => sum + d.balance, 0),
+                days31to60: filtered.filter(d => d.agingCategory === '31-60').reduce((sum, d) => sum + d.balance, 0),
+                days61to90: filtered.filter(d => d.agingCategory === '61-90').reduce((sum, d) => sum + d.balance, 0),
+                days90plus: filtered.filter(d => d.agingCategory === '90+').reduce((sum, d) => sum + d.balance, 0),
+            };
+
+            res.json({ debtors: filtered, summary });
+        } catch (error: any) {
+            console.error("Get debtors error:", error);
+            res.status(500).json({ message: "Failed to fetch debtors: " + error.message });
+        }
+    });
+
+    // Financial Hub stats
+    app.get("/api/finance/hub-stats", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            const { term, year } = req.query;
+
+            // Get totals from invoices
+            let invoiceConditions = [eq(invoices.schoolId, schoolId)];
+            if (term) invoiceConditions.push(eq(invoices.term, parseInt(term as string)));
+            if (year) invoiceConditions.push(eq(invoices.year, parseInt(year as string)));
+
+            const invoiceStats = await db.select({
+                totalDue: sql<number>`COALESCE(SUM(total_amount), 0)`,
+                totalPaid: sql<number>`COALESCE(SUM(amount_paid), 0)`,
+                totalBalance: sql<number>`COALESCE(SUM(balance), 0)`,
+                invoiceCount: sql<number>`COUNT(*)`,
+            }).from(invoices)
+                .where(and(...invoiceConditions));
+
+            // Get expense totals
+            let expenseConditions = [eq(expenses.schoolId, schoolId)];
+            if (term) expenseConditions.push(eq(expenses.term, parseInt(term as string)));
+            if (year) expenseConditions.push(eq(expenses.year, parseInt(year as string)));
+
+            const expenseStats = await db.select({
+                totalExpenses: sql<number>`COALESCE(SUM(amount), 0)`,
+            }).from(expenses)
+                .where(and(...expenseConditions));
+
+            // Get payment totals from feePayments
+            let paymentConditions = [eq(feePayments.schoolId, schoolId)];
+            if (term) paymentConditions.push(eq(feePayments.term, parseInt(term as string)));
+            if (year) paymentConditions.push(eq(feePayments.year, parseInt(year as string)));
+
+            const paymentStats = await db.select({
+                totalCollected: sql<number>`COALESCE(SUM(amount_paid), 0)`,
+            }).from(feePayments)
+                .where(and(...paymentConditions));
+
+            const stats = invoiceStats[0];
+            const expStats = expenseStats[0];
+            const payStats = paymentStats[0];
+
+            const totalDue = Number(stats?.totalDue || 0);
+            const totalCollected = Number(payStats?.totalCollected || stats?.totalPaid || 0);
+            const totalOutstanding = Number(stats?.totalBalance || 0);
+            const totalExpenses = Number(expStats?.totalExpenses || 0);
+            const collectionRate = totalDue > 0 ? Math.round((totalCollected / totalDue) * 100) : 0;
+
+            res.json({
+                totalDue,
+                totalCollected,
+                totalOutstanding,
+                totalExpenses,
+                netIncome: totalCollected - totalExpenses,
+                collectionRate,
+                invoiceCount: Number(stats?.invoiceCount || 0),
+            });
+        } catch (error: any) {
+            console.error("Get hub stats error:", error);
+            res.status(500).json({ message: "Failed to fetch hub stats: " + error.message });
         }
     });
 

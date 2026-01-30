@@ -784,6 +784,76 @@ export const selectFeePaymentSchema = createSelectSchema(feePayments);
 export type FeePayment = typeof feePayments.$inferSelect;
 export type InsertFeePayment = typeof feePayments.$inferInsert;
 
+// Invoices for term-based billing
+export const invoices = pgTable("invoices", {
+  id: serial("id").primaryKey(),
+  schoolId: integer("school_id").references(() => schools.id, { onDelete: "cascade" }),
+  studentId: integer("student_id").notNull().references(() => students.id, { onDelete: "cascade" }),
+  invoiceNumber: text("invoice_number").notNull(),
+  term: integer("term").notNull(),
+  year: integer("year").notNull(),
+  totalAmount: integer("total_amount").notNull().default(0),
+  amountPaid: integer("amount_paid").notNull().default(0),
+  balance: integer("balance").notNull().default(0),
+  dueDate: text("due_date"),
+  status: text("status").default("unpaid"), // unpaid, partial, paid, overdue
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  schoolIdx: index("invoices_school_idx").on(table.schoolId),
+  studentIdx: index("invoices_student_idx").on(table.studentId),
+  statusIdx: index("invoices_status_idx").on(table.status),
+  invoiceNumberUnique: unique().on(table.schoolId, table.invoiceNumber),
+}));
+
+export const invoiceItems = pgTable("invoice_items", {
+  id: serial("id").primaryKey(),
+  invoiceId: integer("invoice_id").notNull().references(() => invoices.id, { onDelete: "cascade" }),
+  feeType: text("fee_type").notNull(),
+  description: text("description"),
+  amount: integer("amount").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  invoiceIdx: index("invoice_items_invoice_idx").on(table.invoiceId),
+}));
+
+export const invoicesRelations = relations(invoices, ({ one, many }) => ({
+  school: one(schools, {
+    fields: [invoices.schoolId],
+    references: [schools.id],
+  }),
+  student: one(students, {
+    fields: [invoices.studentId],
+    references: [students.id],
+  }),
+  items: many(invoiceItems),
+}));
+
+export const invoiceItemsRelations = relations(invoiceItems, ({ one }) => ({
+  invoice: one(invoices, {
+    fields: [invoiceItems.invoiceId],
+    references: [invoices.id],
+  }),
+}));
+
+export const insertInvoiceSchema = createInsertSchema(invoices, {
+  invoiceNumber: z.string().min(1, "Invoice number is required"),
+  term: z.number().min(1).max(3),
+  year: z.number().min(2020).max(2100),
+});
+export const selectInvoiceSchema = createSelectSchema(invoices);
+export type Invoice = typeof invoices.$inferSelect;
+export type InsertInvoice = typeof invoices.$inferInsert;
+
+export const insertInvoiceItemSchema = createInsertSchema(invoiceItems, {
+  feeType: z.string().min(1, "Fee type is required"),
+  amount: z.number().min(0, "Amount must be positive"),
+});
+export const selectInvoiceItemSchema = createSelectSchema(invoiceItems);
+export type InvoiceItem = typeof invoiceItems.$inferSelect;
+export type InsertInvoiceItem = typeof invoiceItems.$inferInsert;
+
 export const insertDemoRequestSchema = createInsertSchema(demoRequests);
 export const selectDemoRequestSchema = createSelectSchema(demoRequests);
 export type DemoRequest = typeof demoRequests.$inferSelect;

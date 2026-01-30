@@ -1,6 +1,6 @@
 import "dotenv/config";
-import { db } from "./server/db.js";
-import { users, schools, userSchools } from "./shared/schema.js";
+import { db } from "../server/db.js";
+import { users, schools, userSchools } from "../shared/schema.js";
 import { eq } from "drizzle-orm";
 
 async function createDefaultUser() {
