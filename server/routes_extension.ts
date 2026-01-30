@@ -841,30 +841,34 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                 return res.status(403).json({ message: "Only Super Admin can create schools" });
             }
 
-            const { name, code, address, contact, email, website, logo } = req.body;
+            const { name, code, addressBox, contactPhones, email, motto, regNumber, centreNumber,
+                primaryColor, secondaryColor, logoBase64 } = req.body;
 
             // Validate required fields
             if (!name || !code) {
                 return res.status(400).json({ message: "Name and Code are required" });
             }
 
+            // Check for duplicate code
+            const existing = await db.select().from(schools).where(eq(schools.code, code)).limit(1);
+            if (existing.length > 0) {
+                return res.status(400).json({ message: "A school with this code already exists" });
+            }
+
             const newSchool = await db.insert(schools).values({
                 name,
                 code,
-                addressBox: address || "",
-                contactPhones: contact || "",
-                email,
-                website, // Note: Schema might not have website column, checking schema... verified schema has some defaults but checking keys. 
-                // Schema view showed: addressBox, contactPhones, email, motto, regNumber, centreNumber... 
-                // It does NOT show 'website'. I should probably stick to schema fields.
-                // Let's use 'motto' as a placeholder or just supported fields.
-                logoBase64: logo,
+                addressBox: addressBox || "",
+                contactPhones: contactPhones || "",
+                email: email || "",
+                motto: motto || "",
+                regNumber: regNumber || "",
+                centreNumber: centreNumber || "",
+                primaryColor: primaryColor || "#7B1113",
+                secondaryColor: secondaryColor || "#1E3A5F",
+                logoBase64: logoBase64 || null,
                 isActive: true,
-                // createdAt defaults? Schema uses serial/defaults mainly. 
-            } as any).returning();
-
-            // Schema TS might be stricter, but 'as any' helps if I missed dynamic fields. 
-            // Better to stick to known schema fields from previous view_file.
+            }).returning();
 
             res.status(201).json(newSchool[0]);
         } catch (error: any) {
@@ -882,14 +886,41 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                 return res.status(403).json({ message: "Unauthorized to update this school" });
             }
 
-            // Exclude system fields that shouldn't be updated directly or might cause type issues (e.g., date strings vs Date objects)
-            const { id, createdAt, updatedAt, ...updateData } = req.body;
+            // Extract only valid schema fields to avoid type issues
+            const {
+                name, code, addressBox, contactPhones, email, motto, regNumber, centreNumber,
+                primaryColor, secondaryColor, logoBase64, currentTerm, currentYear,
+                nextTermBeginBoarders, nextTermBeginDay, streams, gradingConfig, subjectsConfig,
+                reportConfig, idCardConfig, securityConfig, isActive
+            } = req.body;
+
+            // Build update object with only defined values
+            const updateData: Record<string, any> = { updatedAt: new Date() };
+            if (name !== undefined) updateData.name = name;
+            if (code !== undefined) updateData.code = code;
+            if (addressBox !== undefined) updateData.addressBox = addressBox;
+            if (contactPhones !== undefined) updateData.contactPhones = contactPhones;
+            if (email !== undefined) updateData.email = email;
+            if (motto !== undefined) updateData.motto = motto;
+            if (regNumber !== undefined) updateData.regNumber = regNumber;
+            if (centreNumber !== undefined) updateData.centreNumber = centreNumber;
+            if (primaryColor !== undefined) updateData.primaryColor = primaryColor;
+            if (secondaryColor !== undefined) updateData.secondaryColor = secondaryColor;
+            if (logoBase64 !== undefined) updateData.logoBase64 = logoBase64;
+            if (currentTerm !== undefined) updateData.currentTerm = currentTerm;
+            if (currentYear !== undefined) updateData.currentYear = currentYear;
+            if (nextTermBeginBoarders !== undefined) updateData.nextTermBeginBoarders = nextTermBeginBoarders;
+            if (nextTermBeginDay !== undefined) updateData.nextTermBeginDay = nextTermBeginDay;
+            if (streams !== undefined) updateData.streams = streams;
+            if (gradingConfig !== undefined) updateData.gradingConfig = gradingConfig;
+            if (subjectsConfig !== undefined) updateData.subjectsConfig = subjectsConfig;
+            if (reportConfig !== undefined) updateData.reportConfig = reportConfig;
+            if (idCardConfig !== undefined) updateData.idCardConfig = idCardConfig;
+            if (securityConfig !== undefined) updateData.securityConfig = securityConfig;
+            if (isActive !== undefined) updateData.isActive = isActive;
 
             const updated = await db.update(schools)
-                .set({
-                    ...updateData,
-                    updatedAt: new Date()
-                })
+                .set(updateData)
                 .where(eq(schools.id, schoolId))
                 .returning();
 

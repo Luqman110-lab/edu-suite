@@ -398,6 +398,10 @@ export function setupAuth(app: Express) {
     try {
       const { schoolId } = req.body;
 
+      if (!schoolId || typeof schoolId !== 'number') {
+        return res.status(400).json({ message: "Valid schoolId is required" });
+      }
+
       const userSchoolsList = await getUserSchools(req.user!.id);
       const canAccessSchool = userSchoolsList.some(s => s.id === schoolId) || req.user?.isSuperAdmin;
 
@@ -409,8 +413,16 @@ export function setupAuth(app: Express) {
 
       req.login(updatedUser, (err) => {
         if (err) return next(err);
-        const { password, ...userWithoutPassword } = updatedUser;
-        res.json(userWithoutPassword);
+
+        // Explicitly save session to ensure the new activeSchoolId persists
+        req.session.save((saveErr) => {
+          if (saveErr) {
+            console.error("Session save error:", saveErr);
+            return next(saveErr);
+          }
+          const { password, ...userWithoutPassword } = updatedUser;
+          res.json(userWithoutPassword);
+        });
       });
     } catch (err) {
       next(err);
