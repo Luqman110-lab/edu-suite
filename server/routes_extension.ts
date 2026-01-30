@@ -1,7 +1,7 @@
 
 import { Express } from "express";
 import { db } from "./db";
-import { eq, and, desc, asc, sql, inArray, gt } from "drizzle-orm";
+import { eq, and, desc, asc, sql, inArray, gt, or, isNull } from "drizzle-orm";
 
 import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, teacherAttendance, users, userSchools, feeStructures, financeTransactions, conversations, conversationParticipants, messages, promotionHistory, studentFeeOverrides, dormitories, dormRooms, beds, boardingRollCalls, leaveRequests, auditLogs, invoices, invoiceItems, paymentPlans, planInstallments } from "../shared/schema";
 import { requireAuth, requireAdmin, requireSuperAdmin, getActiveSchoolId, hashPassword } from "./auth";
@@ -212,11 +212,11 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
 
             console.log(`[InvoiceGen] Request: Term=${term}, Year=${year}, SchoolId=${schoolId}`);
 
-            // Get active fee structures for the term/year
+            // Get active fee structures for the term/year (or those applicable to all terms)
             const structures = await db.select().from(feeStructures)
                 .where(and(
                     eq(feeStructures.schoolId, schoolId),
-                    eq(feeStructures.term, term),
+                    or(eq(feeStructures.term, term), isNull(feeStructures.term)),
                     eq(feeStructures.year, year),
                     eq(feeStructures.isActive, true)
                 ));
