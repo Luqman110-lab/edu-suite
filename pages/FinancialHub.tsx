@@ -4,6 +4,14 @@ import { useTheme } from '../contexts/ThemeContext';
 import { Button } from '../components/Button';
 import { useToast } from '@/hooks/use-toast';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
+import { lazy, Suspense } from 'react';
+
+// Lazy load finance sub-modules
+const FeeStructuresContent = lazy(() => import('./FeeStructures'));
+const RecordPaymentContent = lazy(() => import('./RecordPayment'));
+const ExpensesContent = lazy(() => import('./Expenses'));
+const ScholarshipsContent = lazy(() => import('./Scholarships'));
+const FinancialReportsContent = lazy(() => import('./FinancialReports'));
 
 declare const jspdf: any;
 
@@ -68,7 +76,7 @@ export default function FinancialHub() {
     const navigate = useNavigate();
     const { toast } = useToast();
 
-    const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'debtors'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'debtors' | 'structures' | 'payments' | 'expenses' | 'scholarships' | 'reports'>('overview');
     const [loading, setLoading] = useState(true);
     const [hubStats, setHubStats] = useState<HubStats | null>(null);
     const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -668,11 +676,16 @@ export default function FinancialHub() {
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex flex-wrap gap-1 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
                 {[
                     { key: 'overview', label: '📊 Overview' },
                     { key: 'invoices', label: '📄 Invoices' },
                     { key: 'debtors', label: '🔴 Debtors' },
+                    { key: 'structures', label: '📋 Fee Structures' },
+                    { key: 'payments', label: '💳 Payments' },
+                    { key: 'expenses', label: '💸 Expenses' },
+                    { key: 'scholarships', label: '🎓 Scholarships' },
+                    { key: 'reports', label: '📈 Reports' },
                 ].map((tab) => (
                     <button
                         key={tab.key}
@@ -697,6 +710,31 @@ export default function FinancialHub() {
                     {activeTab === 'overview' && renderOverviewTab()}
                     {activeTab === 'invoices' && renderInvoicesTab()}
                     {activeTab === 'debtors' && renderDebtorsTab()}
+                    {activeTab === 'structures' && (
+                        <Suspense fallback={<div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" /></div>}>
+                            <FeeStructuresContent />
+                        </Suspense>
+                    )}
+                    {activeTab === 'payments' && (
+                        <Suspense fallback={<div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" /></div>}>
+                            <RecordPaymentContent />
+                        </Suspense>
+                    )}
+                    {activeTab === 'expenses' && (
+                        <Suspense fallback={<div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" /></div>}>
+                            <ExpensesContent />
+                        </Suspense>
+                    )}
+                    {activeTab === 'scholarships' && (
+                        <Suspense fallback={<div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" /></div>}>
+                            <ScholarshipsContent />
+                        </Suspense>
+                    )}
+                    {activeTab === 'reports' && (
+                        <Suspense fallback={<div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" /></div>}>
+                            <FinancialReportsContent />
+                        </Suspense>
+                    )}
                 </>
             )}
 

@@ -20,17 +20,10 @@ import { AdminDashboard } from './pages/AdminDashboard';
 import { Login } from './pages/Login';
 import { VerifyStudent } from './pages/VerifyStudent';
 import LandingPage from './pages/marketing/LandingPage';
-import Finance from './pages/Finance';
-import FeeStructures from './pages/FeeStructures';
-import Expenses from './pages/Expenses';
-import Scholarships from './pages/Scholarships';
-import FinancialReports from './pages/FinancialReports';
 import { GateAttendance } from './pages/GateAttendance';
 import { ClassAttendance } from './pages/ClassAttendance';
 import { TeacherAttendance } from './pages/TeacherAttendance';
 import { AttendanceSettings } from './pages/AttendanceSettings';
-import RecordPayment from './pages/RecordPayment';
-import StudentFees from './pages/StudentFees';
 import { BoardingDashboard } from './pages/BoardingDashboard';
 import { DormitoryManager } from './pages/DormitoryManager';
 import { BoardingAttendance } from './pages/BoardingAttendance';
@@ -103,14 +96,8 @@ export default function App() {
                         <Route path="p7" element={<P7ExamSets />} />
                         <Route path="analytics" element={<Analytics />} />
 
-                        <Route path="finance" element={<Finance />} />
+
                         <Route path="finance-hub" element={<FinancialHub />} />
-                        <Route path="finance/record-payment" element={<RecordPayment />} />
-                        <Route path="finance/student-fees" element={<StudentFees />} />
-                        <Route path="fee-structures" element={<FeeStructures />} />
-                        <Route path="expenses" element={<Expenses />} />
-                        <Route path="scholarships" element={<Scholarships />} />
-                        <Route path="financial-reports" element={<FinancialReports />} />
                         <Route path="gate-attendance" element={<GateAttendance />} />
                         <Route path="class-attendance" element={<ClassAttendance />} />
                         <Route path="teacher-attendance" element={<TeacherAttendance />} />
