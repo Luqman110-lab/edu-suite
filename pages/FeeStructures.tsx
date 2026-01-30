@@ -30,30 +30,33 @@ export default function FeeStructures() {
   const [filterYear, setFilterYear] = useState(new Date().getFullYear());
   const [filterClass, setFilterClass] = useState('');
   const [generating, setGenerating] = useState(false);
+  const [processingGen, setProcessingGen] = useState(false);
+  const [genTerm, setGenTerm] = useState(1);
+  const [genYear, setGenYear] = useState(new Date().getFullYear());
+  const [genDueDate, setGenDueDate] = useState('');
 
-  const handleGenerateInvoices = async () => {
-    if (!confirm(`Generate invoices for Term ${form.term || 'current'} ${filterYear}? This will create debit transactions for all active students based on these fee structures.`)) return;
-
+  const handleGenerateInvoices = () => {
     setGenerating(true);
-    try {
-      // Default to Term 1 if not set in form, or maybe ask user? 
-      // For now, let's assume Term 1 if not specified, or use the Settings context if available (todo).
-      // Actually, let's use a hardcoded term or just 1 for now to match the "form" state which relies on manual input
-      const termToUse = form.term ? parseInt(form.term) : 1;
+  };
 
-      const res = await fetch('/api/finance/generate-invoices', {
+  const confirmGenerate = async () => {
+    setProcessingGen(true);
+    try {
+      const res = await fetch('/api/invoices/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          term: termToUse,
-          year: filterYear
+          term: genTerm,
+          year: genYear,
+          dueDate: genDueDate || undefined
         })
       });
 
       const data = await res.json();
       if (res.ok) {
         toast({ title: 'Success', description: data.message });
+        setGenerating(false);
       } else {
         toast({ title: 'Failed', description: data.message, variant: 'destructive' });
       }
@@ -61,7 +64,7 @@ export default function FeeStructures() {
       console.error(err);
       toast({ title: 'Network Error', description: 'Could not connect to server.', variant: 'destructive' });
     }
-    setGenerating(false);
+    setProcessingGen(false);
   };
 
   const [form, setForm] = useState({
@@ -354,6 +357,59 @@ export default function FeeStructures() {
             <div className={`px-6 py-4 border-t flex justify-end gap-3 ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
               <Button variant="outline" onClick={closeModal}>Cancel</Button>
               <Button onClick={handleSubmit} disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Add Generate Modal */}
+      {generating && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className={`rounded-lg shadow-xl w-full max-w-sm mx-4 ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
+            <div className={`px-6 py-4 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+              <h3 className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                Generate Invoices
+              </h3>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-gray-500">
+                This will create invoices for all active students based on the fee structures defined for the selected Term/Year.
+              </p>
+              <div>
+                <label className="block text-sm font-medium mb-1">Term</label>
+                <select
+                  className="w-full p-2 rounded border bg-background"
+                  value={genTerm}
+                  onChange={e => setGenTerm(parseInt(e.target.value))}
+                >
+                  <option value={1}>Term 1</option>
+                  <option value={2}>Term 2</option>
+                  <option value={3}>Term 3</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Year</label>
+                <input
+                  type="number"
+                  className="w-full p-2 rounded border bg-background"
+                  value={genYear}
+                  onChange={e => setGenYear(parseInt(e.target.value))}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Due Date</label>
+                <input
+                  type="date"
+                  className="w-full p-2 rounded border bg-background"
+                  value={genDueDate}
+                  onChange={e => setGenDueDate(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className={`px-6 py-4 border-t flex justify-end gap-3 ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+              <Button variant="outline" onClick={() => setGenerating(false)}>Cancel</Button>
+              <Button onClick={confirmGenerate} disabled={processingGen}>
+                {processingGen ? 'Generating...' : 'Confirm Generation'}
+              </Button>
             </div>
           </div>
         </div>

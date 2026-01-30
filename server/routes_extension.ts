@@ -28,33 +28,6 @@ export function registerExtendedRoutes(app: Express) {
             const data = { ...req.body, schoolId, isActive: true };
             const newStructure = await db.insert(feeStructures).values(data).returning();
 
-            // Auto-invoice active students in this class
-            if (newStructure[0]) {
-                const s = newStructure[0];
-                if (s.classLevel && s.amount) {
-                    const activeStudents = await db.select().from(students)
-                        .where(and(
-                            eq(students.schoolId, schoolId),
-                            eq(students.classLevel, s.classLevel),
-                            eq(students.isActive, true)
-                        ));
-
-                    if (activeStudents.length > 0) {
-                        const today = new Date().toISOString().split('T')[0];
-                        const transactions = activeStudents.map(stu => ({
-                            schoolId,
-                            studentId: stu.id,
-                            transactionType: 'debit',
-                            amount: s.amount,
-                            description: `Term Fees - ${s.feeType} `,
-                            term: s.term || 1,
-                            year: s.year || new Date().getFullYear(),
-                            transactionDate: today
-                        }));
-                        await db.insert(financeTransactions).values(transactions);
-                    }
-                }
-            }
             res.json(newStructure[0]);
         } catch (error: any) {
             res.status(500).json({ message: "Failed to create fee structure: " + error.message });
@@ -2178,81 +2151,8 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
 
     // --- Invoice Generation (Debits) ---
 
-    app.post("/api/finance/generate-invoices", requireAuth, async (req, res) => {
-        try {
-            const schoolId = getActiveSchoolId(req);
-            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
-
-            const { term, year, classLevel } = req.body;
-            if (!term || !year) return res.status(400).json({ message: "Term and Year are required" });
-
-            // 1. Get relevant Fee Structures
-            const conditions = [
-                eq(feeStructures.schoolId, schoolId),
-                eq(feeStructures.term, term),
-                eq(feeStructures.year, year),
-                eq(feeStructures.isActive, true)
-            ];
-
-            if (classLevel) {
-                conditions.push(eq(feeStructures.classLevel, classLevel));
-            }
-
-            const relevantFees = await db.select().from(feeStructures).where(and(...conditions));
-
-            if (relevantFees.length === 0) {
-                return res.status(400).json({ message: `No fee structures found for Term ${term} ${year}` });
-            }
-
-            // 2. Get Students
-            const studentsQuery = db.select().from(students)
-                .where(and(eq(students.schoolId, schoolId), eq(students.isActive, true)));
-
-            const activeStudents = await studentsQuery;
-
-            let invoiceCount = 0;
-            const errors = [];
-
-            // 3. Generate Invoices Loop
-            for (const student of activeStudents) {
-                // Filter fees applicable to this student
-                const studentFees = relevantFees.filter(fee =>
-                    (fee.classLevel === student.classLevel) &&
-                    (fee.boardingStatus === 'all' || fee.boardingStatus === student.boardingStatus)
-                );
-
-                for (const fee of studentFees) {
-                    // Check if already invoiced (avoid duplicates)
-                    const existingTx = await db.select().from(financeTransactions).where(and(
-                        eq(financeTransactions.schoolId, schoolId),
-                        eq(financeTransactions.studentId, student.id),
-                        eq(financeTransactions.transactionType, 'debit'),
-                        eq(financeTransactions.description, `Tuition Due - ${fee.feeType} (${term}/${year})`) // Simple dedupe check
-                    )).limit(1);
-
-                    if (existingTx.length === 0) {
-                        await db.insert(financeTransactions).values({
-                            schoolId,
-                            studentId: student.id,
-                            transactionType: 'debit',
-                            amount: fee.amount,
-                            description: `Tuition Due - ${fee.feeType} (${term}/${year})`,
-                            term,
-                            year,
-                            transactionDate: new Date().toISOString().split('T')[0]
-                        });
-                        invoiceCount++;
-                    }
-                }
-            }
-
-            res.json({ message: `Generated ${invoiceCount} invoices`, count: invoiceCount });
-
-        } catch (error: any) {
-            console.error("Generate invoices error:", error);
-            res.status(500).json({ message: "Failed to generate invoices: " + error.message });
-        }
-    });
+    // URL deprecated. Use /api/invoices/generate instead logic moved to invoices module 
+    // Legacy endpoint removed to prevent duplicate ledger entries.
 
     // --- Gate Attendance Module ---
 
