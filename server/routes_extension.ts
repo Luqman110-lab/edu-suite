@@ -3,7 +3,7 @@ import { Express } from "express";
 import { db } from "./db";
 import { eq, and, desc, asc, sql, inArray, gt } from "drizzle-orm";
 
-import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, teacherAttendance, users, userSchools, feeStructures, financeTransactions, conversations, conversationParticipants, messages, promotionHistory, studentFeeOverrides, dormitories, dormRooms, beds, boardingRollCalls, leaveRequests, auditLogs, invoices, invoiceItems } from "../shared/schema";
+import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, teacherAttendance, users, userSchools, feeStructures, financeTransactions, conversations, conversationParticipants, messages, promotionHistory, studentFeeOverrides, dormitories, dormRooms, beds, boardingRollCalls, leaveRequests, auditLogs, invoices, invoiceItems, paymentPlans, planInstallments } from "../shared/schema";
 import { requireAuth, requireAdmin, requireSuperAdmin, getActiveSchoolId, hashPassword } from "./auth";
 
 export function registerExtendedRoutes(app: Express) {
@@ -503,6 +503,192 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         } catch (error: any) {
             console.error("Get hub stats error:", error);
             res.status(500).json({ message: "Failed to fetch hub stats: " + error.message });
+        }
+    });
+
+    // --- Invoice Reminders ---
+
+    // Send single invoice reminder
+    app.post("/api/invoices/:id/remind", requireAuth, async (req, res) => {
+        try {
+            const invoiceId = parseInt(req.params.id);
+            const { type = 'sms' } = req.body; // 'sms' or 'email'
+
+            const invoice = await db.query.invoices.findFirst({
+                where: eq(invoices.id, invoiceId),
+                with: {
+                    student: true,
+                }
+            });
+
+            if (!invoice) return res.status(404).json({ message: "Invoice not found" });
+
+            // TODO: Integrate actual SMS/Email provider here
+            console.log(`[Mock ${type.toUpperCase()}] Sending reminder to student ${invoice.student.name} for invoice ${invoice.invoiceNumber}. Amount: ${invoice.balance}`);
+
+            // Update reminder status
+            await db.update(invoices)
+                .set({
+                    reminderSentAt: new Date(),
+                    reminderCount: (invoice.reminderCount || 0) + 1,
+                    lastReminderType: type,
+                })
+                .where(eq(invoices.id, invoiceId));
+
+            res.json({ message: `${type.toUpperCase()} reminder sent successfully`, success: true });
+        } catch (error: any) {
+            console.error("Send reminder error:", error);
+            res.status(500).json({ message: "Failed to send reminder" });
+        }
+    });
+
+    // Bulk send reminders for overdue invoices
+    app.post("/api/invoices/bulk-remind", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            const { type = 'sms', minBalance = 0 } = req.body;
+
+            const overdueInvoices = await db.select().from(invoices)
+                .where(and(
+                    eq(invoices.schoolId, schoolId),
+                    gt(invoices.balance, minBalance),
+                    // In real app, check due date: lt(invoices.dueDate, new Date())
+                ));
+
+            let sentCount = 0;
+            for (const inv of overdueInvoices) {
+                sentCount++;
+                await db.update(invoices)
+                    .set({
+                        reminderSentAt: new Date(),
+                        reminderCount: (inv.reminderCount || 0) + 1,
+                        lastReminderType: type,
+                    })
+                    .where(eq(invoices.id, inv.id));
+            }
+
+            res.json({ message: `Sent ${sentCount} reminders successfully`, count: sentCount });
+        } catch (error: any) {
+            console.error("Bulk remind error:", error);
+            res.status(500).json({ message: "Failed to send bulk reminders" });
+        }
+    });
+
+    // --- Payment Plans ---
+
+    // List payment plans
+    app.get("/api/payment-plans", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            const plans = await db.query.paymentPlans.findMany({
+                where: eq(paymentPlans.schoolId, schoolId),
+                with: {
+                    student: true,
+                    installments: true,
+                },
+                orderBy: [desc(paymentPlans.createdAt)],
+            });
+            res.json(plans);
+        } catch (error: any) {
+            console.error("List plans error:", error);
+            res.status(500).json({ message: "Failed to list plans" });
+        }
+    });
+
+    // Create payment plan
+    app.post("/api/payment-plans", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            const { studentId, invoiceId, planName, totalAmount, downPayment, installmentCount, frequency, startDate } = req.body;
+
+            const [newPlan] = await db.insert(paymentPlans).values({
+                schoolId,
+                studentId,
+                invoiceId,
+                planName,
+                totalAmount,
+                downPayment: downPayment || 0,
+                installmentCount,
+                frequency,
+                startDate: new Date(startDate),
+                status: 'active',
+            }).returning();
+
+            const amountPerInstallment = (totalAmount - (downPayment || 0)) / installmentCount;
+            const start = new Date(startDate);
+
+            for (let i = 1; i <= installmentCount; i++) {
+                const dueDate = new Date(start);
+                if (frequency === 'weekly') {
+                    dueDate.setDate(dueDate.getDate() + (i * 7));
+                } else {
+                    dueDate.setMonth(dueDate.getMonth() + i);
+                }
+
+                await db.insert(planInstallments).values({
+                    planId: newPlan.id,
+                    installmentNumber: i,
+                    dueDate,
+                    amount: amountPerInstallment,
+                    status: 'pending',
+                });
+            }
+
+            res.json(newPlan);
+        } catch (error: any) {
+            console.error("Create plan error:", error);
+            res.status(500).json({ message: "Failed to create payment plan" });
+        }
+    });
+
+    // Get payment plan details
+    app.get("/api/payment-plans/:id", requireAuth, async (req, res) => {
+        try {
+            const id = parseInt(req.params.id);
+            const plan = await db.query.paymentPlans.findFirst({
+                where: eq(paymentPlans.id, id),
+                with: {
+                    student: true,
+                    installments: {
+                        orderBy: asc(planInstallments.installmentNumber),
+                    },
+                },
+            });
+
+            if (!plan) return res.status(404).json({ message: "Plan not found" });
+            res.json(plan);
+        } catch (error: any) {
+            console.error("Get plan error:", error);
+            res.status(500).json({ message: "Failed to get plan" });
+        }
+    });
+
+    // Record installment payment
+    app.post("/api/payment-plans/:id/pay", requireAuth, async (req, res) => {
+        try {
+            const { installmentId, amount } = req.body;
+
+            const installment = await db.query.planInstallments.findFirst({
+                where: eq(planInstallments.id, installmentId),
+            });
+
+            if (!installment) return res.status(404).json({ message: "Installment not found" });
+
+            const newPaidAmount = (installment.paidAmount || 0) + amount;
+            const isFull = newPaidAmount >= installment.amount;
+
+            await db.update(planInstallments)
+                .set({
+                    paidAmount: newPaidAmount,
+                    paidAt: new Date(),
+                    status: isFull ? 'paid' : 'partial',
+                })
+                .where(eq(planInstallments.id, installmentId));
+
+            res.json({ message: "Payment recorded", success: true });
+        } catch (error: any) {
+            console.error("Pay installment error:", error);
+            res.status(500).json({ message: "Failed to record payment" });
         }
     });
 

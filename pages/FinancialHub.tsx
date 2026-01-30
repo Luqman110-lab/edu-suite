@@ -5,6 +5,8 @@ import { Button } from '../components/Button';
 import { useToast } from '@/hooks/use-toast';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
 import { lazy, Suspense } from 'react';
+import { Mail, MessageSquare } from 'lucide-react';
+import { apiRequest } from '@/lib/queryClient';
 
 // Lazy load finance sub-modules
 const FeeStructuresContent = lazy(() => import('./FeeStructures'));
@@ -12,6 +14,7 @@ const RecordPaymentContent = lazy(() => import('./RecordPayment'));
 const ExpensesContent = lazy(() => import('./Expenses'));
 const ScholarshipsContent = lazy(() => import('./Scholarships'));
 const FinancialReportsContent = lazy(() => import('./FinancialReports'));
+const PaymentPlansContent = lazy(() => import('./PaymentPlans'));
 
 declare const jspdf: any;
 
@@ -76,7 +79,7 @@ export default function FinancialHub() {
     const navigate = useNavigate();
     const { toast } = useToast();
 
-    const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'debtors' | 'structures' | 'payments' | 'expenses' | 'scholarships' | 'reports'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'debtors' | 'structures' | 'payments' | 'plans' | 'expenses' | 'scholarships' | 'reports'>('overview');
     const [loading, setLoading] = useState(true);
     const [hubStats, setHubStats] = useState<HubStats | null>(null);
     const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -364,6 +367,21 @@ export default function FinancialHub() {
         { name: '90+ Days', value: debtorSummary.days90plus, color: '#DC2626' },
     ].filter(d => d.value > 0) : [];
 
+    const sendReminder = async (invoiceId: number, type: 'sms' | 'email') => {
+        try {
+            await apiRequest('POST', `/api/invoices/${invoiceId}/remind`, { type });
+            toast({
+                title: "Reminder Sent",
+                description: `${type.toUpperCase()} reminder has been queued/sent.`
+            });
+            // Refresh data
+            fetchData();
+        } catch (error) {
+            console.error(error);
+            toast({ title: "Failed to send reminder", variant: "destructive" });
+        }
+    };
+
     const renderOverviewTab = () => (
         <div className="space-y-6">
             {/* KPI Cards */}
@@ -538,10 +556,17 @@ export default function FinancialHub() {
                                         <td className="px-4 py-3 text-center">
                                             <button
                                                 onClick={() => downloadInvoicePDF(inv)}
-                                                className="text-blue-500 hover:text-blue-700 text-sm font-medium"
+                                                className="text-blue-500 hover:text-blue-700 text-sm font-medium mr-3"
                                                 title="Download PDF"
                                             >
                                                 📄 PDF
+                                            </button>
+                                            <button
+                                                onClick={() => sendReminder(inv.id, 'sms')}
+                                                className="text-green-500 hover:text-green-700 text-sm font-medium"
+                                                title="Send SMS Reminder"
+                                            >
+                                                <MessageSquare className="w-4 h-4 inline" />
                                             </button>
                                         </td>
                                     </tr>
@@ -683,6 +708,7 @@ export default function FinancialHub() {
                     { key: 'debtors', label: '🔴 Debtors' },
                     { key: 'structures', label: '📋 Fee Structures' },
                     { key: 'payments', label: '💳 Payments' },
+                    { key: 'plans', label: '📅 Payment Plans' },
                     { key: 'expenses', label: '💸 Expenses' },
                     { key: 'scholarships', label: '🎓 Scholarships' },
                     { key: 'reports', label: '📈 Reports' },
@@ -710,6 +736,11 @@ export default function FinancialHub() {
                     {activeTab === 'overview' && renderOverviewTab()}
                     {activeTab === 'invoices' && renderInvoicesTab()}
                     {activeTab === 'debtors' && renderDebtorsTab()}
+                    {activeTab === 'plans' && (
+                        <Suspense fallback={<div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" /></div>}>
+                            <PaymentPlansContent />
+                        </Suspense>
+                    )}
                     {activeTab === 'structures' && (
                         <Suspense fallback={<div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" /></div>}>
                             <FeeStructuresContent />

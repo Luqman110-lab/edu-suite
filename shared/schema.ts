@@ -2318,3 +2318,146 @@ export const insertClassTimetableSchema = createInsertSchema(classTimetables);
 export const selectClassTimetableSchema = createSelectSchema(classTimetables);
 export type ClassTimetable = typeof classTimetables.$inferSelect;
 export type InsertClassTimetable = typeof classTimetables.$inferInsert;
+
+// ============ FINANCE MODULE TABLES ============
+
+// Invoices - student fee invoices
+export const invoices = pgTable("invoices", {
+  id: serial("id").primaryKey(),
+  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
+  studentId: integer("student_id").notNull().references(() => students.id, { onDelete: "cascade" }),
+  invoiceNumber: text("invoice_number").notNull(),
+  term: integer("term").notNull(),
+  year: integer("year").notNull(),
+  totalAmount: real("total_amount").notNull().default(0),
+  amountPaid: real("amount_paid").notNull().default(0),
+  balance: real("balance").notNull().default(0),
+  dueDate: timestamp("due_date"),
+  status: text("status").notNull().default("unpaid"), // 'unpaid', 'partial', 'paid', 'overdue'
+  // Reminder tracking
+  reminderSentAt: timestamp("reminder_sent_at"),
+  reminderCount: integer("reminder_count").default(0),
+  lastReminderType: text("last_reminder_type"), // 'sms', 'email'
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  schoolIdx: index("invoices_school_idx").on(table.schoolId),
+  studentIdx: index("invoices_student_idx").on(table.studentId),
+  termYearIdx: index("invoices_term_year_idx").on(table.term, table.year),
+  statusIdx: index("invoices_status_idx").on(table.status),
+  uniqueInvoice: unique("unique_student_term_year").on(table.studentId, table.term, table.year),
+}));
+
+export const invoicesRelations = relations(invoices, ({ one, many }) => ({
+  school: one(schools, {
+    fields: [invoices.schoolId],
+    references: [schools.id],
+  }),
+  student: one(students, {
+    fields: [invoices.studentId],
+    references: [students.id],
+  }),
+  items: many(invoiceItems),
+}));
+
+export const insertInvoiceSchema = createInsertSchema(invoices);
+export const selectInvoiceSchema = createSelectSchema(invoices);
+export type Invoice = typeof invoices.$inferSelect;
+export type InsertInvoice = typeof invoices.$inferInsert;
+
+// Invoice Items - line items on an invoice
+export const invoiceItems = pgTable("invoice_items", {
+  id: serial("id").primaryKey(),
+  invoiceId: integer("invoice_id").notNull().references(() => invoices.id, { onDelete: "cascade" }),
+  feeType: text("fee_type").notNull(), // 'tuition', 'boarding', 'transport', etc.
+  description: text("description"),
+  amount: real("amount").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  invoiceIdx: index("invoice_items_invoice_idx").on(table.invoiceId),
+}));
+
+export const invoiceItemsRelations = relations(invoiceItems, ({ one }) => ({
+  invoice: one(invoices, {
+    fields: [invoiceItems.invoiceId],
+    references: [invoices.id],
+  }),
+}));
+
+export const insertInvoiceItemSchema = createInsertSchema(invoiceItems);
+export const selectInvoiceItemSchema = createSelectSchema(invoiceItems);
+export type InvoiceItem = typeof invoiceItems.$inferSelect;
+export type InsertInvoiceItem = typeof invoiceItems.$inferInsert;
+
+// Payment Plans - installment plans for students
+export const paymentPlans = pgTable("payment_plans", {
+  id: serial("id").primaryKey(),
+  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
+  studentId: integer("student_id").notNull().references(() => students.id, { onDelete: "cascade" }),
+  invoiceId: integer("invoice_id").references(() => invoices.id, { onDelete: "set null" }),
+  planName: text("plan_name"),
+  totalAmount: real("total_amount").notNull(),
+  downPayment: real("down_payment").default(0),
+  installmentCount: integer("installment_count").notNull(),
+  frequency: text("frequency").notNull().default("monthly"), // 'weekly', 'monthly'
+  startDate: timestamp("start_date").notNull(),
+  status: text("status").notNull().default("active"), // 'active', 'completed', 'defaulted', 'cancelled'
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  schoolIdx: index("payment_plans_school_idx").on(table.schoolId),
+  studentIdx: index("payment_plans_student_idx").on(table.studentId),
+  statusIdx: index("payment_plans_status_idx").on(table.status),
+}));
+
+export const paymentPlansRelations = relations(paymentPlans, ({ one, many }) => ({
+  school: one(schools, {
+    fields: [paymentPlans.schoolId],
+    references: [schools.id],
+  }),
+  student: one(students, {
+    fields: [paymentPlans.studentId],
+    references: [students.id],
+  }),
+  invoice: one(invoices, {
+    fields: [paymentPlans.invoiceId],
+    references: [invoices.id],
+  }),
+  installments: many(planInstallments),
+}));
+
+export const insertPaymentPlanSchema = createInsertSchema(paymentPlans);
+export const selectPaymentPlanSchema = createSelectSchema(paymentPlans);
+export type PaymentPlan = typeof paymentPlans.$inferSelect;
+export type InsertPaymentPlan = typeof paymentPlans.$inferInsert;
+
+// Plan Installments - individual payments in a plan
+export const planInstallments = pgTable("plan_installments", {
+  id: serial("id").primaryKey(),
+  planId: integer("plan_id").notNull().references(() => paymentPlans.id, { onDelete: "cascade" }),
+  installmentNumber: integer("installment_number").notNull(),
+  dueDate: timestamp("due_date").notNull(),
+  amount: real("amount").notNull(),
+  paidAmount: real("paid_amount").default(0),
+  paidAt: timestamp("paid_at"),
+  status: text("status").notNull().default("pending"), // 'pending', 'paid', 'partial', 'overdue'
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  planIdx: index("plan_installments_plan_idx").on(table.planId),
+  dueDateIdx: index("plan_installments_due_date_idx").on(table.dueDate),
+  statusIdx: index("plan_installments_status_idx").on(table.status),
+}));
+
+export const planInstallmentsRelations = relations(planInstallments, ({ one }) => ({
+  plan: one(paymentPlans, {
+    fields: [planInstallments.planId],
+    references: [paymentPlans.id],
+  }),
+}));
+
+export const insertPlanInstallmentSchema = createInsertSchema(planInstallments);
+export const selectPlanInstallmentSchema = createSelectSchema(planInstallments);
+export type PlanInstallment = typeof planInstallments.$inferSelect;
+export type InsertPlanInstallment = typeof planInstallments.$inferInsert;
