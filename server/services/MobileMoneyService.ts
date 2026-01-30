@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { mobileMoneyTransactions, feePayments, invoices, planInstallments } from "@shared/schema";
+import { mobileMoneyTransactions, feePayments, invoices, planInstallments } from "../../shared/schema";
 import { eq } from "drizzle-orm";
 
 interface PaymentRequest {
