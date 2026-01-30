@@ -107,6 +107,19 @@ export default function RecordPayment() {
         enabled: !!selectedStudent,
     });
 
+    // Fetch Invoice for Selected Student
+    const { data: invoices } = useQuery<any[]>({
+        queryKey: ['student-invoices', selectedStudent?.id, term, year],
+        queryFn: async () => {
+            if (!selectedStudent) return [];
+            const res = await apiRequest('GET', `/api/invoices?studentId=${selectedStudent.id}&term=${term}&year=${year}`);
+            return res.json();
+        },
+        enabled: !!selectedStudent,
+    });
+
+    const activeInvoice = invoices?.[0];
+
     const createPaymentMutation = useMutation({
         mutationFn: async (data: any) => {
             const res = await apiRequest('POST', '/api/fee-payments', data);
@@ -119,6 +132,7 @@ export default function RecordPayment() {
             });
             queryClient.invalidateQueries({ queryKey: ['financial-summary'] });
             queryClient.invalidateQueries({ queryKey: ['fee-payments'] });
+            queryClient.invalidateQueries({ queryKey: ['student-invoices'] });
             // Reset form
             setAmountPaid('');
             setNotes('');
@@ -134,31 +148,10 @@ export default function RecordPayment() {
 
     const handleSearchSelect = (student: Student) => {
         setSelectedStudent(student);
-        // setFilters({ ...filters, searchQuery: '' }); // Optional: clear search on select
     };
 
     const getAmountDue = () => {
-        if (!selectedStudent || !feeStructures) return 0;
-
-        // Check for override
-        const override = overrides?.find(o =>
-            o.feeType === feeType &&
-            o.term === parseInt(term) &&
-            o.year === parseInt(year)
-        );
-
-        if (override) return override.customAmount;
-
-        // Find standard fee
-        const structure = feeStructures.find(s =>
-            s.feeType === feeType &&
-            s.classLevel === selectedStudent.classLevel &&
-            (s.boardingStatus === 'all' || s.boardingStatus === selectedStudent.boardingStatus) &&
-            s.term === parseInt(term) &&
-            s.year === parseInt(year)
-        );
-
-        return structure ? structure.amount : 0;
+        return activeInvoice ? activeInvoice.balance : 0;
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -173,7 +166,8 @@ export default function RecordPayment() {
 
         createPaymentMutation.mutate({
             studentId: selectedStudent.id,
-            feeType,
+            feeType, // Still keep fee type for categorization, but mostly tracked against invoice now
+            invoiceId: activeInvoice?.id, // Link to invoice
             amountDue: getAmountDue(),
             amountPaid: amount,
             term: parseInt(term),
@@ -265,19 +259,28 @@ export default function RecordPayment() {
                                 <span className="font-medium">{selectedStudent.boardingStatus || 'N/A'}</span>
                             </div>
                             <div className="pt-4 border-t mt-4">
-                                <div className="text-xs text-gray-400 uppercase tracking-wider mb-2">Expected Fees (Current Term)</div>
-                                {feeStructures?.filter(f =>
-                                    f.classLevel === selectedStudent.classLevel &&
-                                    f.year === parseInt(year) &&
-                                    f.term === parseInt(term) &&
-                                    (f.boardingStatus === 'all' || f.boardingStatus === selectedStudent.boardingStatus)
-                                ).map(f => (
-                                    <div key={f.id} className="flex justify-between text-sm mb-1">
-                                        <span>{f.feeType}</span>
-                                        <span>{f.amount.toLocaleString()} UGX</span>
+                                <div className="text-xs text-gray-400 uppercase tracking-wider mb-2">Invoice Status ({term}/{year})</div>
+                                {activeInvoice ? (
+                                    <>
+                                        <div className="flex justify-between text-sm mb-1">
+                                            <span>Total Billed:</span>
+                                            <span>{activeInvoice.totalAmount?.toLocaleString()} UGX</span>
+                                        </div>
+                                        <div className="flex justify-between text-sm mb-1 text-green-600">
+                                            <span>Paid:</span>
+                                            <span>{activeInvoice.amountPaid?.toLocaleString()} UGX</span>
+                                        </div>
+                                        <div className="flex justify-between font-bold text-lg mt-2 text-red-600">
+                                            <span>Balance Due:</span>
+                                            <span>{activeInvoice.balance?.toLocaleString()} UGX</span>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="p-3 bg-yellow-50 text-yellow-700 rounded-lg text-sm">
+                                        No invoice found for this Term/Year. <br />
+                                        <span className="text-xs">Please generate invoices first.</span>
                                     </div>
-                                ))}
-                                {(!feeStructures || feeStructures.length === 0) && <p className="text-sm text-gray-400 italic">No fee structure found for this term.</p>}
+                                )}
                             </div>
                         </div>
                     </Card>
