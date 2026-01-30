@@ -94,6 +94,24 @@ export const schools = pgTable("schools", {
     ],
     conductOptions: ["Excellent", "Very Good", "Good", "Fair", "Needs Improvement"],
   }),
+  idCardConfig: json("id_card_config").$type<{
+    showBloodGroup: boolean;
+    showDob: boolean;
+    showEmergencyContact: boolean;
+    customTerms: string[];
+    layout: 'single' | 'grid';
+  }>().default({
+    showBloodGroup: true,
+    showDob: true,
+    showEmergencyContact: true,
+    customTerms: [
+      "Property of the school",
+      "Carry at all times",
+      "Report loss immediately",
+      "Non-transferable"
+    ],
+    layout: 'single'
+  }),
   securityConfig: json("security_config").$type<{
     passwordMinLength: number;
     passwordRequireUppercase: boolean;

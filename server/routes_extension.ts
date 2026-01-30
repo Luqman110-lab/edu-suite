@@ -2360,7 +2360,14 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-            let query = db.select({
+            const conditions = [eq(beds.schoolId, schoolId)];
+
+            // Add where clause
+            if (req.query.roomId) {
+                conditions.push(eq(beds.roomId, parseInt(req.query.roomId as string)));
+            }
+
+            const allBeds = await db.select({
                 bed: beds,
                 student: {
                     id: students.id,
@@ -2369,16 +2376,8 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                 }
             })
                 .from(beds)
-                .leftJoin(students, eq(beds.studentId, students.id)); // Base join
-
-            // Add where clause
-            if (req.query.roomId) {
-                query.where(and(eq(beds.schoolId, schoolId), eq(beds.roomId, parseInt(req.query.roomId as string))));
-            } else {
-                query.where(eq(beds.schoolId, schoolId));
-            }
-
-            const allBeds = await query;
+                .leftJoin(students, eq(beds.currentStudentId, students.id))
+                .where(and(...conditions));
 
             const flattenedBeds = allBeds.map(item => ({
                 ...item.bed,
@@ -2415,7 +2414,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
 
             // 1. Update Bed
             const updatedBed = await db.update(beds)
-                .set({ status: 'occupied', studentId: studentId })
+                .set({ status: 'occupied', currentStudentId: studentId })
                 .where(eq(beds.id, bedId))
                 .returning();
 
@@ -2451,14 +2450,14 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
 
             // Get current student before unassigning
             const currentBed = await db.select().from(beds).where(eq(beds.id, bedId));
-            if (currentBed[0] && currentBed[0].studentId) {
+            if (currentBed[0] && currentBed[0].currentStudentId) {
                 await db.update(students)
                     .set({ houseOrDormitory: null })
-                    .where(eq(students.id, currentBed[0].studentId));
+                    .where(eq(students.id, currentBed[0].currentStudentId));
             }
 
             const updatedBed = await db.update(beds)
-                .set({ status: 'vacant', studentId: null })
+                .set({ status: 'vacant', currentStudentId: null })
                 .where(eq(beds.id, bedId))
                 .returning();
 
@@ -2484,26 +2483,26 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-            let query = db.select({
-                rollCall: boardingRollCalls,
-                studentName: sql<string>`concat(${students.firstName}, ' ', ${students.lastName})`
-            })
-                .from(boardingRollCalls)
-                .leftJoin(students, eq(boardingRollCalls.studentId, students.id))
-                .where(eq(boardingRollCalls.schoolId, schoolId));
+            const conditions = [eq(boardingRollCalls.schoolId, schoolId)];
 
             // Filters
             if (req.query.date) {
-                query.where(and(eq(boardingRollCalls.schoolId, schoolId), eq(boardingRollCalls.date, req.query.date as string)));
+                conditions.push(eq(boardingRollCalls.date, req.query.date as string));
             }
             if (req.query.session) {
-                query.where(and(eq(boardingRollCalls.schoolId, schoolId), eq(boardingRollCalls.session, req.query.session as string)));
+                conditions.push(eq(boardingRollCalls.session, req.query.session as string));
             }
             if (req.query.dormitoryId) {
-                query.where(and(eq(boardingRollCalls.schoolId, schoolId), eq(boardingRollCalls.dormitoryId, parseInt(req.query.dormitoryId as string))));
+                conditions.push(eq(boardingRollCalls.dormitoryId, parseInt(req.query.dormitoryId as string)));
             }
 
-            const results = await query;
+            const results = await db.select({
+                rollCall: boardingRollCalls,
+                studentName: students.name
+            })
+                .from(boardingRollCalls)
+                .leftJoin(students, eq(boardingRollCalls.studentId, students.id))
+                .where(and(...conditions));
             // flatten
             const flatResults = results.map(r => ({
                 ...r.rollCall,
@@ -2562,23 +2561,23 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-            let query = db.select({
+            const conditions = [eq(leaveRequests.schoolId, schoolId)];
+
+            if (req.query.status) {
+                conditions.push(eq(leaveRequests.status, req.query.status as string));
+            }
+            if (req.query.studentId) {
+                conditions.push(eq(leaveRequests.studentId, parseInt(req.query.studentId as string)));
+            }
+
+            const results = await db.select({
                 request: leaveRequests,
-                studentName: sql<string>`concat(${students.firstName}, ' ', ${students.lastName})`,
+                studentName: students.name,
                 classLevel: students.classLevel
             })
                 .from(leaveRequests)
                 .leftJoin(students, eq(leaveRequests.studentId, students.id))
-                .where(eq(leaveRequests.schoolId, schoolId));
-
-            if (req.query.status) {
-                query.where(and(eq(leaveRequests.schoolId, schoolId), eq(leaveRequests.status, req.query.status as string)));
-            }
-            if (req.query.studentId) {
-                query.where(and(eq(leaveRequests.schoolId, schoolId), eq(leaveRequests.studentId, parseInt(req.query.studentId as string))));
-            }
-
-            const results = await query;
+                .where(and(...conditions));
             const flatResults = results.map(r => ({
                 ...r.request,
                 studentName: r.studentName,
@@ -2643,6 +2642,46 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             res.json({ message: "Leave request deleted" });
         } catch (error: any) {
             res.status(500).json({ message: "Failed to delete leave request: " + error.message });
+        }
+    });
+
+    // Public verification endpoint
+    app.get("/api/public/verify-student/:id", async (req, res) => {
+        try {
+            const id = parseInt(req.params.id);
+            if (isNaN(id)) return res.status(400).json({ valid: false, message: "Invalid ID" });
+
+            const studentData = await db.select({
+                student: students,
+                schoolName: schools.name
+            })
+                .from(students)
+                .leftJoin(schools, eq(students.schoolId, schools.id))
+                .where(eq(students.id, id))
+                .limit(1);
+
+            if (!studentData.length) {
+                return res.json({ valid: false, message: "Student not found" });
+            }
+
+            const { student, schoolName } = studentData[0];
+
+            res.json({
+                valid: true,
+                student: {
+                    name: student.name,
+                    photoBase64: student.photoBase64,
+                    classLevel: student.classLevel,
+                    stream: student.stream,
+                    schoolName: schoolName || "Unknown School",
+                    status: (student as any).isActive ? "Active" : "Inactive", // Handle conditional type inference
+                    indexNumber: student.indexNumber
+                }
+            });
+
+        } catch (error: any) {
+            console.error("Verification error:", error);
+            res.status(500).json({ valid: false, message: "Verification failed" });
         }
     });
 

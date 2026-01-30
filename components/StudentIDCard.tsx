@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import QRCode from 'qrcode';
+import { toPng } from 'html-to-image';
 import { Student, SchoolSettings } from '../types';
 
 interface StudentIDCardProps {
@@ -17,20 +18,26 @@ export const StudentIDCard: React.FC<StudentIDCardProps> = ({
   const [showBack, setShowBack] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
-  const primaryColor = '#0052CC';
-  const secondaryColor = '#003D99';
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const primaryColor = settings?.primaryColor || '#0052CC';
+  const secondaryColor = settings?.secondaryColor || '#003D99';
   const accentColor = '#FFD700';
 
+  const config = settings?.idCardConfig || {
+    showBloodGroup: true,
+    showDob: true,
+    showEmergencyContact: true,
+    customTerms: [
+      `This card is the property of ${settings?.schoolName || 'the school'}`,
+      "Must be carried at all times while on school premises",
+      "Report loss immediately to the school office",
+      "Non-transferable - for student use only"
+    ]
+  };
+
   useEffect(() => {
-    const qrData = JSON.stringify({
-      id: student.id,
-      idx: student.indexNumber,
-      name: student.name,
-      class: `${student.classLevel} ${student.stream}`,
-      school: settings?.schoolName || 'EduSuite School',
-      dob: student.dateOfBirth || '',
-      blood: student.medicalInfo?.bloodGroup || ''
-    });
+    const qrData = `${window.location.origin}/verify-student/${student.id}`;
 
     QRCode.toDataURL(qrData, {
       width: 100,
@@ -207,10 +214,10 @@ export const StudentIDCard: React.FC<StudentIDCardProps> = ({
                 </div>
                 <div class="card-body">
                   <div class="photo-container">
-                    ${student.photoBase64 
-                      ? `<img src="${student.photoBase64}" alt="${student.name}" />`
-                      : `<div class="photo-placeholder">📷<br/>Photo</div>`
-                    }
+                    ${student.photoBase64
+        ? `<img src="${student.photoBase64}" alt="${student.name}" />`
+        : `<div class="photo-placeholder">📷<br/>Photo</div>`
+      }
                   </div>
                   <div class="info-section">
                     <div class="student-name">${student.name}</div>
@@ -226,12 +233,12 @@ export const StudentIDCard: React.FC<StudentIDCardProps> = ({
                       <span class="info-label">Gender:</span>
                       <span class="info-value">${student.gender === 'M' ? 'Male' : 'Female'}</span>
                     </div>
-                    ${student.dateOfBirth ? `
+                    ${config.showDob && student.dateOfBirth ? `
                     <div class="info-row">
                       <span class="info-label">D.O.B:</span>
                       <span class="info-value">${student.dateOfBirth}</span>
                     </div>` : ''}
-                    ${student.medicalInfo?.bloodGroup ? `
+                    ${config.showBloodGroup && student.medicalInfo?.bloodGroup ? `
                     <div class="info-row">
                       <span class="info-label">Blood:</span>
                       <span class="info-value" style="color:${accentColor};font-weight:bold;">${student.medicalInfo.bloodGroup}</span>
@@ -258,7 +265,7 @@ export const StudentIDCard: React.FC<StudentIDCardProps> = ({
                   <div class="back-title">Student Identity Card</div>
                 </div>
                 
-                ${student.parentContact || (student.emergencyContacts && student.emergencyContacts.length > 0) ? `
+                ${config.showEmergencyContact && (student.parentContact || (student.emergencyContacts && student.emergencyContacts.length > 0)) ? `
                 <div class="emergency-section">
                   <div class="emergency-title">EMERGENCY CONTACT</div>
                   <div class="emergency-value">
@@ -269,10 +276,7 @@ export const StudentIDCard: React.FC<StudentIDCardProps> = ({
                 <div class="back-section">
                   <div class="back-section-title">Terms & Conditions</div>
                   <ul class="terms-list back-text">
-                    <li>This card is the property of ${schoolName}</li>
-                    <li>Must be carried at all times while on school premises</li>
-                    <li>Report loss immediately to the school office</li>
-                    <li>Non-transferable - for student use only</li>
+                    ${config.customTerms.map(term => `<li>${term}</li>`).join('')}
                   </ul>
                 </div>
                 
@@ -293,6 +297,20 @@ export const StudentIDCard: React.FC<StudentIDCardProps> = ({
     printWindow.document.close();
     printWindow.focus();
     setTimeout(() => printWindow.print(), 300);
+    setTimeout(() => printWindow.print(), 300);
+  };
+
+  const handleDownload = async () => {
+    if (!cardRef.current) return;
+    try {
+      const dataUrl = await toPng(cardRef.current, { quality: 0.95, pixelRatio: 3 });
+      const link = document.createElement('a');
+      link.download = `ID_${student.name.replace(/\s+/g, '_')}_${showBack ? 'Back' : 'Front'}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (err) {
+      console.error('Failed to download ID card image', err);
+    }
   };
 
   const displaySchoolName = settings?.schoolName || 'EduSuite School';
@@ -322,21 +340,19 @@ export const StudentIDCard: React.FC<StudentIDCardProps> = ({
           <div className="flex gap-2 mb-4 justify-center">
             <button
               onClick={() => setShowBack(false)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                !showBack 
-                  ? 'bg-[#0052CC] text-white' 
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-              }`}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${!showBack
+                ? 'bg-[#0052CC] text-white'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                }`}
             >
               Front
             </button>
             <button
               onClick={() => setShowBack(true)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                showBack 
-                  ? 'bg-[#0052CC] text-white' 
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-              }`}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${showBack
+                ? 'bg-[#0052CC] text-white'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                }`}
             >
               Back
             </button>
@@ -350,7 +366,7 @@ export const StudentIDCard: React.FC<StudentIDCardProps> = ({
                   background: `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)`,
                 }}
               >
-                <div 
+                <div
                   className="flex items-center gap-3 px-4 py-2"
                   style={{ background: `linear-gradient(90deg, ${accentColor} 0%, rgba(255,215,0,0.6) 100%)` }}
                 >
@@ -368,7 +384,7 @@ export const StudentIDCard: React.FC<StudentIDCardProps> = ({
                 </div>
 
                 <div className="flex gap-3 p-3 text-white">
-                  <div 
+                  <div
                     className="w-[85px] h-[105px] bg-white rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0"
                     style={{ border: `2px solid ${accentColor}` }}
                   >
@@ -383,7 +399,7 @@ export const StudentIDCard: React.FC<StudentIDCardProps> = ({
                   </div>
 
                   <div className="flex-1 flex flex-col gap-1">
-                    <div 
+                    <div
                       className="font-bold text-sm uppercase pb-1 mb-1"
                       style={{ color: accentColor, borderBottom: '1px solid rgba(255,215,0,0.3)' }}
                     >
@@ -401,13 +417,13 @@ export const StudentIDCard: React.FC<StudentIDCardProps> = ({
                       <span className="font-semibold opacity-90 w-[52px]">Gender:</span>
                       <span>{student.gender === 'M' ? 'Male' : 'Female'}</span>
                     </div>
-                    {student.dateOfBirth && (
+                    {config.showDob && student.dateOfBirth && (
                       <div className="text-[11px] flex gap-1">
                         <span className="font-semibold opacity-90 w-[52px]">D.O.B:</span>
                         <span>{student.dateOfBirth}</span>
                       </div>
                     )}
-                    {student.medicalInfo?.bloodGroup && (
+                    {config.showBloodGroup && student.medicalInfo?.bloodGroup && (
                       <div className="text-[11px] flex gap-1">
                         <span className="font-semibold opacity-90 w-[52px]">Blood:</span>
                         <span style={{ color: accentColor, fontWeight: 'bold' }}>{student.medicalInfo.bloodGroup}</span>
@@ -423,7 +439,7 @@ export const StudentIDCard: React.FC<StudentIDCardProps> = ({
                   </div>
                 </div>
 
-                <div 
+                <div
                   className="absolute bottom-0 left-0 right-0 px-4 py-1.5 flex justify-between text-[10px]"
                   style={{ background: 'rgba(0,0,0,0.2)' }}
                 >
@@ -442,7 +458,7 @@ export const StudentIDCard: React.FC<StudentIDCardProps> = ({
                   <div className="text-sm font-bold text-[#0052CC] uppercase">Student Identity Card</div>
                 </div>
 
-                {(student.parentContact || (student.emergencyContacts && student.emergencyContacts.length > 0)) && (
+                {(config.showEmergencyContact && (student.parentContact || (student.emergencyContacts && student.emergencyContacts.length > 0))) && (
                   <div className="bg-amber-50 border border-amber-400 rounded p-2 mb-2">
                     <div className="text-[10px] font-bold text-amber-800">EMERGENCY CONTACT</div>
                     <div className="text-xs font-bold">
@@ -454,10 +470,9 @@ export const StudentIDCard: React.FC<StudentIDCardProps> = ({
                 <div className="mb-2">
                   <div className="text-[10px] font-bold text-[#0052CC] mb-1">Terms & Conditions</div>
                   <ul className="text-[9px] text-gray-600 list-disc pl-3 space-y-0.5">
-                    <li>This card is the property of {displaySchoolName}</li>
-                    <li>Must be carried at all times on school premises</li>
-                    <li>Report loss immediately to the school office</li>
-                    <li>Non-transferable - for student use only</li>
+                    {config.customTerms.map((term, i) => (
+                      <li key={i}>{term}</li>
+                    ))}
                   </ul>
                 </div>
 
@@ -465,8 +480,8 @@ export const StudentIDCard: React.FC<StudentIDCardProps> = ({
                   <div className="text-[9px] font-bold mb-1">IF FOUND, PLEASE RETURN TO:</div>
                   <div className="text-[9px]">
                     {displaySchoolName}
-                    {settings?.addressBox && <><br/>{settings.addressBox}</>}
-                    {settings?.contactPhones && <><br/>Tel: {settings.contactPhones}</>}
+                    {settings?.addressBox && <><br />{settings.addressBox}</>}
+                    {settings?.contactPhones && <><br />Tel: {settings.contactPhones}</>}
                   </div>
                 </div>
               </div>
@@ -489,6 +504,15 @@ export const StudentIDCard: React.FC<StudentIDCardProps> = ({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
             </svg>
             Print ID Card
+          </button>
+          <button
+            onClick={handleDownload}
+            className="px-5 py-2 bg-white border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 font-medium"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Download
           </button>
         </div>
       </div>
@@ -567,10 +591,10 @@ export const BulkIDCardPrint: React.FC<BulkIDCardPrintProps> = ({
               </div>
               <div class="card-body">
                 <div class="photo-container">
-                  ${student.photoBase64 
-                    ? `<img src="${student.photoBase64}" alt="${student.name}" />`
-                    : `<div class="photo-placeholder">📷<br/>Photo</div>`
-                  }
+                  ${student.photoBase64
+            ? `<img src="${student.photoBase64}" alt="${student.name}" />`
+            : `<div class="photo-placeholder">📷<br/>Photo</div>`
+          }
                 </div>
                 <div class="info-section">
                   <div class="student-name">${student.name}</div>

@@ -18,6 +18,7 @@ import { Settings } from './pages/Settings';
 import { P7ExamSets } from './pages/P7ExamSets';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { Login } from './pages/Login';
+import { VerifyStudent } from './pages/VerifyStudent';
 import LandingPage from './pages/marketing/LandingPage';
 import Finance from './pages/Finance';
 import FeeStructures from './pages/FeeStructures';
@@ -84,6 +85,7 @@ export default function App() {
             <Routes>
               <Route path="/" element={<LandingWrapper />} />
               <Route path="/login" element={<LoginWrapper />} />
+              <Route path="/verify-student/:id" element={<VerifyStudent />} />
               <Route
                 path="/app/*"
                 element={

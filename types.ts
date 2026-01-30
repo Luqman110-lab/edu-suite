@@ -205,6 +205,14 @@ export interface SecurityConfig {
   enforceIPWhitelist: boolean;
 }
 
+export interface IDCardConfig {
+  showBloodGroup: boolean;
+  showDob: boolean;
+  showEmergencyContact: boolean;
+  customTerms: string[];
+  layout: 'single' | 'grid';
+}
+
 export interface SchoolSettings {
   id?: string;
   schoolName: string;
@@ -223,6 +231,9 @@ export interface SchoolSettings {
   subjectConfig?: SubjectConfig;
   reportConfig?: ReportConfig;
   securityConfig?: SecurityConfig;
+  primaryColor?: string;
+  secondaryColor?: string;
+  idCardConfig?: IDCardConfig;
 }
 
 export interface FeePayment {
