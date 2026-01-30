@@ -18,7 +18,7 @@ export const StudentIDCard: React.FC<StudentIDCardProps> = ({
   const [showBack, setShowBack] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
-  const cardRef = useRef<HTMLDivElement>(null);
+
 
   const primaryColor = settings?.primaryColor || '#0052CC';
   const secondaryColor = settings?.secondaryColor || '#003D99';
