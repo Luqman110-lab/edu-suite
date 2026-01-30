@@ -650,14 +650,22 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     // Record installment payment
     app.post("/api/payment-plans/:id/pay", requireAuth, async (req, res) => {
         try {
+            const schoolId = getActiveSchoolId(req);
             const { installmentId, amount } = req.body;
+            const planId = parseInt(req.params.id);
 
+            // 1. Get Installment & Plan Details
             const installment = await db.query.planInstallments.findFirst({
                 where: eq(planInstallments.id, installmentId),
             });
-
             if (!installment) return res.status(404).json({ message: "Installment not found" });
 
+            const plan = await db.query.paymentPlans.findFirst({
+                where: eq(paymentPlans.id, planId),
+            });
+            if (!plan) return res.status(404).json({ message: "Plan not found" });
+
+            // 2. Update Installment
             const newPaidAmount = (installment.paidAmount || 0) + amount;
             const isFull = newPaidAmount >= installment.amount;
 
@@ -669,7 +677,54 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                 })
                 .where(eq(planInstallments.id, installmentId));
 
-            res.json({ message: "Payment recorded", success: true });
+            // 3. Record in Global Finance Ledger (fee_payments & finance_transactions)
+            const today = new Date();
+
+            // Create fee_payment record
+            const [payment] = await db.insert(feePayments).values({
+                schoolId: plan.schoolId,
+                studentId: plan.studentId,
+                amountPaid: amount,
+                paymentDate: today,
+                paymentMethod: 'Cash', // Default for this endpoint
+                feeType: 'Tuition', // Defaulting to Tuition for plan payments usually
+                notes: `Installment #${installment.installmentNumber} - ${plan.planName}`,
+            }).returning();
+
+            // Create finance_transaction record
+            await db.insert(financeTransactions).values({
+                schoolId: plan.schoolId,
+                type: 'income',
+                category: 'fee_payment',
+                amount: amount,
+                referenceId: payment.id.toString(),
+                description: `Payment Plan: ${plan.planName} (Inst #${installment.installmentNumber})`,
+                date: today,
+                paymentMethod: 'Cash',
+                studentId: plan.studentId,
+            });
+
+            // 4. Update Main Invoice (if linked)
+            if (plan.invoiceId) {
+                const invoice = await db.query.invoices.findFirst({
+                    where: eq(invoices.id, plan.invoiceId),
+                });
+                if (invoice) {
+                    const invPaid = (invoice.amountPaid || 0) + amount;
+                    const invBal = Math.max(0, invoice.totalAmount - invPaid);
+
+                    await db.update(invoices)
+                        .set({
+                            amountPaid: invPaid,
+                            balance: invBal,
+                            status: invBal === 0 ? 'paid' : 'partial',
+                            updatedAt: today
+                        })
+                        .where(eq(invoices.id, plan.invoiceId));
+                }
+            }
+
+            res.json({ message: "Payment recorded and ledger updated", success: true });
         } catch (error: any) {
             console.error("Pay installment error:", error);
             res.status(500).json({ message: "Failed to record payment" });
