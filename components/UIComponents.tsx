@@ -716,6 +716,69 @@ export const IconButton: React.FC<IconButtonProps> = ({
     );
 };
 
+// ============================================================================
+// MODERN SELECT COMPONENT
+// ============================================================================
+
+interface SelectOption {
+    value: string;
+    label: string;
+}
+
+interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
+    label?: string;
+    error?: string;
+    options: SelectOption[];
+}
+
+export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(({
+    label,
+    error,
+    options,
+    className = '',
+    ...props
+}, ref) => {
+    return (
+        <div className="w-full">
+            {label && (
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                    {label}
+                </label>
+            )}
+            <div className="relative">
+                <select
+                    ref={ref}
+                    className={`
+            w-full px-4 py-2.5 rounded-xl
+            bg-white dark:bg-gray-800
+            border ${error ? 'border-danger-500' : 'border-gray-200 dark:border-gray-700'}
+            text-gray-900 dark:text-white
+            focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500
+            transition-all
+            appearance-none
+            ${className}
+          `}
+                    {...props}
+                >
+                    {options.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                        </option>
+                    ))}
+                </select>
+            </div>
+            {error && (
+                <p className="mt-1.5 text-sm text-danger-500 flex items-center gap-1">
+                    <AlertCircle className="w-4 h-4" />
+                    {error}
+                </p>
+            )}
+        </div>
+    );
+});
+
+Select.displayName = 'Select';
+
 export default {
     Card,
     Badge,
@@ -727,6 +790,7 @@ export default {
     Alert,
     Tabs,
     Input,
+    Select,
     Progress,
     Divider,
     IconButton

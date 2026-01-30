@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { StudentLedger } from './components/StudentLedger';
 import { FeePaymentHistory } from '@/components/FeePaymentHistory';
 import { useTheme } from '@/contexts/ThemeContext';
+import { StudentFilter, FilterState } from '@/components/StudentFilter';
 
 interface Student {
     id: number;
@@ -33,7 +34,12 @@ export default function StudentFees() {
     const { isDark } = useTheme();
     const navigate = useNavigate();
     const queryClient = useQueryClient();
-    const [searchQuery, setSearchQuery] = useState('');
+    const [filters, setFilters] = useState<FilterState>({
+        searchQuery: '',
+        classLevel: '',
+        stream: '',
+        boardingStatus: ''
+    });
     const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
 
     // Override Form
@@ -44,14 +50,24 @@ export default function StudentFees() {
     const [reason, setReason] = useState('');
 
     // Search
+    // Search
+    const hasActiveFilters = filters.classLevel || filters.stream || filters.boardingStatus || (filters.searchQuery && filters.searchQuery.length >= 2);
+
     const { data: searchResults, isLoading: isSearching } = useQuery<Student[]>({
-        queryKey: ['students-search', searchQuery],
+        queryKey: ['students-search', filters.searchQuery, filters.classLevel, filters.stream, filters.boardingStatus, filters.sortBy, filters.sortOrder],
         queryFn: async () => {
-            if (!searchQuery || searchQuery.length < 2) return [];
-            const res = await apiRequest('GET', `/api/students/search?q=${encodeURIComponent(searchQuery)}`);
+            const params = new URLSearchParams();
+            if (filters.searchQuery) params.append('q', filters.searchQuery);
+            if (filters.classLevel) params.append('classLevel', filters.classLevel);
+            if (filters.stream) params.append('stream', filters.stream);
+            if (filters.boardingStatus) params.append('boardingStatus', filters.boardingStatus);
+            if (filters.sortBy) params.append('sortBy', filters.sortBy);
+            if (filters.sortOrder) params.append('sortOrder', filters.sortOrder);
+
+            const res = await apiRequest('GET', `/api/students/search?${params.toString()}`);
             return res.json();
         },
-        enabled: searchQuery.length >= 2,
+        enabled: Boolean(hasActiveFilters),
     });
 
     // Fetch Overrides
@@ -83,7 +99,14 @@ export default function StudentFees() {
 
     const handleSearchSelect = (student: Student) => {
         setSelectedStudent(student);
-        setSearchQuery('');
+        // We might want to keep filters? Or reset?
+        // Let's reset search but keep context if possible?
+        // Actually, resetting clears the list which is nice to switch view.
+        // But the previous implementation set searchQuery to '', effectively clearing list.
+        // We will do same: clear all filters or just searchQuery?
+        // Let's clear filters to enter "Selected Student Mode"
+        // setFilters({ searchQuery: '', classLevel: '', stream: '', boardingStatus: '' }); 
+        // Actually, no need to clear filters if we hide the list when selectedStudent is true (which it does via logic below)
     };
 
     const handleSave = (e: React.FormEvent) => {
@@ -140,39 +163,36 @@ export default function StudentFees() {
 
             {!selectedStudent ? (
                 <Card>
-                    <div className="mb-6">
-                        <h3 className="text-lg font-bold">Select Student</h3>
-                        <p className="text-sm text-gray-500">Search for a student to customize their fee structure</p>
-                    </div>
-
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" style={{ zIndex: 10 }} />
-                        <Input
-                            placeholder="Search students..."
-                            className="pl-10"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                    </div>
-                    {isSearching && <div className="p-4 text-center"><Spinner /></div>}
-
-                    {searchResults && searchResults.length > 0 && (
-                        <div className="mt-4 border rounded-md divide-y">
-                            {searchResults.map(student => (
-                                <div
-                                    key={student.id}
-                                    className="p-3 hover:bg-gray-50 cursor-pointer flex justify-between items-center"
-                                    onClick={() => handleSearchSelect(student)}
-                                >
-                                    <div>
-                                        <p className="font-medium">{student.name}</p>
-                                        <p className="text-sm text-gray-500">{student.classLevel} {student.stream}</p>
-                                    </div>
-                                    <Button variant="outline" size="sm">Modify Fees</Button>
-                                </div>
-                            ))}
+                    <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex items-center gap-2 text-gray-500">
+                            <Search className="w-5 h-5" />
+                            <span className="text-sm font-medium">Find Student to Manage Fees</span>
                         </div>
-                    )}
+                    </div>
+
+                    <StudentFilter onFilterChange={setFilters} />
+
+                    <div className="mt-4">
+                        {isSearching && <div className="p-4 text-center"><Spinner /></div>}
+
+                        {searchResults && searchResults.length > 0 && (
+                            <div className="mt-4 border rounded-md divide-y">
+                                {searchResults.map(student => (
+                                    <div
+                                        key={student.id}
+                                        className="p-3 hover:bg-gray-50 cursor-pointer flex justify-between items-center"
+                                        onClick={() => handleSearchSelect(student)}
+                                    >
+                                        <div>
+                                            <p className="font-medium">{student.name}</p>
+                                            <p className="text-sm text-gray-500">{student.classLevel} {student.stream}</p>
+                                        </div>
+                                        <Button variant="outline" size="sm">Modify Fees</Button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </Card>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

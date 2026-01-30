@@ -1,7 +1,7 @@
 
 import { Express } from "express";
 import { db } from "./db";
-import { eq, and, desc, sql, inArray, gt } from "drizzle-orm";
+import { eq, and, desc, asc, sql, inArray, gt } from "drizzle-orm";
 
 import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, teacherAttendance, users, userSchools, feeStructures, financeTransactions, conversations, conversationParticipants, messages, promotionHistory, studentFeeOverrides, dormitories, dormRooms, beds, boardingRollCalls, leaveRequests } from "../shared/schema";
 import { requireAuth, requireAdmin, requireSuperAdmin, getActiveSchoolId, hashPassword } from "./auth";
@@ -1416,17 +1416,65 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         try {
             const schoolId = getActiveSchoolId(req);
             const query = req.query.q as string;
+            const classLevel = req.query.classLevel as string;
+            const stream = req.query.stream as string;
+            const boardingStatus = req.query.boardingStatus as string;
+
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-            if (!query || query.length < 2) return res.json([]);
+            // Ensure at least one filter is active to prevent returning all students accidentally
+            // But if they explicitly select 'All' for everything (empties), maybe we should limit return or require SOMETHING.
+            // Let's allow simple list if filters are provided, but if ONLY q is provided, require len >= 2.
+            const hasFilters = classLevel || stream || boardingStatus;
+
+            if (!hasFilters && (!query || query.length < 2)) {
+                return res.json([]);
+            }
+
+            const conditions = [
+                eq(students.schoolId, schoolId),
+                eq(students.isActive, true)
+            ];
+
+            if (query && query.length > 0) {
+                conditions.push(sql`LOWER(${students.name}) LIKE ${`%${query.toLowerCase()}%`}`);
+            }
+
+            if (classLevel) {
+                conditions.push(eq(students.classLevel, classLevel));
+            }
+            if (stream) {
+                conditions.push(sql`LOWER(${students.stream}) = ${stream.toLowerCase()}`);
+            }
+            if (boardingStatus) {
+                conditions.push(sql`LOWER(${students.boardingStatus}) = ${boardingStatus.toLowerCase()}`);
+            }
+
+            // Sorting
+            const sortBy = req.query.sortBy as string || 'name';
+            const sortOrder = req.query.sortOrder as string || 'asc';
+
+            let orderByClause;
+            switch (sortBy) {
+                case 'classLevel':
+                    orderByClause = sortOrder === 'desc' ? desc(students.classLevel) : asc(students.classLevel);
+                    break;
+                case 'stream':
+                    orderByClause = sortOrder === 'desc' ? desc(students.stream) : asc(students.stream);
+                    break;
+                case 'boardingStatus':
+                    orderByClause = sortOrder === 'desc' ? desc(students.boardingStatus) : asc(students.boardingStatus);
+                    break;
+                case 'name':
+                default:
+                    orderByClause = sortOrder === 'desc' ? desc(students.name) : asc(students.name);
+            }
 
             const results = await db.select().from(students)
-                .where(and(
-                    eq(students.schoolId, schoolId),
-                    eq(students.isActive, true),
-                    sql`LOWER(${students.name}) LIKE ${`%${query.toLowerCase()}%`}`
-                ))
-                .limit(20);
+                .where(and(...conditions))
+                .orderBy(orderByClause)
+                .limit(50); // Increased limit for filtered lists
+
             res.json(results);
         } catch (error: any) {
             res.status(500).json({ message: "Search failed: " + error.message });

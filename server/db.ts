@@ -16,8 +16,6 @@ if (!process.env.DATABASE_URL) {
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
-  // Force IPv4 to avoid IPv6 connection issues on Render
-  host: process.env.DATABASE_URL.match(/@([^:]+)/)?.[1],
   connectionTimeoutMillis: 10000,
 });
 

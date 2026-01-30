@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/use-auth';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -304,6 +305,7 @@ const AcademicChart = ({ data, isDark }: { data: any[], isDark: boolean }) => {
 
 export function Dashboard() {
   const { user, activeSchool } = useAuth();
+  const navigate = useNavigate();
   const [greeting, setGreeting] = useState('');
   const isDark = document.documentElement.classList.contains('dark');
   const schoolId = activeSchool?.id;
@@ -552,13 +554,19 @@ export function Dashboard() {
 
             <h3 className="relative font-bold text-lg mb-4">Quick Actions</h3>
             <div className="relative grid grid-cols-2 gap-3">
-              <button className="bg-white/15 hover:bg-white/25 backdrop-blur-sm p-4 rounded-xl flex flex-col items-center gap-2 transition-all hover:scale-105 border border-white/20">
+              <button
+                onClick={() => navigate('/app/students')}
+                className="bg-white/15 hover:bg-white/25 backdrop-blur-sm p-4 rounded-xl flex flex-col items-center gap-2 transition-all hover:scale-105 border border-white/20"
+              >
                 <UserPlus className="w-6 h-6" />
                 <span className="text-xs font-semibold">Add Student</span>
               </button>
-              <button className="bg-white/15 hover:bg-white/25 backdrop-blur-sm p-4 rounded-xl flex flex-col items-center gap-2 transition-all hover:scale-105 border border-white/20">
+              <button
+                onClick={() => navigate('/app/finance/record-payment')}
+                className="bg-white/15 hover:bg-white/25 backdrop-blur-sm p-4 rounded-xl flex flex-col items-center gap-2 transition-all hover:scale-105 border border-white/20"
+              >
                 <Banknote className="w-6 h-6" />
-                <span className="text-xs font-semibold">Add Payment</span>
+                <span className="text-xs font-semibold">Record Payment</span>
               </button>
             </div>
           </div>

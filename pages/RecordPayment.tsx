@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Search, Loader2, ArrowLeft, ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/use-auth';
+import { StudentFilter, FilterState } from '@/components/StudentFilter';
 
 // Define types locally
 interface Student {
@@ -50,7 +51,12 @@ export default function RecordPayment() {
     const { toast } = useToast();
     const navigate = useNavigate();
     const queryClient = useQueryClient();
-    const [searchQuery, setSearchQuery] = useState('');
+    const [filters, setFilters] = useState<FilterState>({
+        searchQuery: '',
+        classLevel: '',
+        stream: '',
+        boardingStatus: ''
+    });
     const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
 
     // Payment Form State
@@ -62,14 +68,23 @@ export default function RecordPayment() {
     const [notes, setNotes] = useState('');
 
     // Search Query
+    const hasActiveFilters = filters.classLevel || filters.stream || filters.boardingStatus || (filters.searchQuery && filters.searchQuery.length >= 2);
+
     const { data: searchResults, isLoading: isSearching } = useQuery<Student[]>({
-        queryKey: ['students-search', searchQuery],
+        queryKey: ['students-search', filters.searchQuery, filters.classLevel, filters.stream, filters.boardingStatus, filters.sortBy, filters.sortOrder],
         queryFn: async () => {
-            if (!searchQuery || searchQuery.length < 2) return [];
-            const res = await apiRequest('GET', `/api/students/search?q=${encodeURIComponent(searchQuery)}`);
+            const params = new URLSearchParams();
+            if (filters.searchQuery) params.append('q', filters.searchQuery);
+            if (filters.classLevel) params.append('classLevel', filters.classLevel);
+            if (filters.stream) params.append('stream', filters.stream);
+            if (filters.boardingStatus) params.append('boardingStatus', filters.boardingStatus);
+            if (filters.sortBy) params.append('sortBy', filters.sortBy);
+            if (filters.sortOrder) params.append('sortOrder', filters.sortOrder);
+
+            const res = await apiRequest('GET', `/api/students/search?${params.toString()}`);
             return res.json();
         },
-        enabled: searchQuery.length >= 2,
+        enabled: Boolean(hasActiveFilters),
     });
 
     // Fetch Fee Data for Selected Student
@@ -119,7 +134,7 @@ export default function RecordPayment() {
 
     const handleSearchSelect = (student: Student) => {
         setSelectedStudent(student);
-        setSearchQuery(''); // Clear search to show student details
+        // setFilters({ ...filters, searchQuery: '' }); // Optional: clear search on select
     };
 
     const getAmountDue = () => {
@@ -205,18 +220,10 @@ export default function RecordPayment() {
                 <Card>
                     <div className="mb-6">
                         <h3 className="text-lg font-bold">Find Student</h3>
-                        <p className="text-sm text-gray-500">Search by name or admission number</p>
+                        <p className="text-sm text-gray-500">Search to record a payment</p>
                     </div>
 
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" style={{ zIndex: 10 }} />
-                        <Input
-                            placeholder="Search students..."
-                            className="pl-10"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                    </div>
+                    <StudentFilter onFilterChange={setFilters} />
                     {isSearching && <div className="p-4 text-center"><Spinner /></div>}
 
                     {searchResults && searchResults.length > 0 && (
@@ -236,7 +243,7 @@ export default function RecordPayment() {
                             ))}
                         </div>
                     )}
-                    {searchQuery.length >= 2 && searchResults?.length === 0 && !isSearching && (
+                    {hasActiveFilters && searchResults?.length === 0 && !isSearching && (
                         <div className="text-center p-4 text-gray-500">No students found</div>
                     )}
                 </Card>
