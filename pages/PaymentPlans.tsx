@@ -33,6 +33,7 @@ interface PlanInstallment {
 
 interface CreatePlanData {
     studentId: number;
+    invoiceId?: number;
     planName: string;
     totalAmount: number;
     downPayment: number;
@@ -138,6 +139,35 @@ export default function PaymentPlans() {
         return remaining / formData.installmentCount;
     };
 
+    // Fetch Unpaid Invoices for Selected Student
+    const { data: studentInvoices } = useQuery<any[]>({
+        queryKey: ['student-unpaid-invoices', selectedStudent?.id],
+        queryFn: async () => {
+            if (!selectedStudent) return [];
+            // fetching all invoices and filtering client side for simplicity or better endpoint later
+            const res = await apiRequest('GET', `/api/invoices?studentId=${selectedStudent.id}`);
+            const all = await res.json();
+            return all.filter((inv: any) => inv.balance > 0);
+        },
+        enabled: !!selectedStudent
+    });
+
+    const handleInvoiceSelect = (invoiceId: string) => {
+        if (!invoiceId) {
+            setFormData(prev => ({ ...prev, invoiceId: undefined }));
+            return;
+        }
+        const inv = studentInvoices?.find(i => i.id.toString() === invoiceId);
+        if (inv) {
+            setFormData(prev => ({
+                ...prev,
+                invoiceId: inv.id,
+                totalAmount: inv.balance,
+                planName: `Plan for ${inv.invoiceNumber}`
+            }));
+        }
+    };
+
     if (view === 'create') {
         return (
             <div className="max-w-4xl mx-auto space-y-6">
@@ -152,12 +182,36 @@ export default function PaymentPlans() {
                         {!selectedStudent ? (
                             <StudentFilter onFilterChange={() => { }} simpleSelect onSelect={(s) => setSelectedStudent(s)} />
                         ) : (
-                            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg flex justify-between items-center">
-                                <div>
-                                    <div className="font-bold">{selectedStudent.name}</div>
-                                    <div className="text-sm opacity-70">{selectedStudent.classLevel} {selectedStudent.stream}</div>
+                            <div className="space-y-4">
+                                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg flex justify-between items-center">
+                                    <div>
+                                        <div className="font-bold">{selectedStudent.name}</div>
+                                        <div className="text-sm opacity-70">{selectedStudent.classLevel} {selectedStudent.stream}</div>
+                                    </div>
+                                    <Button size="sm" variant="outline" onClick={() => { setSelectedStudent(null); setFormData(prev => ({ ...prev, invoiceId: undefined })); }}>Change</Button>
                                 </div>
-                                <Button size="sm" variant="outline" onClick={() => setSelectedStudent(null)}>Change</Button>
+
+                                {/* Invoice Selection */}
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Link to Invoice (Optional)</label>
+                                    <select
+                                        className="w-full p-2 rounded-lg border bg-background"
+                                        onChange={(e) => handleInvoiceSelect(e.target.value)}
+                                        value={formData.invoiceId || ''}
+                                    >
+                                        <option value="">-- Manual Entry --</option>
+                                        {studentInvoices?.map(inv => (
+                                            <option key={inv.id} value={inv.id}>
+                                                {inv.invoiceNumber} - Bal: {inv.balance.toLocaleString()}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    {formData.invoiceId && (
+                                        <p className="text-xs text-green-600 mt-1">
+                                            ✓ Total Amount auto-filled from invoice balance.
+                                        </p>
+                                    )}
+                                </div>
                             </div>
                         )}
                     </Card>
