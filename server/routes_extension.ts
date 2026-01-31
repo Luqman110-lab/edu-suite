@@ -3954,4 +3954,239 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
+
+    // --- Admin Console Routes ---
+
+    // 1. Stats Overview
+    app.get("/api/admin/stats", requireAuth, async (req, res) => {
+        try {
+            // Check for super admin manually if middleware is tricky, but requireAuth adds user to req
+            if (!(req.user as any)?.isSuperAdmin) {
+                return res.status(403).json({ message: "Admin access required" });
+            }
+
+            const [schoolsCount] = await db.select({ count: sql<number>`count(*)` }).from(schools);
+            const [activeSchools] = await db.select({ count: sql<number>`count(*)` }).from(schools).where(eq(schools.isActive, true));
+            const [usersCount] = await db.select({ count: sql<number>`count(*)` }).from(users);
+            const [studentsCount] = await db.select({ count: sql<number>`count(*)` }).from(students).where(eq(students.isActive, true));
+            const [teachersCount] = await db.select({ count: sql<number>`count(*)` }).from(teachers).where(eq(teachers.isActive, true));
+
+            const recentLogs = await db.select().from(auditLogs)
+                .orderBy(desc(auditLogs.createdAt))
+                .limit(10);
+
+            res.json({
+                totalSchools: Number(schoolsCount?.count || 0),
+                activeSchools: Number(activeSchools?.count || 0),
+                totalUsers: Number(usersCount?.count || 0),
+                totalStudents: Number(studentsCount?.count || 0),
+                totalTeachers: Number(teachersCount?.count || 0),
+                recentActivity: recentLogs
+            });
+        } catch (error: any) {
+            console.error("Admin stats error:", error);
+            res.status(500).json({ message: "Failed to fetch stats" });
+        }
+    });
+
+    // 2. School Management
+    app.get("/api/admin/schools", requireAuth, async (req, res) => {
+        try {
+            if (!(req.user as any)?.isSuperAdmin) return res.status(403).json({ message: "Forbidden" });
+            const allSchools = await db.select().from(schools).orderBy(desc(schools.createdAt));
+            res.json(allSchools);
+        } catch (error: any) {
+            res.status(500).json({ message: error.message });
+        }
+    });
+
+    app.get("/api/schools/:id", requireAuth, async (req, res) => {
+        try {
+            const id = parseInt(req.params.id);
+            if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+
+            const [school] = await db.select().from(schools).where(eq(schools.id, id));
+            if (!school) return res.status(404).json({ message: "School not found" });
+
+            res.json(school);
+        } catch (error: any) {
+            res.status(500).json({ message: error.message });
+        }
+    });
+
+    app.post("/api/schools", requireAuth, async (req, res) => {
+        try {
+            if (!(req.user as any)?.isSuperAdmin) return res.status(403).json({ message: "Forbidden" });
+            const [newSchool] = await db.insert(schools).values({
+                ...req.body,
+                isActive: true
+            }).returning();
+
+            // Log action
+            await db.insert(auditLogs).values({
+                userId: (req.user as any).id,
+                userName: (req.user as any).username,
+                action: 'create_school',
+                entityType: 'school',
+                entityId: newSchool.id,
+                entityName: newSchool.name,
+                details: { name: newSchool.name, code: newSchool.code }
+            });
+
+            res.json(newSchool);
+        } catch (error: any) {
+            console.error("Create school error:", error);
+            res.status(500).json({ message: error.message });
+        }
+    });
+
+    app.put("/api/schools/:id", requireAuth, async (req, res) => {
+        try {
+            if (!(req.user as any)?.isSuperAdmin) return res.status(403).json({ message: "Forbidden" });
+            const id = parseInt(req.params.id);
+            const [updated] = await db.update(schools).set({
+                ...req.body,
+                updatedAt: new Date()
+            }).where(eq(schools.id, id)).returning();
+
+            if (!updated) return res.status(404).json({ message: "School not found" });
+
+            // Log action
+            await db.insert(auditLogs).values({
+                userId: (req.user as any).id,
+                userName: (req.user as any).username,
+                action: 'update_school',
+                entityType: 'school',
+                entityId: updated.id,
+                entityName: updated.name,
+                details: { changes: req.body }
+            });
+
+            res.json(updated);
+        } catch (error: any) {
+            res.status(500).json({ message: error.message });
+        }
+    });
+
+    app.delete("/api/admin/schools/:id", requireAuth, async (req, res) => {
+        try {
+            if (!(req.user as any)?.isSuperAdmin) return res.status(403).json({ message: "Forbidden" });
+            const id = parseInt(req.params.id);
+
+            // Fetch first to get name for log
+            const [school] = await db.select().from(schools).where(eq(schools.id, id));
+            if (!school) return res.status(404).json({ message: "School not found" });
+
+            // Soft delete? User said "stays inactive". If they want hard delete:
+            // await db.delete(schools).where(eq(schools.id, id));
+            // But let's try true deletion for now as user seemed annoyed it "just stays inactive".
+            // However, cascading deletes might wipe out students/marks!
+            // SAFEST OPTION: Soft Delete, but maybe the UI was just showing 'Inactive'.
+            // IF the user pressed DELETE, they might expect it gone from the list?
+            // "when i delete a school, it just stays inactive" -> This implies they WANT it gone.
+            // But `schools` table is critical. 
+            // Let's implement SOFT DELETE via `isActive: false` but ensure we return success.
+            // Or if they explicitly want to remove it, we should DELETE.
+            // Given the complaint, I will stick to Soft Delete for safety BUT I will check if the user wanted it *hidden*.
+            // For now, I will update it to Hard delete ONLY IF it has no data? No, unsafe.
+            // I will implement Soft Delete but ensure the UI filters it out IF the user applies a filter, or maybe they just didn't see it change?
+            // Actually, let's look at `isActive`.
+            // I will stick to updating `isActive: false` for safety, as deleting a school wipes all students/marks (cascade).
+
+            const [updated] = await db.update(schools).set({ isActive: false }).where(eq(schools.id, id)).returning();
+
+            // Log action
+            await db.insert(auditLogs).values({
+                userId: (req.user as any).id,
+                userName: (req.user as any).username,
+                action: 'deactivate_school',
+                entityType: 'school',
+                entityId: school.id,
+                entityName: school.name
+            });
+
+            res.json({ message: "School deactivated successfully", school: updated });
+        } catch (error: any) {
+            res.status(500).json({ message: error.message });
+        }
+    });
+
+    // 3. User Management
+    app.get("/api/admin/users", requireAuth, async (req, res) => {
+        try {
+            if (!(req.user as any)?.isSuperAdmin) return res.status(403).json({ message: "Forbidden" });
+
+            // Join with userSchools to get school count
+            // Simple query for now
+            const allUsers = await db.select().from(users).orderBy(desc(users.createdAt));
+            // Calculate school counts (separate query to avoid complex join for now, or use map)
+            // This is a bit inefficient but safe for quickly fixing 
+            const usersWithCounts = await Promise.all(allUsers.map(async (u) => {
+                const [count] = await db.select({ count: sql<number>`count(*)` })
+                    .from(userSchools).where(eq(userSchools.userId, u.id));
+                return {
+                    ...u,
+                    schoolCount: Number(count?.count || 0)
+                };
+            }));
+
+            res.json(usersWithCounts);
+        } catch (error: any) {
+            res.status(500).json({ message: error.message });
+        }
+    });
+
+    // Create User (Admin)
+    app.post("/api/admin/users", requireAuth, async (req, res) => {
+        try {
+            if (!(req.user as any)?.isSuperAdmin) return res.status(403).json({ message: "Forbidden" });
+            const { username, password, name, role, isSuperAdmin } = req.body;
+
+            // Check if username exists
+            const [existing] = await db.select().from(users).where(eq(users.username, username));
+            if (existing) return res.status(400).json({ message: "Username already exists" });
+
+            const hashedPassword = await hashPassword(password);
+            const [newUser] = await db.insert(users).values({
+                username,
+                password: hashedPassword,
+                name,
+                role: role || 'teacher',
+                isSuperAdmin: isSuperAdmin || false
+            }).returning();
+
+            res.json(newUser);
+        } catch (error: any) {
+            res.status(500).json({ message: error.message });
+        }
+    });
+
+    app.delete("/api/admin/users/:id", requireAuth, async (req, res) => {
+        try {
+            if (!(req.user as any)?.isSuperAdmin) return res.status(403).json({ message: "Forbidden" });
+            const id = parseInt(req.params.id);
+            await db.delete(users).where(eq(users.id, id));
+            res.json({ message: "User deleted" });
+        } catch (error: any) {
+            res.status(500).json({ message: error.message });
+        }
+    });
+
+
+    // 4. Audit Logs
+    app.get("/api/admin/audit-logs", requireAuth, async (req, res) => {
+        try {
+            if (!(req.user as any)?.isSuperAdmin) return res.status(403).json({ message: "Forbidden" });
+            const limit = parseInt(req.query.limit as string) || 100;
+
+            const logs = await db.select().from(auditLogs)
+                .orderBy(desc(auditLogs.createdAt))
+                .limit(limit);
+
+            res.json(logs);
+        } catch (error: any) {
+            res.status(500).json({ message: error.message });
+        }
+    });
+
 }
