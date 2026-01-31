@@ -20,6 +20,7 @@ export interface AuditLog {
     createdAt: string;
 }
 
+// Verified import path fix
 export const AuditLogs: React.FC = () => {
     const [data, setData] = useState<AuditLog[]>([]);
     const [loading, setLoading] = useState(true);
