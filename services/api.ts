@@ -172,19 +172,24 @@ export const apiService = {
       nextTermBeginBoarders: settings.nextTermBeginBoarders || '',
       nextTermBeginDay: settings.nextTermBeginDay || '',
       streams: settings.streams || {
-        P1: [],
-        P2: [],
-        P3: [],
-        P4: [],
-        P5: [],
-        P6: [],
-        P7: [],
+        P1: [], P2: [], P3: [], P4: [], P5: [], P6: [], P7: [],
       },
+      // Ensure config objects exist
+      gradingConfig: settings.gradingConfig,
+      subjectConfig: settings.subjectConfig,
+      reportConfig: settings.reportConfig,
+      securityConfig: settings.securityConfig,
+      idCardConfig: settings.idCardConfig
     };
   },
 
-  saveSettings: (settings: SchoolSettings) =>
+  getSchoolSettings: (schoolId: number) => apiService.getSettings(),
+
+  saveSettings: (settings: Partial<SchoolSettings>) =>
     apiRequest<SchoolSettings>('PUT', '/settings', settings),
+
+  updateSchoolSettings: (schoolId: number, settings: Partial<SchoolSettings>) =>
+    apiService.saveSettings(settings),
 
   addStream: async (classLevel: string, streamName: string) => {
     const settings = await apiService.getSettings();
