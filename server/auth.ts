@@ -136,17 +136,36 @@ async function getUserWithSchools(user: any, activeSchoolId?: number) {
   const userSchoolsList = await getUserSchools(user.id);
 
   let selectedSchoolId = activeSchoolId;
-  // If no selected school or selected school is not in the valid list (e.g. inactive), pick a default
-  if (!selectedSchoolId || !userSchoolsList.some(s => s.id === selectedSchoolId)) {
-    const primarySchool = userSchoolsList.find(s => s.isPrimary);
-    selectedSchoolId = primarySchool?.id || userSchoolsList[0]?.id;
+  let activeSchool = userSchoolsList.find(s => s.id === selectedSchoolId);
+
+  // If no selected/valid school in list
+  if (!activeSchool && selectedSchoolId) {
+    if (user.isSuperAdmin) {
+      // Super Admin can access any active school
+      const [school] = await db.select().from(schools).where(and(eq(schools.id, selectedSchoolId), eq(schools.isActive, true)));
+      if (school) {
+        // Mock a UserSchool object for the context
+        activeSchool = {
+          id: school.id,
+          name: school.name,
+          code: school.code,
+          role: 'admin', // Super Admin is always admin
+          isPrimary: false
+        };
+      }
+    }
   }
 
-  const activeSchool = userSchoolsList.find(s => s.id === selectedSchoolId);
+  // Fallback if still no active school
+  if (!activeSchool) {
+    const primarySchool = userSchoolsList.find(s => s.isPrimary);
+    selectedSchoolId = primarySchool?.id || userSchoolsList[0]?.id;
+    activeSchool = userSchoolsList.find(s => s.id === selectedSchoolId);
+  }
 
   return {
     ...user,
-    activeSchoolId: selectedSchoolId,
+    activeSchoolId: activeSchool?.id,
     activeSchoolRole: activeSchool?.role || user.role,
     schools: userSchoolsList,
   };
