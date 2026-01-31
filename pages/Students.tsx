@@ -1629,55 +1629,78 @@ export const Students: React.FC = () => {
             {paginatedStudents.map((student) => (
               <div
                 key={student.id}
-                className={`rounded-lg border p-4 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}
+                className={`rounded-xl border p-4 shadow-sm active:scale-[0.99] transition-all ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}
                 onClick={() => handleViewProfile(student)}
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer w-4 h-4 mt-1"
-                      checked={selectedIds.has(student.id!)}
-                      onChange={() => toggleSelection(student.id!)}
-                      onClick={(e) => e.stopPropagation()}
-                    />
+                <div className="flex items-start gap-4">
+                  {/* Avatar */}
+                  <div className="relative shrink-0">
                     {student.photoBase64 ? (
-                      <img src={student.photoBase64} alt="" className="h-12 w-12 rounded-full object-cover" />
+                      <img src={student.photoBase64} alt="" className="h-14 w-14 rounded-full object-cover border-2 border-white dark:border-gray-700 shadow-sm" />
                     ) : (
-                      <div className={`h-12 w-12 rounded-full flex items-center justify-center font-bold text-lg ${isDark ? 'bg-primary-900 text-primary-300' : 'bg-primary-50 text-primary-600'}`}>
+                      <div className={`h-14 w-14 rounded-full flex items-center justify-center font-bold text-lg border-2 border-white dark:border-gray-700 shadow-sm ${isDark ? 'bg-primary-900 text-primary-300' : 'bg-gradient-to-br from-primary-50 to-primary-100 text-primary-600'}`}>
                         {student.name.substring(0, 2)}
                       </div>
                     )}
-                    <div>
-                      <div className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                        <HighlightText text={student.name} query={searchQuery} />
+                    <div className={`absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-white dark:border-gray-800 ${student.specialCases?.sickness || student.specialCases?.absenteeism || student.specialCases?.fees ? 'bg-yellow-500' : 'bg-green-500'}`}></div>
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className={`font-bold text-lg truncate pr-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                          <HighlightText text={student.name} query={searchQuery} />
+                        </div>
+                        <div className={`flex items-center gap-2 mt-0.5 text-xs font-mono opacity-80 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                          <Hash size={12} />
+                          <HighlightText text={student.indexNumber} query={searchQuery} />
+                        </div>
                       </div>
-                      <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                        <HighlightText text={student.indexNumber} query={searchQuery} />
-                      </div>
+                      <input
+                        type="checkbox"
+                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer w-5 h-5"
+                        checked={selectedIds.has(student.id!)}
+                        onChange={(e) => { e.stopPropagation(); toggleSelection(student.id!); }}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 mt-3">
+                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium ${isDark ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-50 text-blue-700 border border-blue-100'}`}>
+                        <School size={12} />
+                        {student.classLevel} {student.stream}
+                      </span>
+                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium ${student.gender === 'M' ? (isDark ? 'bg-sky-900/30 text-sky-300' : 'bg-sky-50 text-sky-700 border border-sky-100') : (isDark ? 'bg-pink-900/30 text-pink-300' : 'bg-pink-50 text-pink-700 border border-pink-100')}`}>
+                        <User size={12} />
+                        {student.gender === 'M' ? 'M' : 'F'}
+                      </span>
+                      {student.boardingStatus === 'boarding' && (
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium ${isDark ? 'bg-purple-900/30 text-purple-300' : 'bg-purple-50 text-purple-700 border border-purple-100'}`}>
+                          <Building size={12} />
+                          Brd
+                        </span>
+                      )}
                     </div>
                   </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${isDark ? 'bg-blue-900 text-blue-300' : 'bg-blue-100 text-blue-800'}`}>
-                      {student.classLevel}
-                    </span>
-                    <span className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{student.stream}</span>
-                  </div>
                 </div>
-                <div className={`mt-3 pt-3 border-t flex justify-between items-center ${isDark ? 'border-gray-700' : 'border-gray-100'}`}>
-                  <div className="flex gap-4 text-xs">
-                    <span className={isDark ? 'text-gray-400' : 'text-gray-500'}>{student.gender === 'M' ? 'Male' : 'Female'}</span>
-                    {student.paycode && <span className={isDark ? 'text-gray-400' : 'text-gray-500'}>Pay: {student.paycode}</span>}
+
+                {/* Footer flag if issues */}
+                {(student.specialCases?.fees || student.specialCases?.sickness) && (
+                  <div className={`mt-3 pt-2 border-t flex gap-2 overflow-x-auto ${isDark ? 'border-gray-700' : 'border-gray-100'}`}>
+                    {student.specialCases.fees && <span className="text-[10px] font-bold text-red-600 bg-red-50 dark:bg-red-900/30 px-2 py-0.5 rounded-full whitespace-nowrap">FEES OVERDUE</span>}
+                    {student.specialCases.sickness && <span className="text-[10px] font-bold text-orange-600 bg-orange-50 dark:bg-orange-900/30 px-2 py-0.5 rounded-full whitespace-nowrap">MEDICAL ISSUE</span>}
                   </div>
-                  {student.specialCases?.sickness || student.specialCases?.absenteeism ?
-                    <span className="text-xs text-yellow-600 font-medium bg-yellow-50 dark:bg-yellow-900 dark:text-yellow-300 px-2 py-0.5 rounded">Flagged</span> :
-                    <span className="text-xs text-green-600 font-medium bg-green-50 dark:bg-green-900 dark:text-green-300 px-2 py-0.5 rounded">Active</span>
-                  }
-                </div>
+                )}
               </div>
             ))}
             {paginatedStudents.length === 0 && (
-              <div className={`text-center py-12 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>No students found matching your search.</div>
+              <div className={`text-center py-12 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                <div className="inline-flex p-4 rounded-full bg-gray-100 dark:bg-gray-800 mb-3">
+                  <Search size={24} className="opacity-50" />
+                </div>
+                <p>No students found matching your search.</p>
+              </div>
             )}
           </div>
         </>
