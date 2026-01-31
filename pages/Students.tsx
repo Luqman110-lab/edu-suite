@@ -15,7 +15,7 @@ const FaceEnrollment = React.lazy(() => import('../client/src/components/FaceEnr
 const ITEMS_PER_PAGE = 100;
 
 // Modern Imports
-import { LayoutGrid, List as ListIcon, Search, Filter, Download, Upload, Plus, Printer, Trash2, MoreHorizontal } from 'lucide-react';
+import { LayoutGrid, List as ListIcon, Search, Filter, Download, Upload, Plus, Printer, Trash2, MoreHorizontal, Calendar, MapPin, Hash, Building, User, Phone, Mail, Heart, AlertCircle, FileText, School, Clock } from 'lucide-react';
 
 const ProfileHeader = ({ student, onEdit, onBack, onPrintID, onEnrollFace, hasFaceEnrolled, isDark }: { student: Student; onEdit: () => void; onBack: () => void; onPrintID: () => void; onEnrollFace: () => void; hasFaceEnrolled: boolean; isDark: boolean }) => (
   <div className={`rounded-lg shadow-sm border overflow-hidden mb-6 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
@@ -130,51 +130,85 @@ const AcademicHistory = ({ studentId, isDark }: { studentId: number; isDark: boo
 };
 
 const PersonalInfoCard = ({ student, isDark }: { student: Student; isDark: boolean }) => (
-  <div className={`rounded-lg shadow-sm border overflow-hidden ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-    <div className={`px-6 py-4 border-b flex items-center gap-2 ${isDark ? 'bg-gray-750 border-gray-700' : 'bg-gray-50 border-gray-100'}`}>
-      <span className="text-lg">👤</span>
-      <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-gray-800'}`}>Personal Details</h3>
+  <div className={`rounded-xl shadow-sm border overflow-hidden ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+    <div className={`px-6 py-4 border-b flex items-center gap-3 ${isDark ? 'bg-gray-750 border-gray-700' : 'bg-gray-50/50 border-gray-100'}`}>
+      <div className={`p-2 rounded-lg ${isDark ? 'bg-gray-700 text-gray-300' : 'bg-white text-gray-500 shadow-sm border border-gray-100'}`}>
+        <User size={18} />
+      </div>
+      <h3 className={`font-semibold text-lg ${isDark ? 'text-white' : 'text-gray-800'}`}>Personal Details</h3>
     </div>
-    <div className="p-6 space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        <div>
-          <label className={`text-xs font-medium uppercase ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Date of Birth</label>
-          <p className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>{student.dateOfBirth || '-'}</p>
+    <div className="p-6 space-y-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+        <div className="group">
+          <div className="flex items-center gap-2 mb-1">
+            <Calendar size={14} className={isDark ? 'text-gray-500' : 'text-gray-400'} />
+            <label className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Date of Birth</label>
+          </div>
+          <p className={`text-sm font-medium pl-6 ${isDark ? 'text-gray-200' : 'text-gray-900 group-hover:text-primary-600 transition-colors'}`}>{student.dateOfBirth || '-'}</p>
         </div>
-        <div>
-          <label className={`text-xs font-medium uppercase ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Nationality</label>
-          <p className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>{student.nationality || 'Ugandan'}</p>
+        <div className="group">
+          <div className="flex items-center gap-2 mb-1">
+            <MapPin size={14} className={isDark ? 'text-gray-500' : 'text-gray-400'} />
+            <label className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Nationality</label>
+          </div>
+          <p className={`text-sm font-medium pl-6 ${isDark ? 'text-gray-200' : 'text-gray-900 group-hover:text-primary-600 transition-colors'}`}>{student.nationality || 'Ugandan'}</p>
         </div>
-        <div>
-          <label className={`text-xs font-medium uppercase ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Religion</label>
-          <p className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>{student.religion || '-'}</p>
+        <div className="group">
+          <div className="flex items-center gap-2 mb-1">
+            <Hash size={14} className={isDark ? 'text-gray-500' : 'text-gray-400'} />
+            <label className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Religion</label>
+          </div>
+          <p className={`text-sm font-medium pl-6 ${isDark ? 'text-gray-200' : 'text-gray-900 group-hover:text-primary-600 transition-colors'}`}>{student.religion || '-'}</p>
         </div>
-        <div>
-          <label className={`text-xs font-medium uppercase ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Pay Code</label>
-          <p className={`text-sm font-medium font-mono ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>{student.paycode || '-'}</p>
+        <div className="group">
+          <div className="flex items-center gap-2 mb-1">
+            <FileText size={14} className={isDark ? 'text-gray-500' : 'text-gray-400'} />
+            <label className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Pay Code</label>
+          </div>
+          <p className={`text-sm font-mono font-medium pl-6 ${isDark ? 'text-gray-200' : 'text-gray-900 group-hover:text-primary-600 transition-colors'}`}>{student.paycode || '-'}</p>
         </div>
-        <div>
-          <label className={`text-xs font-medium uppercase ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Admission Date</label>
-          <p className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>{student.admissionDate || '-'}</p>
+        <div className="group">
+          <div className="flex items-center gap-2 mb-1">
+            <Clock size={14} className={isDark ? 'text-gray-500' : 'text-gray-400'} />
+            <label className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Admission Date</label>
+          </div>
+          <p className={`text-sm font-medium pl-6 ${isDark ? 'text-gray-200' : 'text-gray-900 group-hover:text-primary-600 transition-colors'}`}>{student.admissionDate || '-'}</p>
         </div>
-        <div>
-          <label className={`text-xs font-medium uppercase ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Previous School</label>
-          <p className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>{student.previousSchool || '-'}</p>
+        <div className="group">
+          <div className="flex items-center gap-2 mb-1">
+            <School size={14} className={isDark ? 'text-gray-500' : 'text-gray-400'} />
+            <label className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Previous School</label>
+          </div>
+          <p className={`text-sm font-medium pl-6 ${isDark ? 'text-gray-200' : 'text-gray-900 group-hover:text-primary-600 transition-colors'}`}>{student.previousSchool || '-'}</p>
         </div>
       </div>
 
       <div className={`pt-4 border-t ${isDark ? 'border-gray-700' : 'border-gray-100'}`}>
-        <label className={`text-xs font-medium uppercase mb-2 block ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Status Flags</label>
+        <label className={`text-xs font-semibold uppercase mb-3 block ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Status Flags</label>
         <div className="flex flex-wrap gap-2">
-          {(!student.specialCases.fees && !student.specialCases.sickness && !student.specialCases.absenteeism) && (
-            <span className={`text-sm italic ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>No flags</span>
-          )}
-
-          {student.specialCases.sickness && (
-            <span className="px-2 py-1 bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300 text-xs rounded-md font-medium border border-yellow-200 dark:border-yellow-800">Medical Issues</span>
-          )}
-          {student.specialCases.absenteeism && (
-            <span className="px-2 py-1 bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300 text-xs rounded-md font-medium border border-orange-200 dark:border-orange-800">Chronic Absenteeism</span>
+          {(!student.specialCases.fees && !student.specialCases.sickness && !student.specialCases.absenteeism) ? (
+            <span className={`text-sm italic flex items-center gap-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+              <div className="w-2 h-2 rounded-full bg-green-500"></div>
+              No active flags
+            </span>
+          ) : (
+            <>
+              {student.specialCases.sickness && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 text-xs rounded-full font-medium border border-red-200 dark:border-red-800">
+                  <Heart size={12} className="fill-current" /> Medical Attention
+                </span>
+              )}
+              {student.specialCases.absenteeism && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 text-xs rounded-full font-medium border border-orange-200 dark:border-orange-800">
+                  <AlertCircle size={12} /> Chronic Absenteeism
+                </span>
+              )}
+              {student.specialCases.fees && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300 text-xs rounded-full font-medium border border-yellow-200 dark:border-yellow-800">
+                  <span className="text-lg leading-none">💰</span> Fees Outstanding
+                </span>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -183,32 +217,38 @@ const PersonalInfoCard = ({ student, isDark }: { student: Student; isDark: boole
 );
 
 const GuardianCard = ({ student, isDark }: { student: Student; isDark: boolean }) => (
-  <div className={`rounded-lg shadow-sm border overflow-hidden ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-    <div className={`px-6 py-4 border-b flex items-center gap-2 ${isDark ? 'bg-gray-750 border-gray-700' : 'bg-gray-50 border-gray-100'}`}>
-      <span className="text-lg">👨‍👩‍👧</span>
-      <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-gray-800'}`}>Parent / Guardian</h3>
+  <div className={`rounded-xl shadow-sm border overflow-hidden ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+    <div className={`px-6 py-4 border-b flex items-center gap-3 ${isDark ? 'bg-gray-750 border-gray-700' : 'bg-gray-50/50 border-gray-100'}`}>
+      <div className={`p-2 rounded-lg ${isDark ? 'bg-gray-700 text-gray-300' : 'bg-white text-gray-500 shadow-sm border border-gray-100'}`}>
+        <User size={18} />
+      </div>
+      <h3 className={`font-semibold text-lg ${isDark ? 'text-white' : 'text-gray-800'}`}>Parent / Guardian</h3>
     </div>
     <div className="p-6">
       {student.parentName ? (
-        <div className="space-y-3">
-          <div className="flex items-center gap-3">
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl ${isDark ? 'bg-gray-700' : 'bg-gray-100'}`}>
-              👤
-            </div>
-            <div>
-              <p className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{student.parentName}</p>
-              <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Primary Guardian</p>
-            </div>
+        <div className="flex items-start gap-4">
+          <div className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl shrink-0 ${isDark ? 'bg-gray-700 text-gray-300' : 'bg-blue-50 text-blue-600'}`}>
+            <User size={24} />
           </div>
-          {student.parentContact && (
-            <div className={`flex items-center gap-2 text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-              <span>📞</span>
-              <span className="font-mono">{student.parentContact}</span>
-            </div>
-          )}
+          <div className="space-y-1">
+            <p className={`font-bold text-lg ${isDark ? 'text-white' : 'text-gray-900'}`}>{student.parentName}</p>
+            <p className={`text-xs font-medium uppercase tracking-wide ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Primary Guardian</p>
+
+            {student.parentContact && (
+              <div className={`flex items-center gap-2 mt-3 text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                <div className={`p-1.5 rounded-full ${isDark ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                  <Phone size={14} />
+                </div>
+                <span className="font-mono font-medium">{student.parentContact}</span>
+              </div>
+            )}
+          </div>
         </div>
       ) : (
-        <p className={`text-sm italic ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>No guardian information on file</p>
+        <div className={`flex flex-col items-center justify-center py-6 text-center ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+          <User size={48} strokeWidth={1} className="mb-2 opacity-50" />
+          <p className="text-sm italic">No guardian information on file</p>
+        </div>
       )}
     </div>
   </div>
@@ -255,33 +295,57 @@ const EmergencyContactsCard = ({ student, isDark }: { student: Student; isDark: 
 );
 
 const MedicalInfoCard = ({ student, isDark }: { student: Student; isDark: boolean }) => (
-  <div className={`rounded-lg shadow-sm border overflow-hidden ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-    <div className={`px-6 py-4 border-b flex items-center gap-2 ${isDark ? 'bg-gray-750 border-gray-700' : 'bg-red-50 border-red-100'}`}>
-      <span className="text-lg">🏥</span>
-      <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-red-800'}`}>Medical Information</h3>
+  <div className={`rounded-xl shadow-sm border overflow-hidden ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+    <div className={`px-6 py-4 border-b flex items-center gap-3 ${isDark ? 'bg-gray-750 border-gray-700' : 'bg-red-50/50 border-red-100'}`}>
+      <div className={`p-2 rounded-lg ${isDark ? 'bg-red-900/30 text-red-300' : 'bg-white text-red-500 shadow-sm border border-red-100'}`}>
+        <Heart size={18} />
+      </div>
+      <h3 className={`font-semibold text-lg ${isDark ? 'text-white' : 'text-red-900'}`}>Medical Information</h3>
     </div>
     <div className="p-6">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-6">
         <div>
-          <label className={`text-xs font-medium uppercase ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Blood Group</label>
-          <p className={`text-lg font-bold ${student.medicalInfo?.bloodGroup ? 'text-red-600' : (isDark ? 'text-gray-500' : 'text-gray-400')}`}>
-            {student.medicalInfo?.bloodGroup || '-'}
-          </p>
+          <label className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Blood Group</label>
+          <div className="flex items-center gap-2 mt-1">
+            <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-xs font-bold text-red-600 dark:text-red-400">
+              {student.medicalInfo?.bloodGroup || '?'}
+            </div>
+            <span className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Type</span>
+          </div>
         </div>
         <div>
-          <label className={`text-xs font-medium uppercase ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Allergies</label>
-          <p className={`text-sm ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>{student.medicalInfo?.allergies || 'None reported'}</p>
+          <label className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Allergies</label>
+          <div className={`mt-1 text-sm ${student.medicalInfo?.allergies ? (isDark ? 'text-red-300' : 'text-red-700') : (isDark ? 'text-gray-500' : 'text-gray-400')}`}>
+            {student.medicalInfo?.allergies ? (
+              <span className="flex items-start gap-1">
+                <AlertCircle size={14} className="mt-0.5 shrink-0" />
+                {student.medicalInfo.allergies}
+              </span>
+            ) : 'None reported'}
+          </div>
         </div>
         <div className="col-span-2">
-          <label className={`text-xs font-medium uppercase ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Medical Conditions</label>
-          <p className={`text-sm ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>{student.medicalInfo?.medicalConditions || 'None reported'}</p>
+          <label className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Medical Conditions</label>
+          <p className={`mt-1 text-sm ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>{student.medicalInfo?.medicalConditions || 'None reported'}</p>
         </div>
         {(student.medicalInfo?.doctorName || student.medicalInfo?.doctorPhone) && (
-          <div className="col-span-2 pt-3 border-t border-gray-200 dark:border-gray-700">
-            <label className={`text-xs font-medium uppercase ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Doctor</label>
-            <p className={`text-sm ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>
-              {student.medicalInfo?.doctorName || 'N/A'} {student.medicalInfo?.doctorPhone && `(${student.medicalInfo.doctorPhone})`}
-            </p>
+          <div className={`col-span-2 pt-4 border-t ${isDark ? 'border-gray-700' : 'border-gray-100'}`}>
+            <label className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Primary Physician</label>
+            <div className="flex items-center gap-3 mt-2">
+              <div className={`p-2 rounded-full ${isDark ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                <User size={14} />
+              </div>
+              <div>
+                <p className={`text-sm font-bold ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>
+                  {student.medicalInfo?.doctorName || 'Unknown Doctor'}
+                </p>
+                {student.medicalInfo?.doctorPhone && (
+                  <p className={`text-xs font-mono flex items-center gap-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                    <Phone size={10} /> {student.medicalInfo.doctorPhone}
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -380,6 +444,7 @@ export const Students: React.FC = () => {
   const [showFaceEnrollment, setShowFaceEnrollment] = useState(false);
   const [faceEnrollStudent, setFaceEnrollStudent] = useState<Student | null>(null);
   const [enrolledFaceIds, setEnrolledFaceIds] = useState<Set<number>>(new Set());
+  const [activeProfileTab, setActiveProfileTab] = useState<'overview' | 'personal' | 'academic'>('overview');
 
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'warning' } | null>(null);
   const showToast = (message: string, type: 'success' | 'error' | 'warning') => setToast({ message, type });
@@ -450,6 +515,7 @@ export const Students: React.FC = () => {
 
   const handleViewProfile = (student: Student) => {
     setSelectedStudent(student);
+    setActiveProfileTab('overview');
     setViewMode('profile');
   };
 
@@ -973,7 +1039,7 @@ export const Students: React.FC = () => {
 
   if (viewMode === 'profile' && selectedStudent) {
     return (
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-6xl mx-auto animate-in fade-in duration-300">
         <ProfileHeader
           student={selectedStudent}
           onEdit={() => handleEdit(selectedStudent)}
@@ -990,31 +1056,95 @@ export const Students: React.FC = () => {
           isDark={isDark}
         />
 
-        <div className="space-y-6">
-          <PersonalInfoCard student={selectedStudent} isDark={isDark} />
-
-          {/* NEW: Attendance and Performance Analytics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <AttendanceSummaryCard studentId={selectedStudent.id!} isDark={isDark} />
-            <PerformanceTrendCard studentId={selectedStudent.id!} isDark={isDark} />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <GuardianCard student={selectedStudent} isDark={isDark} />
-            <MedicalInfoCard student={selectedStudent} isDark={isDark} />
-          </div>
-
-          <EmergencyContactsCard student={selectedStudent} isDark={isDark} />
-
-
-
-
-
-          <AcademicHistory studentId={selectedStudent.id!} isDark={isDark} />
+        {/* Tab Navigation */}
+        <div className="flex items-center gap-1 mb-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto pb-1">
+          <button
+            onClick={() => setActiveProfileTab('overview')}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${activeProfileTab === 'overview'
+                ? `border-primary-600 text-primary-600 ${isDark ? 'text-primary-400 border-primary-400' : ''}`
+                : `border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 ${isDark ? 'text-gray-400 hover:text-gray-300' : ''}`
+              }`}
+          >
+            Overview
+          </button>
+          <button
+            onClick={() => setActiveProfileTab('personal')}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${activeProfileTab === 'personal'
+                ? `border-primary-600 text-primary-600 ${isDark ? 'text-primary-400 border-primary-400' : ''}`
+                : `border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 ${isDark ? 'text-gray-400 hover:text-gray-300' : ''}`
+              }`}
+          >
+            Personal Details
+          </button>
+          <button
+            onClick={() => setActiveProfileTab('academic')}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${activeProfileTab === 'academic'
+                ? `border-primary-600 text-primary-600 ${isDark ? 'text-primary-400 border-primary-400' : ''}`
+                : `border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 ${isDark ? 'text-gray-400 hover:text-gray-300' : ''}`
+              }`}
+          >
+            Academic History
+          </button>
         </div>
 
-        <div className={`mt-8 pt-6 border-t flex justify-end ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+        <div className="space-y-6 min-h-[400px]">
+          {activeProfileTab === 'overview' && (
+            <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-300">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <AttendanceSummaryCard studentId={selectedStudent.id!} isDark={isDark} />
+                <PerformanceTrendCard studentId={selectedStudent.id!} isDark={isDark} />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Quick Info Cards to fill space if needed, or just status summary */}
+                <div className={`col-span-1 md:col-span-3 rounded-lg border p-4 flex items-center justify-between ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                  <div className="flex items-center gap-4">
+                    <div className={`p-3 rounded-full ${isDark ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-50 text-blue-600'}`}>
+                      <School size={24} />
+                    </div>
+                    <div>
+                      <p className={`text-sm font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Current Enrollment</p>
+                      <p className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>{selectedStudent.classLevel} - {selectedStudent.stream}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 border-l pl-4 dark:border-gray-700">
+                    <div>
+                      <p className={`text-sm font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Status</p>
+                      <div className="flex gap-2 mt-1">
+                        {selectedStudent.specialCases?.fees && <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded text-xs font-bold">Fees Due</span>}
+                        {!selectedStudent.specialCases?.fees && <span className="px-2 py-0.5 bg-green-100 text-green-800 rounded text-xs font-bold">Good Standing</span>}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeProfileTab === 'personal' && (
+            <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-300">
+              <PersonalInfoCard student={selectedStudent} isDark={isDark} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <GuardianCard student={selectedStudent} isDark={isDark} />
+                <MedicalInfoCard student={selectedStudent} isDark={isDark} />
+              </div>
+              <EmergencyContactsCard student={selectedStudent} isDark={isDark} />
+            </div>
+          )}
+
+          {activeProfileTab === 'academic' && (
+            <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-300">
+              <PerformanceTrendCard studentId={selectedStudent.id!} isDark={isDark} />
+              <AcademicHistory studentId={selectedStudent.id!} isDark={isDark} />
+            </div>
+          )}
+        </div>
+
+        <div className={`mt-8 pt-6 border-t flex justify-between items-center ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+          <div className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+            Student ID: <span className="font-mono">{selectedStudent.id}</span>
+          </div>
           <Button variant="danger" size="sm" onClick={() => handleDelete(selectedStudent.id)}>
+            <Trash2 size={14} className="mr-2" />
             Delete Learner Record
           </Button>
         </div>
@@ -1060,7 +1190,7 @@ export const Students: React.FC = () => {
                 showToast('Student updated successfully!', 'success');
               } else {
                 await dbService.addStudent(data as Student);
-                showToast('Student added successfully!', 'success');
+                showToast('Student updated successfully!', 'success');
               }
               loadData();
             }}
