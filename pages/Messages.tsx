@@ -1,6 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../hooks/use-auth';
 
+// --- Interfaces ---
 interface User {
   id: number;
   name: string;
@@ -29,544 +32,548 @@ interface Conversation {
   unreadCount: number;
 }
 
-export const Messages: React.FC = () => {
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showCompose, setShowCompose] = useState(false);
-  const [availableUsers, setAvailableUsers] = useState<User[]>([]);
-  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
-  
-  const [composeData, setComposeData] = useState({
-    subject: '',
-    participantIds: [] as number[],
-    initialMessage: '',
-    type: 'direct'
-  });
+// --- Icons (embedded for simplicity) ---
+const Icons = {
+  Search: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>,
+  Compose: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>,
+  Send: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>,
+  Back: () => <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>,
+  Check: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>,
+  Empty: () => (
+    <svg className="w-24 h-24 text-gray-200 dark:text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+    </svg>
+  ),
+};
 
-  useEffect(() => {
-    loadConversations();
-    loadCurrentUser();
-    loadAvailableUsers();
-  }, []);
+// --- Helper Functions ---
+const formatTime = (dateStr: string) => {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
 
-  const loadCurrentUser = async () => {
-    try {
-      const response = await fetch('/api/user', { credentials: 'include' });
-      if (response.ok) {
-        const user = await response.json();
-        setCurrentUserId(user.id);
-      }
-    } catch (error) {
-      console.error('Error loading current user:', error);
-    }
-  };
-
-  const loadConversations = async () => {
-    try {
-      const response = await fetch('/api/conversations', { credentials: 'include' });
-      if (response.ok) {
-        setConversations(await response.json());
-      }
-    } catch (error) {
-      console.error('Error loading conversations:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadAvailableUsers = async () => {
-    try {
-      const response = await fetch('/api/messaging/users', { credentials: 'include' });
-      if (response.ok) {
-        setAvailableUsers(await response.json());
-      }
-    } catch (error) {
-      console.error('Error loading users:', error);
-    }
-  };
-
-  const handleCreateConversation = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!composeData.subject || composeData.participantIds.length === 0 || !composeData.initialMessage) {
-      alert('Please fill in all fields');
-      return;
-    }
-
-    try {
-      const response = await fetch('/api/conversations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(composeData)
-      });
-
-      if (response.ok) {
-        const conv = await response.json();
-        setShowCompose(false);
-        setComposeData({ subject: '', participantIds: [], initialMessage: '', type: 'direct' });
-        loadConversations();
-      } else {
-        const err = await response.json();
-        alert(err.message || 'Failed to create conversation');
-      }
-    } catch (error) {
-      console.error('Error creating conversation:', error);
-      alert('Failed to create conversation');
-    }
-  };
-
-  const toggleParticipant = (userId: number) => {
-    setComposeData(prev => ({
-      ...prev,
-      participantIds: prev.participantIds.includes(userId)
-        ? prev.participantIds.filter(id => id !== userId)
-        : [...prev.participantIds, userId]
-    }));
-  };
-
-  const formatTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-    
-    if (diffDays === 0) {
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    } else if (diffDays === 1) {
-      return 'Yesterday';
-    } else if (diffDays < 7) {
-      return date.toLocaleDateString([], { weekday: 'short' });
-    } else {
-      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-    }
-  };
-
-  const getOtherParticipants = (conv: Conversation) => {
-    return conv.participants.filter(p => p.id !== currentUserId);
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary-500 border-t-transparent"></div>
-      </div>
-    );
+  if (diffDays === 0) {
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } else if (diffDays === 1) {
+    return 'Yesterday';
+  } else if (diffDays < 7) {
+    return date.toLocaleDateString([], { weekday: 'short' });
+  } else {
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
   }
+};
+
+const getDisplayName = (conv: Conversation, currentUserId: number | null) => {
+  const others = conv.participants.filter(p => p.id !== currentUserId);
+  return others.length > 0 ? others.map(p => p.name).join(', ') : 'Just You';
+};
+
+const getAvatarInitial = (name: string) => name.charAt(0).toUpperCase();
+
+// --- Components ---
+
+const SidebarItem = ({
+  conv,
+  isActive,
+  currentUserId
+}: {
+  conv: Conversation;
+  isActive: boolean;
+  currentUserId: number | null
+}) => {
+  const displayName = getDisplayName(conv, currentUserId);
+  const initial = getAvatarInitial(displayName);
 
   return (
-    <div className="space-y-6">
-      <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-2xl p-6 md:p-8 text-white shadow-lg">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Messages</h1>
-            <p className="text-white/80 mt-2">Communicate with staff members in your school</p>
+    <Link to={`/app/messages/${conv.id}`}>
+      <motion.div
+        initial={false}
+        animate={{ backgroundColor: isActive ? 'rgba(59, 130, 246, 0.1)' : 'transparent' }}
+        className={`p-3 mx-2 rounded-xl cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex gap-3 items-center ${isActive ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
+      >
+        <div className={`relative flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-sm ${isActive ? 'bg-gradient-to-br from-blue-500 to-indigo-600' : 'bg-gradient-to-br from-gray-400 to-gray-500'}`}>
+          {initial}
+          {conv.unreadCount > 0 && (
+            <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full border-2 border-white dark:border-gray-900 flex items-center justify-center text-[10px]">
+              {conv.unreadCount}
+            </div>
+          )}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex justify-between items-baseline mb-1">
+            <h3 className={`text-sm font-semibold truncate ${isActive ? 'text-blue-900 dark:text-blue-100' : 'text-gray-900 dark:text-gray-100'}`}>
+              {displayName}
+            </h3>
+            <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0 ml-2">
+              {formatTime(conv.lastMessageAt)}
+            </span>
           </div>
+          <p className={`text-sm truncate ${conv.unreadCount > 0 ? 'font-medium text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400'}`}>
+            {conv.lastMessage ? (
+              <>
+                {conv.lastMessage.senderId === currentUserId && <span className="opacity-70">You: </span>}
+                {conv.lastMessage.content}
+              </>
+            ) : (
+              <span className="italic opacity-50">No messages yet</span>
+            )}
+          </p>
+        </div>
+      </motion.div>
+    </Link>
+  );
+};
+
+const MessagingSidebar = ({
+  conversations,
+  activeId,
+  onNewMessage,
+  searchTerm,
+  setSearchTerm,
+  currentUserId
+}: {
+  conversations: Conversation[];
+  activeId?: number;
+  onNewMessage: () => void;
+  searchTerm: string;
+  setSearchTerm: (term: string) => void;
+  currentUserId: number | null;
+}) => {
+  const filtered = conversations.filter(c =>
+    getDisplayName(c, currentUserId).toLowerCase().includes(searchTerm.toLowerCase()) ||
+    c.subject.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  return (
+    <div className="flex flex-col h-full bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700">
+      <div className="p-4 border-b border-gray-100 dark:border-gray-800 space-y-4">
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
+            Messages
+          </h1>
           <button
-            onClick={() => setShowCompose(true)}
-            className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg font-medium transition-colors flex items-center gap-2"
+            onClick={onNewMessage}
+            className="p-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            New Message
+            <Icons.Compose />
           </button>
         </div>
-      </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-soft border border-gray-100 dark:border-gray-700 overflow-hidden">
-        {conversations.length === 0 ? (
-          <div className="p-12 text-center">
-            <svg className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-            </svg>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No messages yet</h3>
-            <p className="text-gray-500 dark:text-gray-400 mb-4">Start a conversation with your colleagues</p>
-            <button
-              onClick={() => setShowCompose(true)}
-              className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors"
-            >
-              Send your first message
-            </button>
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-100 dark:divide-gray-700">
-            {conversations.map(conv => {
-              const otherParticipants = getOtherParticipants(conv);
-              const displayName = otherParticipants.length > 0 
-                ? otherParticipants.map(p => p.name).join(', ')
-                : 'Unknown';
-              
-              return (
-                <Link
-                  key={conv.id}
-                  to={`/app/messages/${conv.id}`}
-                  className={`block p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${conv.unreadCount > 0 ? 'bg-blue-50/50 dark:bg-blue-500/10' : ''}`}
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center text-white font-bold text-lg">
-                      {displayName.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <h3 className={`font-semibold truncate ${conv.unreadCount > 0 ? 'text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'}`}>
-                          {displayName}
-                        </h3>
-                        <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0 ml-2">
-                          {formatTime(conv.lastMessageAt)}
-                        </span>
-                      </div>
-                      <p className={`text-sm truncate ${conv.unreadCount > 0 ? 'font-medium text-gray-800 dark:text-gray-200' : 'text-gray-500 dark:text-gray-400'}`}>
-                        {conv.subject}
-                      </p>
-                      {conv.lastMessage && (
-                        <p className="text-sm text-gray-500 dark:text-gray-400 truncate mt-1">
-                          {conv.lastMessage.sender?.id === currentUserId ? 'You: ' : ''}
-                          {conv.lastMessage.content}
-                        </p>
-                      )}
-                    </div>
-                    {conv.unreadCount > 0 && (
-                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary-600 text-white text-xs flex items-center justify-center">
-                        {conv.unreadCount}
-                      </div>
-                    )}
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {showCompose && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-hidden">
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white">New Message</h2>
-              <button
-                onClick={() => setShowCompose(false)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-              >
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <form onSubmit={handleCreateConversation} className="p-4 space-y-4 overflow-y-auto max-h-[calc(90vh-120px)]">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Subject</label>
-                <input
-                  type="text"
-                  value={composeData.subject}
-                  onChange={e => setComposeData({ ...composeData, subject: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white"
-                  placeholder="Message subject..."
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Recipients ({composeData.participantIds.length} selected)
-                </label>
-                <div className="max-h-40 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-lg divide-y divide-gray-100 dark:divide-gray-700">
-                  {availableUsers.length === 0 ? (
-                    <p className="p-4 text-sm text-gray-500 dark:text-gray-400 text-center">No other users in this school</p>
-                  ) : (
-                    availableUsers.map(user => (
-                      <label
-                        key={user.id}
-                        className="flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={composeData.participantIds.includes(user.id)}
-                          onChange={() => toggleParticipant(user.id)}
-                          className="rounded text-primary-600 focus:ring-primary-500"
-                        />
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-900 dark:text-white">{user.name}</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{user.role}</p>
-                        </div>
-                      </label>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Message</label>
-                <textarea
-                  value={composeData.initialMessage}
-                  onChange={e => setComposeData({ ...composeData, initialMessage: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white resize-none"
-                  rows={4}
-                  placeholder="Type your message..."
-                  required
-                />
-              </div>
-
-              <div className="flex gap-3 justify-end pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowCompose(false)}
-                  className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={composeData.participantIds.length === 0}
-                  className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Send Message
-                </button>
-              </div>
-            </form>
+        <div className="relative">
+          <Icons.Search />
+          <input
+            type="text"
+            placeholder="Search conversations..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 bg-gray-100 dark:bg-gray-800 border-none rounded-xl focus:ring-2 focus:ring-blue-500 text-sm"
+          />
+          <div className="absolute left-3 top-2.5 text-gray-400 pointer-events-none">
           </div>
         </div>
-      )}
+      </div>
+
+      <div className="flex-1 overflow-y-auto py-2 space-y-1">
+        {filtered.length === 0 ? (
+          <div className="text-center p-8 text-gray-500 dark:text-gray-400 text-sm">
+            No conversations found
+          </div>
+        ) : (
+          filtered.map(conv => (
+            <SidebarItem
+              key={conv.id}
+              conv={conv}
+              isActive={activeId === conv.id}
+              currentUserId={currentUserId}
+            />
+          ))
+        )}
+      </div>
     </div>
   );
 };
 
-export const ConversationView: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const [conversation, setConversation] = useState<Conversation | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [newMessage, setNewMessage] = useState('');
-  const [sending, setSending] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+const ChatBubble = ({ msg, isOwn, senderName }: { msg: Message; isOwn: boolean; senderName?: string }) => {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`flex mb-4 ${isOwn ? 'justify-end' : 'justify-start'}`}
+    >
+      <div className={`max-w-[75%] flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
+        {!isOwn && (
+          <span className="text-xs text-gray-400 ml-3 mb-1">{senderName}</span>
+        )}
+        <div className={`px-5 py-3 rounded-2xl shadow-sm text-sm relative leading-relaxed ${isOwn
+            ? 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-br-none'
+            : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 border border-gray-100 dark:border-gray-700 rounded-bl-none'
+          }`}>
+          {msg.content}
+        </div>
+        <span className="text-[10px] text-gray-400 mt-1 opacity-70 px-1">
+          {formatTime(msg.createdAt)}
+        </span>
+      </div>
+    </motion.div>
+  );
+};
+
+const ChatArea = ({
+  conversation,
+  messages,
+  currentUserId,
+  onSend,
+  onBack,
+  sending
+}: {
+  conversation: Conversation;
+  messages: Message[];
+  currentUserId: number | null;
+  onSend: (text: string) => void;
+  onBack?: () => void;
+  sending: boolean;
+}) => {
+  const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    loadCurrentUser();
-    loadConversation();
-    loadMessages();
-    markAsRead();
-  }, [id]);
-
-  useEffect(() => {
-    scrollToBottom();
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  const loadCurrentUser = async () => {
-    try {
-      const response = await fetch('/api/user', { credentials: 'include' });
-      if (response.ok) {
-        const user = await response.json();
-        setCurrentUserId(user.id);
-      }
-    } catch (error) {
-      console.error('Error loading current user:', error);
-    }
-  };
-
-  const loadConversation = async () => {
-    try {
-      const response = await fetch(`/api/conversations/${id}`, { credentials: 'include' });
-      if (response.ok) {
-        setConversation(await response.json());
-      } else {
-        navigate('/app/messages');
-      }
-    } catch (error) {
-      console.error('Error loading conversation:', error);
-    }
-  };
-
-  const loadMessages = async () => {
-    try {
-      const response = await fetch(`/api/conversations/${id}/messages`, { credentials: 'include' });
-      if (response.ok) {
-        setMessages(await response.json());
-      }
-    } catch (error) {
-      console.error('Error loading messages:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const markAsRead = async () => {
-    try {
-      await fetch(`/api/conversations/${id}/read`, {
-        method: 'POST',
-        credentials: 'include'
-      });
-    } catch (error) {
-      console.error('Error marking as read:', error);
-    }
-  };
-
-  const handleSend = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || sending) return;
-
-    setSending(true);
-    try {
-      const response = await fetch(`/api/conversations/${id}/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ content: newMessage })
-      });
-
-      if (response.ok) {
-        const msg = await response.json();
-        setMessages(prev => [...prev, msg]);
-        setNewMessage('');
-      } else {
-        const err = await response.json();
-        alert(err.message || 'Failed to send message');
-      }
-    } catch (error) {
-      console.error('Error sending message:', error);
-      alert('Failed to send message');
-    } finally {
-      setSending(false);
-    }
+    if (!inputText.trim() || sending) return;
+    onSend(inputText);
+    setInputText('');
   };
 
-  const formatTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    if (date.toDateString() === today.toDateString()) {
-      return 'Today';
-    } else if (date.toDateString() === yesterday.toDateString()) {
-      return 'Yesterday';
-    } else {
-      return date.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
-    }
-  };
-
-  const getOtherParticipants = () => {
-    if (!conversation) return [];
-    return conversation.participants.filter(p => p.id !== currentUserId);
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary-500 border-t-transparent"></div>
-      </div>
-    );
-  }
-
-  const otherParticipants = getOtherParticipants();
-  const displayName = otherParticipants.length > 0 
-    ? otherParticipants.map(p => p.name).join(', ')
-    : 'Unknown';
-
-  let lastDate = '';
+  const displayName = getDisplayName(conversation, currentUserId);
 
   return (
-    <div className="h-[calc(100vh-200px)] flex flex-col bg-white dark:bg-gray-800 rounded-xl shadow-soft border border-gray-100 dark:border-gray-700 overflow-hidden">
-      <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-4">
-        <button
-          onClick={() => navigate('/app/messages')}
-          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-        >
-          <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center text-white font-bold">
-          {displayName.charAt(0).toUpperCase()}
+    <div className="flex flex-col h-full bg-gray-50/50 dark:bg-gray-900/50 backdrop-blur-xl">
+      {/* Header */}
+      <div className="px-4 py-3 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 flex items-center gap-3 sticky top-0 z-10">
+        {onBack && (
+          <button onClick={onBack} className="p-2 -ml-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full md:hidden">
+            <Icons.Back />
+          </button>
+        )}
+        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-md">
+          {getAvatarInitial(displayName)}
         </div>
-        <div className="flex-1 min-w-0">
-          <h2 className="font-bold text-gray-900 dark:text-white truncate">{displayName}</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{conversation?.subject}</p>
+        <div>
+          <h2 className="font-bold text-gray-900 dark:text-white leading-tight">{displayName}</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">{conversation.subject}</p>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-900/50">
-        {messages.map((msg, idx) => {
-          const msgDate = formatDate(msg.createdAt);
-          const showDateDivider = msgDate !== lastDate;
-          lastDate = msgDate;
-          const isOwn = msg.senderId === currentUserId;
-
-          return (
-            <React.Fragment key={msg.id}>
-              {showDateDivider && (
-                <div className="flex items-center justify-center py-2">
-                  <span className="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded-full text-xs text-gray-600 dark:text-gray-400">
-                    {msgDate}
-                  </span>
-                </div>
-              )}
-              <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[75%] ${isOwn ? 'order-2' : ''}`}>
-                  {!isOwn && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1 ml-1">
-                      {msg.sender?.name}
-                    </p>
-                  )}
-                  <div className={`px-4 py-2 rounded-2xl ${
-                    isOwn 
-                      ? 'bg-primary-600 text-white rounded-br-sm' 
-                      : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm border border-gray-100 dark:border-gray-700 rounded-bl-sm'
-                  }`}>
-                    <p className="whitespace-pre-wrap break-words">{msg.content}</p>
-                  </div>
-                  <p className={`text-xs text-gray-400 mt-1 ${isOwn ? 'text-right mr-1' : 'ml-1'}`}>
-                    {formatTime(msg.createdAt)}
-                  </p>
-                </div>
-              </div>
-            </React.Fragment>
-          );
-        })}
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-4 md:p-6">
+        {messages.map(msg => (
+          <ChatBubble
+            key={msg.id}
+            msg={msg}
+            isOwn={msg.senderId === currentUserId}
+            senderName={msg.sender?.name}
+          />
+        ))}
         <div ref={messagesEndRef} />
       </div>
 
-      <form onSubmit={handleSend} className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-        <div className="flex items-end gap-2">
-          <textarea
-            value={newMessage}
-            onChange={e => setNewMessage(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSend(e);
-              }
-            }}
-            className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white resize-none"
-            rows={1}
+      {/* Input */}
+      <div className="p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
+        <form onSubmit={handleSubmit} className="flex gap-2 items-center max-w-4xl mx-auto">
+          <input
+            type="text"
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
             placeholder="Type a message..."
+            className="flex-1 px-4 py-3 bg-gray-100 dark:bg-gray-800 border-none rounded-full focus:ring-2 focus:ring-blue-500 transition-shadow"
           />
           <button
             type="submit"
-            disabled={!newMessage.trim() || sending}
-            className="p-3 bg-primary-600 hover:bg-primary-700 text-white rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!inputText.trim() || sending}
+            className="p-3 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-full shadow-lg shadow-blue-500/30 transition-all disabled:opacity-50 disabled:scale-100"
           >
-            {sending ? (
-              <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-              </svg>
-            ) : (
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-              </svg>
-            )}
+            {sending ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Icons.Send />}
           </button>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
   );
+};
+
+const NewMessageModal = ({
+  isOpen,
+  onClose,
+  onSend
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onSend: (data: any) => Promise<void>;
+}) => {
+  const [subject, setSubject] = useState('');
+  const [message, setMessage] = useState('');
+  const [users, setUsers] = useState<User[]>([]);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      loadUsers();
+    }
+  }, [isOpen]);
+
+  const loadUsers = async () => {
+    try {
+      const res = await fetch('/api/messaging/users');
+      if (res.ok) setUsers(await res.json());
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const toggleUser = (id: number) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!subject || !message || selectedIds.length === 0) return;
+    setLoading(true);
+    await onSend({ subject, participantIds: selectedIds, initialMessage: message });
+    setLoading(false);
+    onClose();
+    setSubject('');
+    setMessage('');
+    setSelectedIds([]);
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100 dark:border-gray-700"
+      >
+        <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50/50 dark:bg-gray-900/50">
+          <h3 className="font-bold text-lg text-gray-900 dark:text-white">New Conversation</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Subject</label>
+            <input
+              className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-blue-500"
+              value={subject}
+              onChange={e => setSubject(e.target.value)}
+              placeholder="What's this about?"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Recipients</label>
+            <div className="h-32 overflow-y-auto border rounded-xl p-2 dark:bg-gray-700 dark:border-gray-600 space-y-1">
+              {users.map(u => (
+                <div
+                  key={u.id}
+                  onClick={() => toggleUser(u.id)}
+                  className={`p-2 rounded-lg cursor-pointer flex items-center justify-between ${selectedIds.includes(u.id) ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'hover:bg-gray-50 dark:hover:bg-gray-600'}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-600">{getAvatarInitial(u.name)}</div>
+                    <span className="text-sm font-medium">{u.name}</span>
+                    <span className="text-xs text-gray-400 uppercase tracking-wider">{u.role}</span>
+                  </div>
+                  {selectedIds.includes(u.id) && <Icons.Check />}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Message</label>
+            <textarea
+              className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 resize-none h-24"
+              value={message}
+              onChange={e => setMessage(e.target.value)}
+              placeholder="Hello..."
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 rounded-lg">Cancel</button>
+            <button
+              type="submit"
+              disabled={loading || !subject || !message || selectedIds.length === 0}
+              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-lg shadow-blue-500/20 disabled:opacity-50"
+            >
+              {loading ? 'Sending...' : 'Send Message'}
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
+  );
+};
+
+// --- Main Layout Component ---
+
+const MessagingLayout = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useAuth();
+
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showModal, setShowModal] = useState(false);
+
+  // Chat state
+  const [activeMessages, setActiveMessages] = useState<Message[]>([]);
+  const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
+  const [isSending, setIsSending] = useState(false);
+
+  // Poll for updates
+  useEffect(() => {
+    fetchConversations();
+    const interval = setInterval(fetchConversations, 10000); // Poll list every 10s
+    return () => clearInterval(interval);
+  }, []);
+
+  // Poll messages if active
+  useEffect(() => {
+    if (id) {
+      fetchMessages(parseInt(id));
+      fetchConversationDetails(parseInt(id));
+      const interval = setInterval(() => fetchMessages(parseInt(id)), 5000); // Poll chat every 5s
+      return () => clearInterval(interval);
+    } else {
+      setActiveMessages([]);
+      setActiveConversation(null);
+    }
+  }, [id]);
+
+  const fetchConversations = async () => {
+    try {
+      const res = await fetch('/api/conversations');
+      if (res.ok) setConversations(await res.json());
+    } catch (e) { console.error(e); }
+  };
+
+  const fetchConversationDetails = async (convId: number) => {
+    try {
+      const res = await fetch(`/api/conversations/${convId}`);
+      if (res.ok) setActiveConversation(await res.json());
+    } catch (e) { console.error(e); }
+  };
+
+  const fetchMessages = async (convId: number) => {
+    try {
+      const res = await fetch(`/api/conversations/${convId}/messages`);
+      if (res.ok) {
+        const msgs = await res.json();
+        setActiveMessages(msgs);
+        // Mark as read if we have unread messages
+        // Optimization: check local state before api call? For now just call it.
+        await fetch(`/api/conversations/${convId}/read`, { method: 'POST' });
+        // Update list locally to clear badge instantly
+        setConversations(prev => prev.map(c => c.id === convId ? { ...c, unreadCount: 0 } : c));
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  const handleSendMessage = async (text: string) => {
+    if (!id) return;
+    setIsSending(true);
+    try {
+      const res = await fetch(`/api/conversations/${id}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: text })
+      });
+      if (res.ok) {
+        const msg = await res.json();
+        setActiveMessages(prev => [...prev, msg]);
+        fetchConversations(); // Update side list preview
+      }
+    } catch (e) { console.error(e); }
+    setIsSending(false);
+  };
+
+  const handleCreateConversation = async (data: any) => {
+    try {
+      const res = await fetch('/api/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...data, type: 'direct' })
+      });
+      if (res.ok) {
+        const conv = await res.json();
+        fetchConversations();
+        navigate(`/app/messages/${conv.id}`);
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  const isMobile = window.innerWidth < 768; // Simple check, could use hook
+  // Decide what to show based on Route and Screen size
+  const showSidebar = !id || !isMobile;
+  const showChat = !!id;
+
+  return (
+    <div className="h-[calc(100vh-6rem)] md:h-[calc(100vh-8rem)] bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden flex">
+      {/* Sidebar */}
+      <div className={`${showSidebar ? 'w-full md:w-80 lg:w-96 flex-shrink-0' : 'hidden md:block md:w-80 lg:w-96'} h-full`}>
+        <MessagingSidebar
+          conversations={conversations}
+          activeId={id ? parseInt(id) : undefined}
+          onNewMessage={() => setShowModal(true)}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          currentUserId={user?.id || null}
+        />
+      </div>
+
+      {/* Main Content */}
+      <div className={`${showChat ? 'w-full md:flex-1' : 'hidden md:flex md:flex-1'} h-full bg-gray-50/50 dark:bg-black/20`}>
+        {id && activeConversation ? (
+          <ChatArea
+            conversation={activeConversation}
+            messages={activeMessages}
+            currentUserId={user?.id || null}
+            onSend={handleSendMessage}
+            sending={isSending}
+            onBack={() => navigate('/app/messages')}
+          />
+        ) : (
+          <div className="h-full flex flex-col items-center justify-center text-gray-400 p-8 text-center animate-pulse">
+            <Icons.Empty />
+            <h3 className="text-xl font-semibold mt-4 text-gray-600 dark:text-gray-300">Select a conversation</h3>
+            <p className="max-w-xs mt-2 text-sm text-gray-400">Choose a chat from the left or start a new one to begin messaging.</p>
+          </div>
+        )}
+      </div>
+
+      <NewMessageModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        onSend={handleCreateConversation}
+      />
+    </div>
+  );
+};
+
+// --- Exported Components to match Routes ---
+
+export const Messages = () => {
+  return <MessagingLayout />;
+};
+
+export const ConversationView = () => {
+  return <MessagingLayout />;
 };
