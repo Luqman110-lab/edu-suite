@@ -3114,7 +3114,6 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const today = new Date().toISOString().split('T')[0];
 
             const dormsCount = await db.select({ count: sql<number>`count(*)` }).from(dormitories).where(eq(dormitories.schoolId, schoolId));
-            const roomsCount = await db.select({ count: sql<number>`count(*)` }).from(dormRooms).where(eq(dormRooms.schoolId, schoolId));
             const bedsCount = await db.select({ count: sql<number>`count(*)` }).from(beds).where(eq(beds.schoolId, schoolId));
             const occupiedBedsCount = await db.select({ count: sql<number>`count(*)` }).from(beds).where(and(eq(beds.schoolId, schoolId), eq(beds.status, 'occupied')));
             const boardersCount = await db.select({ count: sql<number>`count(*)` }).from(students).where(and(eq(students.schoolId, schoolId), eq(students.boardingStatus, 'boarding')));
@@ -3145,7 +3144,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             res.json({
                 totalDorms: dormsCount[0]?.count || 0,
                 dormitories: dormsCount[0]?.count || 0, // Frontend expects this key
-                totalRooms: roomsCount[0]?.count || 0,
+                totalRooms: 0,
                 totalBeds: totalBeds,
                 occupiedBeds: occupied,
                 availableBeds: totalBeds - occupied,
