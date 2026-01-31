@@ -92,7 +92,7 @@ const SchoolSelector: React.FC = () => {
     const query = searchQuery.toLowerCase();
     return schools.filter(s =>
       s.name.toLowerCase().includes(query) ||
-      s.code?.toLowerCase().includes(query)
+      (s.code && s.code.toLowerCase().includes(query))
     );
   }, [schools, searchQuery]);
 

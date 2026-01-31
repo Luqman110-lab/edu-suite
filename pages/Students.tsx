@@ -876,8 +876,8 @@ export const Students: React.FC = () => {
 
 
   let filteredStudents = students.filter(s =>
-  (s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.indexNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  (s.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    s.indexNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (s.paycode && s.paycode.toLowerCase().includes(searchQuery.toLowerCase())))
   );
 
