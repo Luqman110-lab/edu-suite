@@ -64,6 +64,10 @@ app.use((req, res, next) => {
   // Note: registerRoutes internally calls registerExtendedRoutes and setupAuth
   const server = registerRoutes(app);
 
+  // Initialize WebSocket Server
+  const { setupWebSocket } = await import("./websocket");
+  setupWebSocket(server);
+
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     console.error("Error:", err);

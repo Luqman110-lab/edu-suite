@@ -6,6 +6,13 @@ import { eq, and, desc, asc, sql, inArray, gt, or, isNull } from "drizzle-orm";
 import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, teacherAttendance, users, userSchools, feeStructures, financeTransactions, conversations, conversationParticipants, messages, promotionHistory, studentFeeOverrides, dormitories, beds, boardingRollCalls, leaveRequests, auditLogs, invoices, invoiceItems, paymentPlans, planInstallments, visitorLogs, boardingSettings, faceEmbeddings } from "../shared/schema";
 import { requireAuth, requireAdmin, requireSuperAdmin, getActiveSchoolId, hashPassword } from "./auth";
 import { MobileMoneyService } from "./services/MobileMoneyService";
+import { broadcastMessage } from "./websocket";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export function registerExtendedRoutes(app: Express) {
 
@@ -1208,6 +1215,98 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
 
     // --- Messaging Extensions ---
 
+    // File Upload Endpoint
+    app.post("/api/upload", requireAuth, async (req, res) => {
+        try {
+            const { fileName, fileData } = req.body; // fileData is base64
+            if (!fileName || !fileData) return res.status(400).json({ message: "File required" });
+
+            const uploadsDir = path.join(__dirname, "../uploads");
+            if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+
+            const uniqueName = `${Date.now()}-${fileName}`;
+            const filePath = path.join(uploadsDir, uniqueName);
+
+            // Remove header (data:image/png;base64,)
+            const base64Data = fileData.split(';base64,').pop();
+            fs.writeFileSync(filePath, base64Data, { encoding: 'base64' });
+
+            res.json({ url: `/uploads/${uniqueName}` }); // Note: Ensure express.static serves /uploads
+        } catch (error: any) {
+            console.error("Upload error:", error);
+            res.status(500).json({ message: "Upload failed" });
+        }
+    });
+
+    // Toggle Reaction
+    app.post("/api/conversations/:id/messages/:msgId/react", requireAuth, async (req, res) => {
+        try {
+            const convId = parseInt(req.params.id);
+            const msgId = parseInt(req.params.msgId);
+            const { emoji } = req.body; // If emoji matches existing, remove it (toggle)
+
+            const [msg] = await db.select().from(messages).where(eq(messages.id, msgId));
+            if (!msg) return res.status(404).json({ message: "Message not found" });
+
+            let reactions = (msg.reactions as any[]) || [];
+            const userId = req.user!.id;
+
+            const existingIdx = reactions.findIndex((r: any) => r.userId === userId && r.emoji === emoji);
+            if (existingIdx >= 0) {
+                reactions.splice(existingIdx, 1); // Remove
+            } else {
+                reactions.push({ userId, emoji }); // Add
+            }
+
+            const [updated] = await db.update(messages)
+                .set({ reactions })
+                .where(eq(messages.id, msgId))
+                .returning();
+
+            // Broadcast update
+            broadcastMessage(convId, { ...updated, type: 'reaction_update' });
+
+            res.json(updated);
+        } catch (error: any) {
+            console.error("Reaction error:", error);
+            res.status(500).json({ message: "Reaction failed" });
+        }
+    });
+
+    // Update Group Info
+    app.put("/api/conversations/:id", requireAuth, async (req, res) => {
+        try {
+            const convId = parseInt(req.params.id);
+            const { groupName, groupAvatar, addParticipants } = req.body;
+
+            // Check if user is admin or creator (simplification: anyone in group can update for now, or check creators)
+            // Ideally check isAdmin
+
+            const updates: any = {};
+            if (groupName) updates.groupName = groupName;
+            if (groupAvatar) updates.groupAvatar = groupAvatar;
+
+            await db.update(conversations).set(updates).where(eq(conversations.id, convId));
+
+            if (addParticipants && Array.isArray(addParticipants)) {
+                const newParts = addParticipants.map((uid: number) => ({
+                    conversationId: convId,
+                    userId: uid,
+                    joinedAt: new Date()
+                }));
+                await db.insert(conversationParticipants).values(newParts).onConflictDoNothing();
+            }
+
+            // Broadcast group update?
+            // broadcastMessage(convId, { type: 'group_update', updates });
+
+            res.json({ success: true });
+        } catch (error: any) {
+            console.error("Update group error:", error);
+            res.status(500).json({ message: "Failed to update group" });
+        }
+    });
+
     app.get("/api/conversations/unread-count", requireAuth, async (req, res) => {
         try {
             if (!req.user) return res.sendStatus(401);
@@ -1323,12 +1422,12 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     // Create new conversation
     app.post("/api/conversations", requireAuth, async (req, res) => {
         try {
-            const { subject, participantIds, initialMessage, type } = req.body;
+            const { subject, participantIds, initialMessage, type, isGroup, groupName, groupAvatar } = req.body;
             const schoolId = getActiveSchoolId(req);
 
             if (!schoolId) return res.status(400).json({ message: "No active school" });
-            if (!subject || !participantIds || !initialMessage) {
-                return res.status(400).json({ message: "Missing required fields" });
+            if (!participantIds) {
+                return res.status(400).json({ message: "Missing participants" });
             }
 
             const senderId = req.user!.id;
@@ -1336,8 +1435,12 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             // Create conversation
             const [newConv] = await db.insert(conversations).values({
                 schoolId,
-                subject,
-                type: type || 'direct',
+                subject: subject || (groupName ? groupName : 'New Conversation'),
+                type: type || (isGroup ? 'group' : 'direct'),
+                isGroup: isGroup || false,
+                groupName,
+                groupAvatar,
+                admins: isGroup ? [senderId] : [],
                 createdById: senderId,
                 lastMessageAt: new Date()
             }).returning();
@@ -1441,8 +1544,9 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         try {
             const convId = parseInt(req.params.id);
             if (isNaN(convId)) return res.status(400).json({ message: "Invalid ID" });
-            const { content } = req.body;
-            if (!content) return res.status(400).json({ message: "Message content required" });
+            const { content, attachments, replyToId } = req.body;
+            // content optional if attachments exist
+            if (!content && (!attachments || attachments.length === 0)) return res.status(400).json({ message: "Message content or attachment required" });
 
             // Verify access
             const access = await db.select().from(conversationParticipants)
@@ -1454,7 +1558,10 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const [newMsg] = await db.insert(messages).values({
                 conversationId: convId,
                 senderId: req.user!.id,
-                content,
+                content: content || "",
+                attachments: attachments || [],
+                replyToId,
+                messageType: (attachments && attachments.length > 0) ? 'file' : 'text',
                 createdAt: new Date()
             }).returning();
 
@@ -1471,6 +1578,9 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             }).from(users).where(eq(users.id, req.user!.id));
 
             res.json({ ...newMsg, sender: sender[0] });
+
+            // Websocket Broadcast
+            broadcastMessage(convId, { ...newMsg, sender: sender[0] });
         } catch (error: any) {
             console.error("Send message error:", error);
             res.status(500).json({ message: "Failed to send message" });

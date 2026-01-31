@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../hooks/use-auth';
@@ -11,6 +11,18 @@ interface User {
   email?: string;
 }
 
+interface Attachment {
+  url: string;
+  name: string;
+  type: string;
+  size?: number;
+}
+
+interface Reaction {
+  userId: number;
+  emoji: string;
+}
+
 interface Message {
   id: number;
   conversationId: number;
@@ -19,12 +31,18 @@ interface Message {
   messageType: string;
   createdAt: string;
   sender?: User;
+  attachments?: Attachment[];
+  reactions?: Reaction[];
+  replyToId?: number;
 }
 
 interface Conversation {
   id: number;
   subject: string;
   type: string;
+  isGroup: boolean;
+  groupName?: string;
+  groupAvatar?: string;
   createdById: number;
   lastMessageAt: string;
   participants: User[];
@@ -32,13 +50,15 @@ interface Conversation {
   unreadCount: number;
 }
 
-// --- Icons (embedded for simplicity) ---
+// --- Icons ---
 const Icons = {
   Search: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>,
   Compose: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>,
   Send: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>,
   Back: () => <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>,
   Check: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>,
+  Attach: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>,
+  Group: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>,
   Empty: () => (
     <svg className="w-24 h-24 text-gray-200 dark:text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -64,11 +84,17 @@ const formatTime = (dateStr: string) => {
 };
 
 const getDisplayName = (conv: Conversation, currentUserId: number | null) => {
+  if (conv.isGroup && conv.groupName) return conv.groupName;
   const others = conv.participants.filter(p => p.id !== currentUserId);
   return others.length > 0 ? others.map(p => p.name).join(', ') : 'Just You';
 };
 
-const getAvatarInitial = (name: string) => name.charAt(0).toUpperCase();
+const getAvatarInitial = (name: string) => name ? name.charAt(0).toUpperCase() : '?';
+
+const getGroupAvatar = (conv: Conversation) => {
+  if (conv.isGroup) return <Icons.Group />;
+  return null;
+}
 
 // --- Components ---
 
@@ -83,6 +109,7 @@ const SidebarItem = ({
 }) => {
   const displayName = getDisplayName(conv, currentUserId);
   const initial = getAvatarInitial(displayName);
+  const isGroup = conv.isGroup;
 
   return (
     <Link to={`/app/messages/${conv.id}`}>
@@ -91,8 +118,8 @@ const SidebarItem = ({
         animate={{ backgroundColor: isActive ? 'rgba(59, 130, 246, 0.1)' : 'transparent' }}
         className={`p-3 mx-2 rounded-xl cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex gap-3 items-center ${isActive ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
       >
-        <div className={`relative flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-sm ${isActive ? 'bg-gradient-to-br from-blue-500 to-indigo-600' : 'bg-gradient-to-br from-gray-400 to-gray-500'}`}>
-          {initial}
+        <div className={`relative flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-sm ${isActive ? 'bg-gradient-to-br from-blue-500 to-indigo-600' : (isGroup ? 'bg-gradient-to-br from-purple-500 to-pink-500' : 'bg-gradient-to-br from-gray-400 to-gray-500')}`}>
+          {isGroup ? <Icons.Group /> : initial}
           {conv.unreadCount > 0 && (
             <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full border-2 border-white dark:border-gray-900 flex items-center justify-center text-[10px]">
               {conv.unreadCount}
@@ -113,7 +140,7 @@ const SidebarItem = ({
             {conv.lastMessage ? (
               <>
                 {conv.lastMessage.senderId === currentUserId && <span className="opacity-70">You: </span>}
-                {conv.lastMessage.content}
+                {conv.lastMessage.messageType === 'file' ? '📎 Attachment' : conv.lastMessage.content}
               </>
             ) : (
               <span className="italic opacity-50">No messages yet</span>
@@ -164,53 +191,89 @@ const MessagingSidebar = ({
           <Icons.Search />
           <input
             type="text"
-            placeholder="Search conversations..."
+            placeholder="Search..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2 bg-gray-100 dark:bg-gray-800 border-none rounded-xl focus:ring-2 focus:ring-blue-500 text-sm"
           />
-          <div className="absolute left-3 top-2.5 text-gray-400 pointer-events-none">
-          </div>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto py-2 space-y-1">
-        {filtered.length === 0 ? (
+        {filtered.map(conv => (
+          <SidebarItem
+            key={conv.id}
+            conv={conv}
+            isActive={activeId === conv.id}
+            currentUserId={currentUserId}
+          />
+        ))}
+        {filtered.length === 0 && (
           <div className="text-center p-8 text-gray-500 dark:text-gray-400 text-sm">
             No conversations found
           </div>
-        ) : (
-          filtered.map(conv => (
-            <SidebarItem
-              key={conv.id}
-              conv={conv}
-              isActive={activeId === conv.id}
-              currentUserId={currentUserId}
-            />
-          ))
         )}
       </div>
     </div>
   );
 };
 
-const ChatBubble = ({ msg, isOwn, senderName }: { msg: Message; isOwn: boolean; senderName?: string }) => {
+const ChatBubble = ({ msg, isOwn, senderName, onReact }: { msg: Message; isOwn: boolean; senderName?: string; onReact: (emoji: string) => void }) => {
+  const [showReactions, setShowReactions] = useState(false);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`flex mb-4 ${isOwn ? 'justify-end' : 'justify-start'}`}
+      className={`flex mb-4 group ${isOwn ? 'justify-end' : 'justify-start'}`}
+      onMouseEnter={() => setShowReactions(true)}
+      onMouseLeave={() => setShowReactions(false)}
     >
-      <div className={`max-w-[75%] flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
-        {!isOwn && (
+      <div className={`max-w-[75%] flex flex-col ${isOwn ? 'items-end' : 'items-start'} relative`}>
+        {!isOwn && senderName && (
           <span className="text-xs text-gray-400 ml-3 mb-1">{senderName}</span>
         )}
+
         <div className={`px-5 py-3 rounded-2xl shadow-sm text-sm relative leading-relaxed ${isOwn
             ? 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-br-none'
             : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 border border-gray-100 dark:border-gray-700 rounded-bl-none'
           }`}>
+          {msg.attachments && msg.attachments.length > 0 && (
+            <div className="mb-2 space-y-2">
+              {msg.attachments.map((att, i) => (
+                <div key={i} className="bg-black/10 dark:bg-white/10 p-2 rounded-lg">
+                  {att.type.startsWith('image/') ? (
+                    <img src={att.url} alt={att.name} className="max-w-full h-auto rounded-md" />
+                  ) : (
+                    <a href={att.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 underline text-xs">
+                      📎 {att.name}
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
           {msg.content}
         </div>
+
+        {/* Reactions Display */}
+        {msg.reactions && msg.reactions.length > 0 && (
+          <div className={`absolute -bottom-3 ${isOwn ? 'right-0' : 'left-0'} flex gap-1 bg-white dark:bg-gray-800 rounded-full px-2 py-0.5 shadow-md border border-gray-100 text-xs`}>
+            {msg.reactions.map((r, i) => <span key={i}>{r.emoji}</span>)}
+          </div>
+        )}
+
+        {/* Reaction Picker (Simple Hover) */}
+        {showReactions && (
+          <div className={`absolute top-0 ${isOwn ? '-left-24' : '-right-24'} bg-white dark:bg-gray-800 shadow-lg rounded-full px-2 py-1 flex gap-1 animate-in fade-in zoom-in duration-200 z-10`}>
+            {['👍', '❤️', '😂', '😮'].map(emoji => (
+              <button key={emoji} onClick={() => onReact(emoji)} className="hover:scale-125 transition-transform p-1">
+                {emoji}
+              </button>
+            ))}
+          </div>
+        )}
+
         <span className="text-[10px] text-gray-400 mt-1 opacity-70 px-1">
           {formatTime(msg.createdAt)}
         </span>
@@ -225,30 +288,77 @@ const ChatArea = ({
   currentUserId,
   onSend,
   onBack,
-  sending
+  onReact,
+  sending,
+  typingUsers
 }: {
   conversation: Conversation;
   messages: Message[];
   currentUserId: number | null;
-  onSend: (text: string) => void;
+  onSend: (text: string, attachments?: Attachment[]) => void;
   onBack?: () => void;
+  onReact: (msgId: number, emoji: string) => void;
   sending: boolean;
+  typingUsers: number[];
 }) => {
   const [inputText, setInputText] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, typingUsers]); // Scroll when typing starts too
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim() || sending) return;
-    onSend(inputText);
+    if ((!inputText.trim() && attachments.length === 0) || sending) return;
+    onSend(inputText, attachments);
     setInputText('');
+    setAttachments([]);
   };
 
   const displayName = getDisplayName(conversation, currentUserId);
+  const isTypingMessage = typingUsers.length > 0 ? "Someone is typing..." : "";
+
+  // Handle file upload selection
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      // Convert to base64 for upload API
+      const reader = new FileReader();
+      reader.onload = async (ev) => {
+        if (ev.target?.result) {
+          try {
+            // Upload immediately to get URL
+            const res = await fetch('/api/upload', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                fileName: file.name,
+                fileData: ev.target.result
+              })
+            });
+            if (res.ok) {
+              const data = await res.json();
+              setAttachments(prev => [...prev, {
+                url: data.url,
+                name: file.name,
+                type: file.type,
+                size: file.size
+              }]);
+            }
+          } catch (err) {
+            console.error("Upload failed", err);
+            // Fallback: Just show local preview if upload fails? No, simpler to alert.
+            alert("Failed to upload file");
+          }
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   return (
     <div className="flex flex-col h-full bg-gray-50/50 dark:bg-gray-900/50 backdrop-blur-xl">
@@ -259,41 +369,74 @@ const ChatArea = ({
             <Icons.Back />
           </button>
         )}
-        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-md">
-          {getAvatarInitial(displayName)}
+        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-md ${conversation.isGroup ? 'bg-gradient-to-br from-purple-500 to-pink-500' : 'bg-gradient-to-br from-indigo-500 to-purple-600'}`}>
+          {conversation.isGroup ? <Icons.Group /> : getAvatarInitial(displayName)}
         </div>
         <div>
           <h2 className="font-bold text-gray-900 dark:text-white leading-tight">{displayName}</h2>
-          <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">{conversation.subject}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+            {isTypingMessage || conversation.subject}
+          </p>
         </div>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 md:p-6">
+      <div className="flex-1 overflow-y-auto p-4 md:p-6 scroll-smooth">
         {messages.map(msg => (
           <ChatBubble
             key={msg.id}
             msg={msg}
             isOwn={msg.senderId === currentUserId}
             senderName={msg.sender?.name}
+            onReact={(emoji) => onReact(msg.id, emoji)}
           />
         ))}
+        {typingUsers.length > 0 && (
+          <div className="ml-4 mb-4 text-xs text-gray-400 italic">Typing...</div>
+        )}
         <div ref={messagesEndRef} />
       </div>
+
+      {/* Attachments Preview */}
+      {attachments.length > 0 && (
+        <div className="px-4 py-2 bg-gray-100 dark:bg-gray-800 flex gap-2 overflow-x-auto">
+          {attachments.map((att, i) => (
+            <div key={i} className="relative bg-white p-2 rounded-md shadow-sm text-xs flex items-center gap-2">
+              <span>📎 {att.name}</span>
+              <button onClick={() => setAttachments(p => p.filter((_, idx) => idx !== i))} className="text-red-500 font-bold ml-2">×</button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Input */}
       <div className="p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
         <form onSubmit={handleSubmit} className="flex gap-2 items-center max-w-4xl mx-auto">
           <input
+            type="file"
+            hidden
+            ref={fileInputRef}
+            onChange={handleFileSelect}
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="p-2 text-gray-400 hover:text-blue-500 hover:bg-gray-100 rounded-full transition-colors"
+          >
+            <Icons.Attach />
+          </button>
+
+          <input
             type="text"
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
+            // onKeyDown={() => handleTyping(conversation.id)} // TODO: Implement typing emit
             placeholder="Type a message..."
             className="flex-1 px-4 py-3 bg-gray-100 dark:bg-gray-800 border-none rounded-full focus:ring-2 focus:ring-blue-500 transition-shadow"
           />
           <button
             type="submit"
-            disabled={!inputText.trim() || sending}
+            disabled={(!inputText.trim() && attachments.length === 0) || sending}
             className="p-3 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-full shadow-lg shadow-blue-500/30 transition-all disabled:opacity-50 disabled:scale-100"
           >
             {sending ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Icons.Send />}
@@ -314,9 +457,11 @@ const NewMessageModal = ({
   onSend: (data: any) => Promise<void>;
 }) => {
   const [subject, setSubject] = useState('');
+  const [groupName, setGroupName] = useState('');
   const [message, setMessage] = useState('');
   const [users, setUsers] = useState<User[]>([]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [isGroup, setIsGroup] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -340,14 +485,23 @@ const NewMessageModal = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!subject || !message || selectedIds.length === 0) return;
+    if ((!groupName && isGroup) || (!subject && !groupName) || !message || selectedIds.length === 0) return;
     setLoading(true);
-    await onSend({ subject, participantIds: selectedIds, initialMessage: message });
+    await onSend({
+      subject: isGroup ? groupName : subject,
+      participantIds: selectedIds,
+      initialMessage: message,
+      isGroup,
+      groupName: isGroup ? groupName : undefined
+    });
     setLoading(false);
     onClose();
+    // Reset form
     setSubject('');
     setMessage('');
+    setGroupName('');
     setSelectedIds([]);
+    setIsGroup(false);
   };
 
   if (!isOpen) return null;
@@ -365,15 +519,44 @@ const NewMessageModal = ({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Subject</label>
-            <input
-              className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-blue-500"
-              value={subject}
-              onChange={e => setSubject(e.target.value)}
-              placeholder="What's this about?"
-            />
+          <div className="flex gap-4 mb-2">
+            <button
+              type="button"
+              onClick={() => setIsGroup(false)}
+              className={`flex-1 py-1 rounded-md text-sm font-medium transition-colors ${!isGroup ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}
+            >
+              Direct Message
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsGroup(true)}
+              className={`flex-1 py-1 rounded-md text-sm font-medium transition-colors ${isGroup ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}
+            >
+              Group Chat
+            </button>
           </div>
+
+          {isGroup ? (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Group Name</label>
+              <input
+                className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-blue-500"
+                value={groupName}
+                onChange={e => setGroupName(e.target.value)}
+                placeholder="e.g. Science Teachers"
+              />
+            </div>
+          ) : (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Subject</label>
+              <input
+                className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-blue-500"
+                value={subject}
+                onChange={e => setSubject(e.target.value)}
+                placeholder="What's this about?"
+              />
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Recipients</label>
@@ -409,10 +592,10 @@ const NewMessageModal = ({
             <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 rounded-lg">Cancel</button>
             <button
               type="submit"
-              disabled={loading || !subject || !message || selectedIds.length === 0}
+              disabled={loading || (!subject && !groupName) || !message || selectedIds.length === 0}
               className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-lg shadow-blue-500/20 disabled:opacity-50"
             >
-              {loading ? 'Sending...' : 'Send Message'}
+              {loading ? 'Creating...' : (isGroup ? 'Create Group' : 'Send Message')}
             </button>
           </div>
         </form>
@@ -437,21 +620,77 @@ const MessagingLayout = () => {
   const [activeMessages, setActiveMessages] = useState<Message[]>([]);
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const [typingUsers, setTypingUsers] = useState<number[]>([]);
 
-  // Poll for updates
+  // WebSocket
+  const ws = useRef<WebSocket | null>(null);
+
+  // Initialize WS
+  useEffect(() => {
+    if (!user) return;
+    // simple ws setup
+    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const wsUrl = `${protocol}://${window.location.host}/ws`;
+    ws.current = new WebSocket(wsUrl);
+
+    ws.current.onopen = () => {
+      console.log('WS Connected');
+      // Authenticate
+      ws.current?.send(JSON.stringify({ type: 'auth', userId: user.id }));
+    };
+
+    ws.current.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        handleWsMessage(data);
+      } catch (e) { console.error('WS Parse Error', e); }
+    };
+
+    return () => {
+      ws.current?.close();
+    };
+  }, [user]);
+
+  const handleWsMessage = useCallback((data: any) => {
+    switch (data.type) {
+      case 'new_message':
+        // If we are looking at this conversation, append message
+        if (activeConversationRef.current?.id === data.conversationId) {
+          setActiveMessages(prev => [...prev, data.message]);
+        }
+        // Always update conversation list snippet/unread
+        fetchConversations();
+        break;
+      case 'reaction_update':
+        if (activeConversationRef.current?.id === data.conversationId) {
+          setActiveMessages(prev => prev.map(m => m.id === data.id ? { ...m, reactions: data.reactions } : m));
+        }
+        break;
+      case 'typing':
+        if (activeConversationRef.current?.id === data.conversationId) {
+          // Handle typing indicator (debounce logic needed ideally)
+        }
+        break;
+    }
+  }, []);
+
+  // Use a ref for activeConversation to access in WS callback
+  const activeConversationRef = useRef<Conversation | null>(null);
+  useEffect(() => { activeConversationRef.current = activeConversation; }, [activeConversation]);
+
+
+  // Poll list fallback (in case WS fails or for initial load)
   useEffect(() => {
     fetchConversations();
-    const interval = setInterval(fetchConversations, 10000); // Poll list every 10s
+    const interval = setInterval(fetchConversations, 15000);
     return () => clearInterval(interval);
   }, []);
 
-  // Poll messages if active
+  // Fetch Chat Details
   useEffect(() => {
     if (id) {
       fetchMessages(parseInt(id));
       fetchConversationDetails(parseInt(id));
-      const interval = setInterval(() => fetchMessages(parseInt(id)), 5000); // Poll chat every 5s
-      return () => clearInterval(interval);
     } else {
       setActiveMessages([]);
       setActiveConversation(null);
@@ -478,31 +717,48 @@ const MessagingLayout = () => {
       if (res.ok) {
         const msgs = await res.json();
         setActiveMessages(msgs);
-        // Mark as read if we have unread messages
-        // Optimization: check local state before api call? For now just call it.
         await fetch(`/api/conversations/${convId}/read`, { method: 'POST' });
-        // Update list locally to clear badge instantly
         setConversations(prev => prev.map(c => c.id === convId ? { ...c, unreadCount: 0 } : c));
       }
     } catch (e) { console.error(e); }
   };
 
-  const handleSendMessage = async (text: string) => {
+  const handleSendMessage = async (text: string, attachments?: Attachment[]) => {
     if (!id) return;
     setIsSending(true);
     try {
       const res = await fetch(`/api/conversations/${id}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: text })
+        body: JSON.stringify({ content: text, attachments })
       });
       if (res.ok) {
+        // Message appended via WS optimization or manual
+        // We'll trust WS to append it to avoid duplication if we append manually too?
+        // Or append optimistic? Let's append manually as optimistic, then replace/ignore if dup.
+        // For now, simpler: append manually, and rely on WS "new_message" deduping or just let it replace.
         const msg = await res.json();
-        setActiveMessages(prev => [...prev, msg]);
-        fetchConversations(); // Update side list preview
+        // Check if message ID already exists (from optimistic UI or race)
+        setActiveMessages(prev => {
+          if (prev.some(m => m.id === msg.id)) return prev;
+          return [...prev, msg];
+        });
+        fetchConversations();
       }
     } catch (e) { console.error(e); }
     setIsSending(false);
+  };
+
+  const handleReaction = async (msgId: number, emoji: string) => {
+    if (!id) return;
+    try {
+      await fetch(`/api/conversations/${id}/messages/${msgId}/react`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emoji })
+      });
+      // UI update handled by WS 'reaction_update'
+    } catch (e) { console.error(e); }
   };
 
   const handleCreateConversation = async (data: any) => {
@@ -510,7 +766,7 @@ const MessagingLayout = () => {
       const res = await fetch('/api/conversations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...data, type: 'direct' })
+        body: JSON.stringify({ ...data })
       });
       if (res.ok) {
         const conv = await res.json();
@@ -520,14 +776,12 @@ const MessagingLayout = () => {
     } catch (e) { console.error(e); }
   };
 
-  const isMobile = window.innerWidth < 768; // Simple check, could use hook
-  // Decide what to show based on Route and Screen size
+  const isMobile = window.innerWidth < 768;
   const showSidebar = !id || !isMobile;
   const showChat = !!id;
 
   return (
     <div className="h-[calc(100vh-6rem)] md:h-[calc(100vh-8rem)] bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden flex">
-      {/* Sidebar */}
       <div className={`${showSidebar ? 'w-full md:w-80 lg:w-96 flex-shrink-0' : 'hidden md:block md:w-80 lg:w-96'} h-full`}>
         <MessagingSidebar
           conversations={conversations}
@@ -539,7 +793,6 @@ const MessagingLayout = () => {
         />
       </div>
 
-      {/* Main Content */}
       <div className={`${showChat ? 'w-full md:flex-1' : 'hidden md:flex md:flex-1'} h-full bg-gray-50/50 dark:bg-black/20`}>
         {id && activeConversation ? (
           <ChatArea
@@ -549,12 +802,14 @@ const MessagingLayout = () => {
             onSend={handleSendMessage}
             sending={isSending}
             onBack={() => navigate('/app/messages')}
+            onReact={handleReaction}
+            typingUsers={typingUsers}
           />
         ) : (
           <div className="h-full flex flex-col items-center justify-center text-gray-400 p-8 text-center animate-pulse">
             <Icons.Empty />
             <h3 className="text-xl font-semibold mt-4 text-gray-600 dark:text-gray-300">Select a conversation</h3>
-            <p className="max-w-xs mt-2 text-sm text-gray-400">Choose a chat from the left or start a new one to begin messaging.</p>
+            <p className="max-w-xs mt-2 text-sm text-gray-400">Choose a chat from the left or start a new one.</p>
           </div>
         )}
       </div>
@@ -567,8 +822,6 @@ const MessagingLayout = () => {
     </div>
   );
 };
-
-// --- Exported Components to match Routes ---
 
 export const Messages = () => {
   return <MessagingLayout />;

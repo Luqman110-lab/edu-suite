@@ -1655,6 +1655,10 @@ export const conversations = pgTable("conversations", {
   schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
   subject: text("subject").notNull(),
   type: text("type").default("direct"), // 'direct', 'group', 'announcement'
+  isGroup: boolean("is_group").default(false),
+  groupName: text("group_name"),
+  groupAvatar: text("group_avatar"),
+  admins: json("admins").$type<number[]>().default([]),
   createdById: integer("created_by_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   lastMessageAt: timestamp("last_message_at").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
@@ -1689,6 +1693,7 @@ export const conversationParticipants = pgTable("conversation_participants", {
   conversationId: integer("conversation_id").notNull().references(() => conversations.id, { onDelete: "cascade" }),
   userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   lastReadAt: timestamp("last_read_at"),
+  lastReadMessageId: integer("last_read_message_id"), // Track specific message read
   isArchived: boolean("is_archived").default(false),
   isMuted: boolean("is_muted").default(false),
   joinedAt: timestamp("joined_at").defaultNow(),
@@ -1720,11 +1725,16 @@ export const messages = pgTable("messages", {
   conversationId: integer("conversation_id").notNull().references(() => conversations.id, { onDelete: "cascade" }),
   senderId: integer("sender_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   content: text("content").notNull(),
-  messageType: text("message_type").default("text"), // 'text', 'file', 'image'
+  messageType: text("message_type").default("text"), // 'text', 'file', 'image', 'audio'
   attachmentUrl: text("attachment_url"),
   attachmentName: text("attachment_name"),
+  attachments: json("attachments").$type<{ url: string; name: string; type: string; size?: number }[]>().default([]),
+  reactions: json("reactions").$type<{ userId: number; emoji: string }[]>().default([]),
+  replyToId: integer("reply_to_id"),
   isEdited: boolean("is_edited").default(false),
   editedAt: timestamp("edited_at"),
+  isDeleted: boolean("is_deleted").default(false),
+  deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => ({
   conversationIdx: index("messages_conversation_idx").on(table.conversationId),
