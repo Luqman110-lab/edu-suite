@@ -16,8 +16,14 @@ import { Tests } from './pages/Tests';
 import { Analytics } from './pages/Analytics';
 import { Settings } from './pages/Settings';
 import { P7ExamSets } from './pages/P7ExamSets';
-import { AdminDashboard } from './pages/AdminDashboard';
 import { Login } from './pages/Login';
+import { AdminLayout } from './pages/admin/AdminLayout';
+import { Overview } from './pages/admin/Overview';
+import { SchoolList } from './pages/admin/schools/SchoolList';
+import { SchoolDetails } from './pages/admin/schools/SchoolDetails';
+import { UserList } from './pages/admin/users/UserList';
+import { AuditLogs } from './pages/admin/AuditLogs';
+import { Settings as AdminSettings } from './pages/admin/Settings';
 import { VerifyStudent } from './pages/VerifyStudent';
 import LandingPage from './pages/marketing/LandingPage';
 import { GateAttendance } from './pages/GateAttendance';
@@ -80,6 +86,23 @@ export default function App() {
               <Route path="/" element={<LandingWrapper />} />
               <Route path="/login" element={<LoginWrapper />} />
               <Route path="/verify-student/:id" element={<VerifyStudent />} />
+
+              <Route
+                path="/app/admin/*"
+                element={
+                  <ProtectedRoute>
+                    <AdminLayout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route index element={<Overview />} />
+                <Route path="schools" element={<SchoolList />} />
+                <Route path="schools/:id" element={<SchoolDetails />} />
+                <Route path="users" element={<UserList />} />
+                <Route path="audit" element={<AuditLogs />} />
+                <Route path="settings" element={<AdminSettings />} />
+              </Route>
+
               <Route
                 path="/app/*"
                 element={
@@ -111,7 +134,6 @@ export default function App() {
                         <Route path="messages/:id" element={<ConversationView />} />
                         <Route path="supervision" element={<Supervision />} />
                         <Route path="planning" element={<Planning />} />
-                        <Route path="admin" element={<AdminDashboard />} />
                         <Route path="settings" element={<Settings />} />
                         <Route path="*" element={<Navigate to="/app" replace />} />
                       </Routes>
