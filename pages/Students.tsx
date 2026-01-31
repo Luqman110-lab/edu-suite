@@ -1259,9 +1259,13 @@ export const Students: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap cursor-pointer" onClick={() => handleViewProfile(student)}>
                       <div className="flex items-center">
-                        <div className={`flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center font-bold text-sm ${isDark ? 'bg-primary-900 text-primary-300' : 'bg-primary-50 text-primary-600'}`}>
-                          {student.name.substring(0, 2)}
-                        </div>
+                        {student.photoBase64 ? (
+                          <img src={student.photoBase64} alt="" className="h-10 w-10 rounded-full object-cover" />
+                        ) : (
+                          <div className={`flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center font-bold text-sm ${isDark ? 'bg-primary-900 text-primary-300' : 'bg-primary-50 text-primary-600'}`}>
+                            {student.name.substring(0, 2)}
+                          </div>
+                        )}
                         <div className="ml-4">
                           {editingRowId === student.id && editingField === 'name' ? (
                             <input
@@ -1397,9 +1401,13 @@ export const Students: React.FC = () => {
                   onChange={() => toggleSelection(student.id!)}
                   onClick={(e) => e.stopPropagation()}
                 />
-                <div className={`h-12 w-12 rounded-full flex items-center justify-center font-bold text-lg ${isDark ? 'bg-primary-900 text-primary-300' : 'bg-primary-50 text-primary-600'}`}>
-                  {student.name.substring(0, 2)}
-                </div>
+                {student.photoBase64 ? (
+                  <img src={student.photoBase64} alt="" className="h-12 w-12 rounded-full object-cover" />
+                ) : (
+                  <div className={`h-12 w-12 rounded-full flex items-center justify-center font-bold text-lg ${isDark ? 'bg-primary-900 text-primary-300' : 'bg-primary-50 text-primary-600'}`}>
+                    {student.name.substring(0, 2)}
+                  </div>
+                )}
                 <div>
                   <div className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>
                     <HighlightText text={student.name} query={searchQuery} />
