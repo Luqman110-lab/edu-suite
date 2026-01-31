@@ -1365,7 +1365,7 @@ export const dormitoriesRelations = relations(dormitories, ({ one, many }) => ({
     fields: [dormitories.schoolId],
     references: [schools.id],
   }),
-  rooms: many(dormRooms),
+  beds: many(beds),
 }));
 
 export const insertDormitorySchema = createInsertSchema(dormitories);
@@ -1373,55 +1373,27 @@ export const selectDormitorySchema = createSelectSchema(dormitories);
 export type Dormitory = typeof dormitories.$inferSelect;
 export type InsertDormitory = typeof dormitories.$inferInsert;
 
-// Dormitory Rooms
-export const dormRooms = pgTable("dorm_rooms", {
-  id: serial("id").primaryKey(),
-  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
-  dormitoryId: integer("dormitory_id").notNull().references(() => dormitories.id, { onDelete: "cascade" }),
-  roomNumber: text("room_number").notNull(),
-  capacity: integer("capacity").default(4),
-  currentOccupancy: integer("current_occupancy").default(0),
-  roomType: text("room_type").default("standard"), // 'standard', 'prefect', 'sick_bay'
-  isActive: boolean("is_active").default(true),
-  createdAt: timestamp("created_at").defaultNow(),
-}, (table) => ({
-  schoolIdx: index("dorm_rooms_school_idx").on(table.schoolId),
-  dormIdx: index("dorm_rooms_dorm_idx").on(table.dormitoryId),
-  roomDormUnique: unique().on(table.dormitoryId, table.roomNumber),
-}));
+// Dormitory Rooms (Deleted)
+// export const dormRooms = ...
+// export const dormRoomsRelations = ...
 
-export const dormRoomsRelations = relations(dormRooms, ({ one, many }) => ({
-  school: one(schools, {
-    fields: [dormRooms.schoolId],
-    references: [schools.id],
-  }),
-  dormitory: one(dormitories, {
-    fields: [dormRooms.dormitoryId],
-    references: [dormitories.id],
-  }),
-  beds: many(beds),
-}));
-
-export const insertDormRoomSchema = createInsertSchema(dormRooms);
-export const selectDormRoomSchema = createSelectSchema(dormRooms);
-export type DormRoom = typeof dormRooms.$inferSelect;
-export type InsertDormRoom = typeof dormRooms.$inferInsert;
 
 // Beds
 export const beds = pgTable("beds", {
   id: serial("id").primaryKey(),
   schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
-  roomId: integer("room_id").notNull().references(() => dormRooms.id, { onDelete: "cascade" }),
-  bedNumber: text("bed_number").notNull(),
-  bedType: text("bed_type").default("single"), // 'single', 'bunk_top', 'bunk_bottom'
-  status: text("status").default("available"), // 'available', 'occupied', 'reserved', 'maintenance'
+  dormitoryId: integer("dormitory_id").notNull().references(() => dormitories.id, { onDelete: "cascade" }),
+  bedNumber: text("bed_number").notNull(), // Structure Identifier (e.g. 1, 2)
+  level: text("level").default("single"), // 'single', 'top', 'middle', 'bottom'
+  mattressNumber: text("mattress_number"),
+  status: text("status").default("available"),
   currentStudentId: integer("current_student_id").references(() => students.id, { onDelete: "set null" }),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => ({
   schoolIdx: index("beds_school_idx").on(table.schoolId),
-  roomIdx: index("beds_room_idx").on(table.roomId),
-  bedRoomUnique: unique().on(table.roomId, table.bedNumber),
+  dormIdx: index("beds_dorm_idx").on(table.dormitoryId),
+  bedUnique: unique().on(table.dormitoryId, table.bedNumber, table.level),
 }));
 
 export const bedsRelations = relations(beds, ({ one }) => ({
@@ -1429,9 +1401,9 @@ export const bedsRelations = relations(beds, ({ one }) => ({
     fields: [beds.schoolId],
     references: [schools.id],
   }),
-  room: one(dormRooms, {
-    fields: [beds.roomId],
-    references: [dormRooms.id],
+  dormitory: one(dormitories, {
+    fields: [beds.dormitoryId],
+    references: [dormitories.id],
   }),
   student: one(students, {
     fields: [beds.currentStudentId],
@@ -1450,7 +1422,6 @@ export const boardingProfiles = pgTable("boarding_profiles", {
   schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
   studentId: integer("student_id").notNull().references(() => students.id, { onDelete: "cascade" }),
   dormitoryId: integer("dormitory_id").references(() => dormitories.id, { onDelete: "set null" }),
-  roomId: integer("room_id").references(() => dormRooms.id, { onDelete: "set null" }),
   bedId: integer("bed_id").references(() => beds.id, { onDelete: "set null" }),
   authorizedGuardians: json("authorized_guardians").$type<{
     name: string;
@@ -1486,10 +1457,6 @@ export const boardingProfilesRelations = relations(boardingProfiles, ({ one }) =
   dormitory: one(dormitories, {
     fields: [boardingProfiles.dormitoryId],
     references: [dormitories.id],
-  }),
-  room: one(dormRooms, {
-    fields: [boardingProfiles.roomId],
-    references: [dormRooms.id],
   }),
   bed: one(beds, {
     fields: [boardingProfiles.bedId],

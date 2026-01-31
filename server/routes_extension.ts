@@ -3,7 +3,7 @@ import { Express } from "express";
 import { db } from "./db";
 import { eq, and, desc, asc, sql, inArray, gt, or, isNull } from "drizzle-orm";
 
-import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, teacherAttendance, users, userSchools, feeStructures, financeTransactions, conversations, conversationParticipants, messages, promotionHistory, studentFeeOverrides, dormitories, dormRooms, beds, boardingRollCalls, leaveRequests, auditLogs, invoices, invoiceItems, paymentPlans, planInstallments, visitorLogs, boardingSettings, faceEmbeddings } from "../shared/schema";
+import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, teacherAttendance, users, userSchools, feeStructures, financeTransactions, conversations, conversationParticipants, messages, promotionHistory, studentFeeOverrides, dormitories, beds, boardingRollCalls, leaveRequests, auditLogs, invoices, invoiceItems, paymentPlans, planInstallments, visitorLogs, boardingSettings, faceEmbeddings } from "../shared/schema";
 import { requireAuth, requireAdmin, requireSuperAdmin, getActiveSchoolId, hashPassword } from "./auth";
 import { MobileMoneyService } from "./services/MobileMoneyService";
 
@@ -3259,57 +3259,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    // Dorm Rooms CRUD
-    app.get("/api/dorm-rooms", requireAuth, async (req, res) => {
-        try {
-            const schoolId = getActiveSchoolId(req);
-            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-            let query;
-            if (req.query.dormitoryId) {
-                query = db.select().from(dormRooms).where(and(eq(dormRooms.schoolId, schoolId), eq(dormRooms.dormitoryId, parseInt(req.query.dormitoryId as string))));
-            } else {
-                query = db.select().from(dormRooms).where(eq(dormRooms.schoolId, schoolId));
-            }
-
-            const allRooms = await query;
-            res.json(allRooms);
-        } catch (error: any) {
-            res.status(500).json({ message: "Failed to fetch dorm rooms: " + error.message });
-        }
-    });
-
-    app.post("/api/dorm-rooms", requireAuth, async (req, res) => {
-        try {
-            const schoolId = getActiveSchoolId(req);
-            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
-            const data = { ...req.body, schoolId };
-            const newRoom = await db.insert(dormRooms).values(data).returning();
-            res.json(newRoom[0]);
-        } catch (error: any) {
-            res.status(500).json({ message: "Failed to create dorm room: " + error.message });
-        }
-    });
-
-    app.put("/api/dorm-rooms/:id", requireAuth, async (req, res) => {
-        try {
-            const id = parseInt(req.params.id);
-            const updatedRoom = await db.update(dormRooms).set(req.body).where(eq(dormRooms.id, id)).returning();
-            res.json(updatedRoom[0]);
-        } catch (error: any) {
-            res.status(500).json({ message: "Failed to update dorm room: " + error.message });
-        }
-    });
-
-    app.delete("/api/dorm-rooms/:id", requireAuth, async (req, res) => {
-        try {
-            const id = parseInt(req.params.id);
-            await db.delete(dormRooms).where(eq(dormRooms.id, id));
-            res.json({ message: "Dorm room deleted" });
-        } catch (error: any) {
-            res.status(500).json({ message: "Failed to delete dorm room: " + error.message });
-        }
-    });
 
     // Beds CRUD
     app.get("/api/beds", requireAuth, async (req, res) => {
@@ -3319,10 +3269,10 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
 
             const conditions = [eq(beds.schoolId, schoolId)];
 
-            // Add where clause
-            if (req.query.roomId) {
-                conditions.push(eq(beds.roomId, parseInt(req.query.roomId as string)));
+            if (req.query.dormitoryId) {
+                conditions.push(eq(beds.dormitoryId, parseInt(req.query.dormitoryId as string)));
             }
+            // Removed roomId check as it's no longer relevant
 
             const allBeds = await db.select({
                 bed: beds,
@@ -3362,23 +3312,107 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
+    // Bulk Create Beds
+    app.post("/api/beds/bulk", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            const { dormitoryId, startNumber, count, type } = req.body;
+            // type: 'single', 'double', 'triple'
+
+            if (!dormitoryId || !startNumber || !count || !type) {
+                return res.status(400).json({ message: "Missing required fields" });
+            }
+
+            const createdBeds = [];
+            let currentNumber = parseInt(startNumber);
+            if (isNaN(currentNumber)) currentNumber = 1;
+
+            for (let i = 0; i < count; i++) {
+                const bedIdentifier = currentNumber.toString();
+
+                if (type === 'single') {
+                    createdBeds.push({
+                        schoolId,
+                        dormitoryId,
+                        bedNumber: bedIdentifier,
+                        level: 'Single',
+                        status: 'vacant'
+                    });
+                } else if (type === 'double') {
+                    createdBeds.push({
+                        schoolId,
+                        dormitoryId,
+                        bedNumber: bedIdentifier,
+                        level: 'Bottom',
+                        status: 'vacant'
+                    });
+                    createdBeds.push({
+                        schoolId,
+                        dormitoryId,
+                        bedNumber: bedIdentifier,
+                        level: 'Top',
+                        status: 'vacant'
+                    });
+                } else if (type === 'triple') {
+                    createdBeds.push({
+                        schoolId,
+                        dormitoryId,
+                        bedNumber: bedIdentifier,
+                        level: 'Bottom',
+                        status: 'vacant'
+                    });
+                    createdBeds.push({
+                        schoolId,
+                        dormitoryId,
+                        bedNumber: bedIdentifier,
+                        level: 'Middle',
+                        status: 'vacant'
+                    });
+                    createdBeds.push({
+                        schoolId,
+                        dormitoryId,
+                        bedNumber: bedIdentifier,
+                        level: 'Top',
+                        status: 'vacant'
+                    });
+                }
+                currentNumber++;
+            }
+
+            if (createdBeds.length > 0) {
+                const inserted = await db.insert(beds).values(createdBeds).returning();
+                res.json(inserted);
+            } else {
+                res.json([]);
+            }
+
+        } catch (error: any) {
+            res.status(500).json({ message: "Failed to bulk create beds: " + error.message });
+        }
+    });
+
     app.post("/api/beds/:id/assign", requireAuth, async (req, res) => {
         try {
             const bedId = parseInt(req.params.id);
-            const { studentId } = req.body;
+            const { studentId, mattressNumber } = req.body;
 
             if (!studentId) return res.status(400).json({ message: "Student ID required" });
 
             // 1. Update Bed
             const updatedBed = await db.update(beds)
-                .set({ status: 'occupied', currentStudentId: studentId })
+                .set({
+                    status: 'occupied',
+                    currentStudentId: studentId,
+                    mattressNumber: mattressNumber || null
+                })
                 .where(eq(beds.id, bedId))
                 .returning();
 
             // 2. Fetch dorm info to update student
-            const room = await db.select().from(dormRooms).where(eq(dormRooms.id, updatedBed[0].roomId));
-            if (room[0]) {
-                const dorm = await db.select().from(dormitories).where(eq(dormitories.id, room[0].dormitoryId));
+            if (updatedBed[0]) {
+                const dorm = await db.select().from(dormitories).where(eq(dormitories.id, updatedBed[0].dormitoryId));
                 if (dorm[0]) {
                     await db.update(students)
                         .set({
@@ -3387,11 +3421,6 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                         })
                         .where(eq(students.id, studentId));
                 }
-            } else {
-                // Fallback if no room/dorm info found (shouldn't happen ideally)
-                await db.update(students)
-                    .set({ boardingStatus: 'Boarder' })
-                    .where(eq(students.id, studentId));
             }
 
             res.json(updatedBed[0]);
