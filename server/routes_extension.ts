@@ -4140,7 +4140,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     app.post("/api/admin/users", requireAuth, async (req, res) => {
         try {
             if (!(req.user as any)?.isSuperAdmin) return res.status(403).json({ message: "Forbidden" });
-            const { username, password, name, role, isSuperAdmin } = req.body;
+            const { username, password, name, role, isSuperAdmin, schoolId } = req.body;
 
             // Check if username exists
             const [existing] = await db.select().from(users).where(eq(users.username, username));
@@ -4154,6 +4154,21 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                 role: role || 'teacher',
                 isSuperAdmin: isSuperAdmin || false
             }).returning();
+
+            // Assign to school if schoolId provided
+            if (schoolId) {
+                const sid = parseInt(schoolId);
+                // Check if school exists and is correct?
+                const schoolDef = await db.select().from(schools).where(eq(schools.id, sid));
+                if (schoolDef[0]) {
+                    await db.insert(userSchools).values({
+                        userId: newUser.id,
+                        schoolId: sid,
+                        role: role === 'admin' ? 'admin' : 'teacher', // Map system role to school role
+                        isPrimary: true
+                    });
+                }
+            }
 
             res.json(newUser);
         } catch (error: any) {

@@ -13,8 +13,9 @@ const userSchema = z.object({
     email: z.string().email("Invalid email").optional().or(z.literal('')),
     phone: z.string().optional(),
     role: z.enum(['admin', 'teacher']), // Simplified roles for now
-    isSuperAdmin: z.boolean().default(false),
+    isSuperAdmin: z.boolean().optional(),
     password: z.string().min(6, "Password must be at least 6 characters").optional(), // Optional for edit
+    schoolId: z.string().optional(),
 });
 
 export type UserFormData = z.infer<typeof userSchema>;
@@ -41,6 +42,14 @@ export const UserForm: React.FC<UserFormProps> = ({ initialData, onSubmit, onCan
     });
 
     const isSuperAdmin = watch('isSuperAdmin');
+    const [schools, setSchools] = React.useState<{ id: number; name: string }[]>([]);
+
+    React.useEffect(() => {
+        // Fetch schools for selection
+        fetch('/api/admin/schools').then(res => res.json()).then(data => {
+            if (Array.isArray(data)) setSchools(data);
+        }).catch(err => console.error("Failed to load schools", err));
+    }, []);
 
     return (
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -101,10 +110,25 @@ export const UserForm: React.FC<UserFormProps> = ({ initialData, onSubmit, onCan
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white p-2 border"
                 >
                     <option value="teacher">Teacher</option>
-                    <option value="admin">Admin</option>
+                    <option value="admin">School Admin</option>
                 </select>
-                <p className="text-xs text-gray-500 mt-1">Primary role in the system.</p>
             </div>
+
+            {!isSuperAdmin && !isEdit && (
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Assign to School</label>
+                    <select
+                        {...register('schoolId')}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white p-2 border"
+                    >
+                        <option value="">Select a school...</option>
+                        {schools.map(s => (
+                            <option key={s.id} value={s.id}>{s.name}</option>
+                        ))}
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">User will be assigned to this school.</p>
+                </div>
+            )}
 
             <div className="flex items-center gap-2 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-700">
                 <input

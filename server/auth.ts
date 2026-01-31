@@ -136,9 +136,10 @@ async function getUserWithSchools(user: any, activeSchoolId?: number) {
   const userSchoolsList = await getUserSchools(user.id);
 
   let selectedSchoolId = activeSchoolId;
-  if (!selectedSchoolId && userSchoolsList.length > 0) {
+  // If no selected school or selected school is not in the valid list (e.g. inactive), pick a default
+  if (!selectedSchoolId || !userSchoolsList.some(s => s.id === selectedSchoolId)) {
     const primarySchool = userSchoolsList.find(s => s.isPrimary);
-    selectedSchoolId = primarySchool?.id || userSchoolsList[0].id;
+    selectedSchoolId = primarySchool?.id || userSchoolsList[0]?.id;
   }
 
   const activeSchool = userSchoolsList.find(s => s.id === selectedSchoolId);
