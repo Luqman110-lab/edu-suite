@@ -157,7 +157,7 @@ export const BoardingSettings: React.FC = () => {
                                 <label key={day} className="flex items-center space-x-2">
                                     <input
                                         type="checkbox"
-                                        checked={settings.visitingDays.includes(day)}
+                                        checked={settings.visitingDays?.includes(day) || false}
                                         onChange={e => {
                                             const newDays = e.target.checked
                                                 ? [...settings.visitingDays, day]
