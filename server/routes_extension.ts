@@ -1273,7 +1273,64 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    // Update Group Info
+    // Delete Message (Soft delete)
+    app.delete("/api/conversations/:id/messages/:msgId", requireAuth, async (req, res) => {
+        try {
+            const convId = parseInt(req.params.id);
+            const msgId = parseInt(req.params.msgId);
+            const userId = req.user!.id;
+
+            const [msg] = await db.select().from(messages).where(eq(messages.id, msgId));
+            if (!msg) return res.status(404).json({ message: "Message not found" });
+
+            if (msg.senderId !== userId) {
+                return res.status(403).json({ message: "Cannot delete others' messages" });
+            }
+
+            const [updated] = await db.update(messages)
+                .set({ isDeleted: true, content: 'This message was deleted', deletedAt: new Date() })
+                .where(eq(messages.id, msgId))
+                .returning();
+
+            broadcastMessage(convId, { ...updated, type: 'message_update' });
+            res.json({ success: true, messageId: msgId });
+        } catch (error: any) {
+            console.error("Delete message error:", error);
+            res.status(500).json({ message: "Failed to delete message" });
+        }
+    });
+
+    // Edit Message
+    app.put("/api/conversations/:id/messages/:msgId", requireAuth, async (req, res) => {
+        try {
+            const convId = parseInt(req.params.id);
+            const msgId = parseInt(req.params.msgId);
+            const userId = req.user!.id;
+            const { content } = req.body;
+
+            if (!content) return res.status(400).json({ message: "Content required" });
+
+            const [msg] = await db.select().from(messages).where(eq(messages.id, msgId));
+            if (!msg) return res.status(404).json({ message: "Message not found" });
+
+            if (msg.senderId !== userId) {
+                return res.status(403).json({ message: "Cannot edit others' messages" });
+            }
+
+            const [updated] = await db.update(messages)
+                .set({ content, isEdited: true, editedAt: new Date() })
+                .where(eq(messages.id, msgId))
+                .returning();
+
+            broadcastMessage(convId, { ...updated, type: 'message_update' });
+            res.json(updated);
+        } catch (error: any) {
+            console.error("Edit message error:", error);
+            res.status(500).json({ message: "Failed to edit message" });
+        }
+    });
+
+    // Update Group Info (Existing)
     app.put("/api/conversations/:id", requireAuth, async (req, res) => {
         try {
             const convId = parseInt(req.params.id);
@@ -1490,7 +1547,9 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const participants = await db.select({
                 id: users.id,
                 name: users.name,
-                role: users.role
+                role: users.role,
+                lastReadMessageId: conversationParticipants.lastReadMessageId,
+                lastReadAt: conversationParticipants.lastReadAt
             })
                 .from(conversationParticipants)
                 .innerJoin(users, eq(conversationParticipants.userId, users.id))

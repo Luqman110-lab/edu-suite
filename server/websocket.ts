@@ -34,11 +34,14 @@ export function setupWebSocket(server: Server) {
 
                             if (!clients.has(userId)) {
                                 clients.set(userId, new Set());
-                                // Notify others that user is online (Phase 2 feature)
                                 broadcastPresence(userId, true);
                             }
                             clients.get(userId)?.add(ws);
                             console.log(`[WS] User ${userId} connected`);
+
+                            // Send initial online list
+                            const onlineUsers = Array.from(clients.keys());
+                            ws.send(JSON.stringify({ type: 'online_users', userIds: onlineUsers }));
                         }
                         break;
 

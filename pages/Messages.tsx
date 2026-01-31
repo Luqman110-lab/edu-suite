@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../hooks/use-auth';
+import { AudioRecorder } from '../components/AudioRecorder';
 
 // --- Interfaces ---
 interface User {
@@ -9,6 +10,7 @@ interface User {
   name: string;
   role: string;
   email?: string;
+  lastReadMessageId?: number;
 }
 
 interface Attachment {
@@ -34,6 +36,9 @@ interface Message {
   attachments?: Attachment[];
   reactions?: Reaction[];
   replyToId?: number;
+  isDeleted?: boolean;
+  isEdited?: boolean;
+  readByAll?: boolean; // Virtual property
 }
 
 interface Conversation {
@@ -59,6 +64,11 @@ const Icons = {
   Check: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>,
   Attach: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>,
   Group: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>,
+  More: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>,
+  Reply: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>,
+  Trash: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>,
+  Edit: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>,
+  Mic: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>,
   Empty: () => (
     <svg className="w-24 h-24 text-gray-200 dark:text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -91,25 +101,28 @@ const getDisplayName = (conv: Conversation, currentUserId: number | null) => {
 
 const getAvatarInitial = (name: string) => name ? name.charAt(0).toUpperCase() : '?';
 
-const getGroupAvatar = (conv: Conversation) => {
-  if (conv.isGroup) return <Icons.Group />;
-  return null;
-}
-
 // --- Components ---
 
 const SidebarItem = ({
   conv,
   isActive,
-  currentUserId
+  currentUserId,
+  onlineUsers
 }: {
   conv: Conversation;
   isActive: boolean;
-  currentUserId: number | null
+  currentUserId: number | null;
+  onlineUsers: Set<number>;
 }) => {
   const displayName = getDisplayName(conv, currentUserId);
   const initial = getAvatarInitial(displayName);
   const isGroup = conv.isGroup;
+
+  // Find if other participant is online (for 1on1)
+  const otherParticipant = !isGroup
+    ? conv.participants.find(p => p.id !== currentUserId)
+    : null;
+  const isOnline = otherParticipant ? onlineUsers.has(otherParticipant.id) : false;
 
   return (
     <Link to={`/app/messages/${conv.id}`}>
@@ -120,6 +133,12 @@ const SidebarItem = ({
       >
         <div className={`relative flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-sm ${isActive ? 'bg-gradient-to-br from-blue-500 to-indigo-600' : (isGroup ? 'bg-gradient-to-br from-purple-500 to-pink-500' : 'bg-gradient-to-br from-gray-400 to-gray-500')}`}>
           {isGroup ? <Icons.Group /> : initial}
+
+          {/* Online Indicator */}
+          {isOnline && (
+            <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white dark:border-gray-900 rounded-full" title="Online" />
+          )}
+
           {conv.unreadCount > 0 && (
             <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full border-2 border-white dark:border-gray-900 flex items-center justify-center text-[10px]">
               {conv.unreadCount}
@@ -137,10 +156,12 @@ const SidebarItem = ({
             </span>
           </div>
           <p className={`text-sm truncate ${conv.unreadCount > 0 ? 'font-medium text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400'}`}>
-            {conv.lastMessage ? (
+            {conv.lastMessage?.isDeleted ? (
+              <span className="italic text-gray-400">🚫 Message deleted</span>
+            ) : conv.lastMessage ? (
               <>
                 {conv.lastMessage.senderId === currentUserId && <span className="opacity-70">You: </span>}
-                {conv.lastMessage.messageType === 'file' ? '📎 Attachment' : conv.lastMessage.content}
+                {conv.lastMessage.messageType === 'file' ? (conv.lastMessage.attachments?.some(a => a.type.includes('audio')) ? '🎤 Voice Note' : '📎 Attachment') : conv.lastMessage.content}
               </>
             ) : (
               <span className="italic opacity-50">No messages yet</span>
@@ -158,7 +179,8 @@ const MessagingSidebar = ({
   onNewMessage,
   searchTerm,
   setSearchTerm,
-  currentUserId
+  currentUserId,
+  onlineUsers
 }: {
   conversations: Conversation[];
   activeId?: number;
@@ -166,6 +188,7 @@ const MessagingSidebar = ({
   searchTerm: string;
   setSearchTerm: (term: string) => void;
   currentUserId: number | null;
+  onlineUsers: Set<number>;
 }) => {
   const filtered = conversations.filter(c =>
     getDisplayName(c, currentUserId).toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -206,6 +229,7 @@ const MessagingSidebar = ({
             conv={conv}
             isActive={activeId === conv.id}
             currentUserId={currentUserId}
+            onlineUsers={onlineUsers}
           />
         ))}
         {filtered.length === 0 && (
@@ -218,27 +242,95 @@ const MessagingSidebar = ({
   );
 };
 
-const ChatBubble = ({ msg, isOwn, senderName, onReact }: { msg: Message; isOwn: boolean; senderName?: string; onReact: (emoji: string) => void }) => {
-  const [showReactions, setShowReactions] = useState(false);
+// --- Updated ChatBubble with Actions ---
+const ChatBubble = ({
+  msg,
+  isOwn,
+  senderName,
+  onReact,
+  onReply,
+  onEdit,
+  onDelete,
+  replyParent
+}: {
+  msg: Message;
+  isOwn: boolean;
+  senderName?: string;
+  onReact: (emoji: string) => void;
+  onReply: (msg: Message) => void;
+  onEdit?: (msg: Message) => void;
+  onDelete?: (msg: Message) => void;
+  replyParent?: Message
+}) => {
+  const [showActions, setShowActions] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+
+  // If deleted, simple render
+  if (msg.isDeleted) {
+    return (
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={`flex mb-4 ${isOwn ? 'justify-end' : 'justify-start'}`}>
+        <div className="px-4 py-2 rounded-xl bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 border text-gray-400 italic text-sm flex items-center gap-2">
+          <Icons.Trash /> This message was deleted
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className={`flex mb-4 group ${isOwn ? 'justify-end' : 'justify-start'}`}
-      onMouseEnter={() => setShowReactions(true)}
-      onMouseLeave={() => setShowReactions(false)}
+      onMouseEnter={() => setShowActions(true)}
+      onMouseLeave={() => { setShowActions(false); setShowMenu(false); }}
     >
       <div className={`max-w-[75%] flex flex-col ${isOwn ? 'items-end' : 'items-start'} relative`}>
+        {/* Reply Parent Preview */}
+        {replyParent && (
+          <div className={`text-xs p-2 mb-1 rounded-lg bg-gray-200 dark:bg-gray-700 opacity-80 border-l-4 border-blue-500 max-w-full truncate ${isOwn ? 'mr-1' : 'ml-1'}`}>
+            <span className="font-bold block text-gray-600 dark:text-gray-300">
+              Replying to {replyParent.sender?.name || 'User'}
+            </span>
+            {replyParent.isDeleted ? 'Message deleted' : replyParent.content}
+          </div>
+        )}
+
         {!isOwn && senderName && (
           <span className="text-xs text-gray-400 ml-3 mb-1">{senderName}</span>
         )}
 
-        <div className={`px-5 py-3 rounded-2xl shadow-sm text-sm relative leading-relaxed ${isOwn
+        <div className={`px-5 py-3 rounded-2xl shadow-sm text-sm relative leading-relaxed group/bubble ${isOwn
             ? 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-br-none'
             : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 border border-gray-100 dark:border-gray-700 rounded-bl-none'
           }`}>
-          {msg.attachments && msg.attachments.length > 0 && (
+          {/* Menu Button */}
+          {showActions && (
+            <div className={`absolute -top-3 ${isOwn ? '-left-8' : '-right-8'} p-1`}>
+              <button onClick={() => setShowMenu(!showMenu)} className="w-6 h-6 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-600">
+                <Icons.More />
+              </button>
+              {showMenu && (
+                <div className={`absolute top-full ${isOwn ? 'right-0' : 'left-0'} mt-1 w-32 bg-white dark:bg-gray-800 shadow-xl rounded-lg py-1 border border-gray-200 dark:border-gray-700 z-20 flex flex-col`}>
+                  <button onClick={() => { onReply(msg); setShowMenu(false); }} className="px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 text-xs flex items-center gap-2">
+                    <Icons.Reply /> Reply
+                  </button>
+                  {isOwn && onEdit && (
+                    <button onClick={() => { onEdit(msg); setShowMenu(false); }} className="px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 text-xs flex items-center gap-2">
+                      <Icons.Edit /> Edit
+                    </button>
+                  )}
+                  {isOwn && onDelete && (
+                    <button onClick={() => { onDelete(msg); setShowMenu(false); }} className="px-3 py-2 text-left hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 text-xs flex items-center gap-2">
+                      <Icons.Trash /> Delete
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Attachments (Images, etc) */}
+          {msg.attachments && msg.attachments.length > 0 && !msg.attachments.some(a => a.type.includes('audio')) && (
             <div className="mb-2 space-y-2">
               {msg.attachments.map((att, i) => (
                 <div key={i} className="bg-black/10 dark:bg-white/10 p-2 rounded-lg">
@@ -253,7 +345,30 @@ const ChatBubble = ({ msg, isOwn, senderName, onReact }: { msg: Message; isOwn: 
               ))}
             </div>
           )}
+
+          {/* Voice Notes */}
+          {msg.attachments && msg.attachments.some(a => a.type.includes('audio')) && (
+            <div className="min-w-[200px]">
+              {msg.attachments.filter(a => a.type.includes('audio')).map((att, i) => (
+                <audio key={i} controls src={att.url} className="w-full h-8 mt-1 mb-1" />
+              ))}
+            </div>
+          )}
+
           {msg.content}
+          {msg.isEdited && <span className="text-[10px] opacity-60 ml-1 italic">(edited)</span>}
+
+          {/* Read Receipt (Double Tick) */}
+          {isOwn && (
+            <span className={`float-right ml-2 mt-2 -mb-1 ${msg.readByAll ? 'text-blue-500' : 'text-gray-300'}`} title={msg.readByAll ? "Read" : "Sent"}>
+              <svg className="w-3 h-3 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+              </svg>
+              <svg className="w-3 h-3 inline-block -ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+              </svg>
+            </span>
+          )}
         </div>
 
         {/* Reactions Display */}
@@ -264,8 +379,8 @@ const ChatBubble = ({ msg, isOwn, senderName, onReact }: { msg: Message; isOwn: 
         )}
 
         {/* Reaction Picker (Simple Hover) */}
-        {showReactions && (
-          <div className={`absolute top-0 ${isOwn ? '-left-24' : '-right-24'} bg-white dark:bg-gray-800 shadow-lg rounded-full px-2 py-1 flex gap-1 animate-in fade-in zoom-in duration-200 z-10`}>
+        {showActions && !showMenu && (
+          <div className={`absolute -top-3 ${isOwn ? 'right-0' : 'left-0'} bg-white dark:bg-gray-800 shadow-lg rounded-full px-2 py-1 flex gap-1 animate-in fade-in zoom-in duration-200 z-10 opacity-0 group-hover:opacity-100 transition-opacity`}>
             {['👍', '❤️', '😂', '😮'].map(emoji => (
               <button key={emoji} onClick={() => onReact(emoji)} className="hover:scale-125 transition-transform p-1">
                 {emoji}
@@ -289,34 +404,106 @@ const ChatArea = ({
   onSend,
   onBack,
   onReact,
+  onDeleteMessage,
+  onEditMessage,
+  onTyping,
   sending,
   typingUsers
 }: {
   conversation: Conversation;
   messages: Message[];
   currentUserId: number | null;
-  onSend: (text: string, attachments?: Attachment[]) => void;
+  onSend: (text: string, attachments?: Attachment[], replyToId?: number) => void;
   onBack?: () => void;
   onReact: (msgId: number, emoji: string) => void;
+  onDeleteMessage: (msgId: number) => void;
+  onEditMessage: (msgId: number, newContent: string) => Promise<void>;
+  onTyping: () => void;
   sending: boolean;
   typingUsers: number[];
 }) => {
   const [inputText, setInputText] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [showRecorder, setShowRecorder] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, typingUsers]); // Scroll when typing starts too
+  }, [messages, typingUsers, replyingTo, showRecorder]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // If editing, set input text
+  useEffect(() => {
+    if (editingId) {
+      const msg = messages.find(m => m.id === editingId);
+      if (msg) setInputText(msg.content);
+    }
+  }, [editingId, messages]);
+
+  // Handle typing
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInputText(e.target.value);
+    onTyping();
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if ((!inputText.trim() && attachments.length === 0) || sending) return;
-    onSend(inputText, attachments);
+
+    if (editingId) {
+      await onEditMessage(editingId, inputText);
+      setEditingId(null);
+      setInputText('');
+    } else {
+      onSend(inputText, attachments, replyingTo?.id);
+      setInputText('');
+      setAttachments([]);
+      setReplyingTo(null);
+    }
+  };
+
+  const handleVoiceUpload = async (file: File) => {
+    setShowRecorder(false);
+
+    // Upload file
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      if (ev.target?.result) {
+        try {
+          const res = await fetch('/api/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              fileName: file.name,
+              fileData: ev.target.result
+            })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            const voiceAtt = {
+              url: data.url,
+              name: 'Voice Note',
+              type: file.type,
+              size: file.size
+            };
+            // Send message immediately
+            onSend('Voice Note', [voiceAtt]);
+          }
+        } catch (e) {
+          console.error("Voice upload failed", e);
+        }
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const cancelAction = () => {
+    setReplyingTo(null);
+    setEditingId(null);
     setInputText('');
-    setAttachments([]);
   };
 
   const displayName = getDisplayName(conversation, currentUserId);
@@ -326,7 +513,6 @@ const ChatArea = ({
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      // Convert to base64 for upload API
       const reader = new FileReader();
       reader.onload = async (ev) => {
         if (ev.target?.result) {
@@ -351,7 +537,6 @@ const ChatArea = ({
             }
           } catch (err) {
             console.error("Upload failed", err);
-            // Fallback: Just show local preview if upload fails? No, simpler to alert.
             alert("Failed to upload file");
           }
         }
@@ -363,7 +548,7 @@ const ChatArea = ({
   return (
     <div className="flex flex-col h-full bg-gray-50/50 dark:bg-gray-900/50 backdrop-blur-xl">
       {/* Header */}
-      <div className="px-4 py-3 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 flex items-center gap-3 sticky top-0 z-10">
+      <div className="px-4 py-3 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 flex items-center gap-3 sticky top-0 z-10 transition-all">
         {onBack && (
           <button onClick={onBack} className="p-2 -ml-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full md:hidden">
             <Icons.Back />
@@ -374,8 +559,8 @@ const ChatArea = ({
         </div>
         <div>
           <h2 className="font-bold text-gray-900 dark:text-white leading-tight">{displayName}</h2>
-          <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-            {isTypingMessage || conversation.subject}
+          <p className="text-xs text-gray-500 dark:text-gray-400 font-medium animate-pulse">
+            {isTypingMessage || conversation.subject || (conversation.isGroup ? `${conversation.participants.length} members` : 'Online')}
           </p>
         </div>
       </div>
@@ -389,6 +574,10 @@ const ChatArea = ({
             isOwn={msg.senderId === currentUserId}
             senderName={msg.sender?.name}
             onReact={(emoji) => onReact(msg.id, emoji)}
+            onReply={setReplyingTo}
+            onEdit={(m) => setEditingId(m.id)}
+            onDelete={() => onDeleteMessage(msg.id)}
+            replyParent={msg.replyToId ? messages.find(m => m.id === msg.replyToId) : undefined}
           />
         ))}
         {typingUsers.length > 0 && (
@@ -409,44 +598,74 @@ const ChatArea = ({
         </div>
       )}
 
+      {/* Reply/Edit Banner */}
+      {(replyingTo || editingId) && (
+        <div className="px-4 py-2 bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center text-sm">
+          <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
+            {editingId ? <Icons.Edit /> : <Icons.Reply />}
+            <span className="truncate max-w-xs">
+              {editingId ? "Editing Message" : `Replying to ${replyingTo?.sender?.name || 'User'}`}
+            </span>
+          </div>
+          <button onClick={cancelAction} className="text-gray-400 hover:text-gray-600">Cancel</button>
+        </div>
+      )}
+
       {/* Input */}
       <div className="p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
-        <form onSubmit={handleSubmit} className="flex gap-2 items-center max-w-4xl mx-auto">
-          <input
-            type="file"
-            hidden
-            ref={fileInputRef}
-            onChange={handleFileSelect}
-          />
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="p-2 text-gray-400 hover:text-blue-500 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <Icons.Attach />
-          </button>
+        {showRecorder ? (
+          <div className="max-w-4xl mx-auto">
+            <AudioRecorder onRecordingComplete={handleVoiceUpload} onCancel={() => setShowRecorder(false)} />
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="flex gap-2 items-center max-w-4xl mx-auto">
+            {!editingId && (
+              <>
+                <input
+                  type="file"
+                  hidden
+                  ref={fileInputRef}
+                  onChange={handleFileSelect}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="p-2 text-gray-400 hover:text-blue-500 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <Icons.Attach />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowRecorder(true)}
+                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                >
+                  <Icons.Mic />
+                </button>
+              </>
+            )}
 
-          <input
-            type="text"
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            // onKeyDown={() => handleTyping(conversation.id)} // TODO: Implement typing emit
-            placeholder="Type a message..."
-            className="flex-1 px-4 py-3 bg-gray-100 dark:bg-gray-800 border-none rounded-full focus:ring-2 focus:ring-blue-500 transition-shadow"
-          />
-          <button
-            type="submit"
-            disabled={(!inputText.trim() && attachments.length === 0) || sending}
-            className="p-3 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-full shadow-lg shadow-blue-500/30 transition-all disabled:opacity-50 disabled:scale-100"
-          >
-            {sending ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Icons.Send />}
-          </button>
-        </form>
+            <input
+              type="text"
+              value={inputText}
+              onChange={handleInputChange}
+              placeholder={editingId ? "Update your message..." : "Type a message..."}
+              className="flex-1 px-4 py-3 bg-gray-100 dark:bg-gray-800 border-none rounded-full focus:ring-2 focus:ring-blue-500 transition-shadow"
+            />
+            <button
+              type="submit"
+              disabled={(!inputText.trim() && attachments.length === 0) || sending}
+              className={`p-3 text-white rounded-full shadow-lg transition-all disabled:opacity-50 disabled:scale-100 ${editingId ? 'bg-green-600 hover:bg-green-700 shadow-green-500/30' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/30 active:scale-95'}`}
+            >
+              {sending ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : (editingId ? <Icons.Check /> : <Icons.Send />)}
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );
 };
 
+// ... NewMessageModal (Unchanged) ...
 const NewMessageModal = ({
   isOpen,
   onClose,
@@ -603,8 +822,7 @@ const NewMessageModal = ({
     </div>
   );
 };
-
-// --- Main Layout Component ---
+// ------------------------------------
 
 const MessagingLayout = () => {
   const { id } = useParams<{ id: string }>();
@@ -621,21 +839,28 @@ const MessagingLayout = () => {
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [typingUsers, setTypingUsers] = useState<number[]>([]);
+  const [onlineUsers, setOnlineUsers] = useState<Set<number>>(new Set());
 
   // WebSocket
   const ws = useRef<WebSocket | null>(null);
+  const typingTimeoutRef = useRef<number | null>(null);
+
+  // Request Notification Permission
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
 
   // Initialize WS
   useEffect(() => {
     if (!user) return;
-    // simple ws setup
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const wsUrl = `${protocol}://${window.location.host}/ws`;
     ws.current = new WebSocket(wsUrl);
 
     ws.current.onopen = () => {
       console.log('WS Connected');
-      // Authenticate
       ws.current?.send(JSON.stringify({ type: 'auth', userId: user.id }));
     };
 
@@ -654,11 +879,25 @@ const MessagingLayout = () => {
   const handleWsMessage = useCallback((data: any) => {
     switch (data.type) {
       case 'new_message':
-        // If we are looking at this conversation, append message
         if (activeConversationRef.current?.id === data.conversationId) {
           setActiveMessages(prev => [...prev, data.message]);
+        } else {
+          if (document.hidden || activeConversationRef.current?.id !== data.conversationId) {
+            if ('Notification' in window && Notification.permission === 'granted') {
+              new Notification(`New message from ${data.message.sender?.name || 'User'}`, {
+                body: data.message.content,
+                icon: '/favicon.ico'
+              });
+            }
+          }
         }
-        // Always update conversation list snippet/unread
+        fetchConversations();
+        break;
+      case 'message_update':
+        // Handle Edit/Delete updates
+        if (activeConversationRef.current?.id === data.conversationId) {
+          setActiveMessages(prev => prev.map(m => m.id === data.id ? { ...m, ...data } : m));
+        }
         fetchConversations();
         break;
       case 'reaction_update':
@@ -668,23 +907,46 @@ const MessagingLayout = () => {
         break;
       case 'typing':
         if (activeConversationRef.current?.id === data.conversationId) {
-          // Handle typing indicator (debounce logic needed ideally)
+          if (data.isTyping) {
+            setTypingUsers(prev => Array.from(new Set([...prev.filter(id => id !== data.userId), data.userId])));
+          } else {
+            setTypingUsers(prev => prev.filter(id => id !== data.userId));
+          }
         }
+        break;
+      case 'presence':
+        setOnlineUsers(prev => {
+          const next = new Set(prev);
+          if (data.isOnline) next.add(data.userId);
+          else next.delete(data.userId);
+          return next;
+        });
+        break;
+      case 'read_receipt':
+        if (activeConversationRef.current?.id === data.conversationId) {
+          fetchConversationDetails(data.conversationId);
+        }
+        break;
+      case 'online_users':
+        setOnlineUsers(new Set(data.userIds));
         break;
     }
   }, []);
 
-  // Use a ref for activeConversation to access in WS callback
   const activeConversationRef = useRef<Conversation | null>(null);
   useEffect(() => { activeConversationRef.current = activeConversation; }, [activeConversation]);
 
 
-  // Poll list fallback (in case WS fails or for initial load)
+  // Poll list fallback 
   useEffect(() => {
-    fetchConversations();
-    const interval = setInterval(fetchConversations, 15000);
+    const fetchAll = () => {
+      fetchConversations();
+      if (id) fetchMessages(parseInt(id)); // Poll active messages too to sync deleted/edited
+    };
+    fetchAll();
+    const interval = setInterval(fetchAll, 10000);
     return () => clearInterval(interval);
-  }, []);
+  }, [id]);
 
   // Fetch Chat Details
   useEffect(() => {
@@ -723,22 +985,17 @@ const MessagingLayout = () => {
     } catch (e) { console.error(e); }
   };
 
-  const handleSendMessage = async (text: string, attachments?: Attachment[]) => {
+  const handleSendMessage = async (text: string, attachments?: Attachment[], replyToId?: number) => {
     if (!id) return;
     setIsSending(true);
     try {
       const res = await fetch(`/api/conversations/${id}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: text, attachments })
+        body: JSON.stringify({ content: text, attachments, replyToId })
       });
       if (res.ok) {
-        // Message appended via WS optimization or manual
-        // We'll trust WS to append it to avoid duplication if we append manually too?
-        // Or append optimistic? Let's append manually as optimistic, then replace/ignore if dup.
-        // For now, simpler: append manually, and rely on WS "new_message" deduping or just let it replace.
         const msg = await res.json();
-        // Check if message ID already exists (from optimistic UI or race)
         setActiveMessages(prev => {
           if (prev.some(m => m.id === msg.id)) return prev;
           return [...prev, msg];
@@ -749,6 +1006,27 @@ const MessagingLayout = () => {
     setIsSending(false);
   };
 
+  const handleEditMessage = async (msgId: number, newContent: string) => {
+    if (!id) return;
+    try {
+      await fetch(`/api/conversations/${id}/messages/${msgId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: newContent })
+      });
+    } catch (e) { console.error(e); }
+  };
+
+  const handleDeleteMessage = async (msgId: number) => {
+    if (!id) return;
+    if (!confirm("Are you sure you want to delete this message?")) return;
+    try {
+      await fetch(`/api/conversations/${id}/messages/${msgId}`, {
+        method: 'DELETE'
+      });
+    } catch (e) { console.error(e); }
+  };
+
   const handleReaction = async (msgId: number, emoji: string) => {
     if (!id) return;
     try {
@@ -757,8 +1035,30 @@ const MessagingLayout = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ emoji })
       });
-      // UI update handled by WS 'reaction_update'
     } catch (e) { console.error(e); }
+  };
+
+  // Emit typing event
+  const handleTyping = () => {
+    if (!ws.current || !activeConversation || !user) return;
+
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+
+    // Emit start typing if not already sending rapidly
+    ws.current.send(JSON.stringify({
+      type: 'typing',
+      conversationId: activeConversation.id,
+      isTyping: true
+    }));
+
+    // Stop typing after delay
+    typingTimeoutRef.current = window.setTimeout(() => {
+      ws.current?.send(JSON.stringify({
+        type: 'typing',
+        conversationId: activeConversation.id,
+        isTyping: false
+      }));
+    }, 2000);
   };
 
   const handleCreateConversation = async (data: any) => {
@@ -776,6 +1076,14 @@ const MessagingLayout = () => {
     } catch (e) { console.error(e); }
   };
 
+  // Enhance messages with read status
+  const messagesWithReadStatus = activeMessages.map(m => {
+    if (!activeConversation) return m;
+    const others = activeConversation.participants.filter(p => p.id !== user?.id);
+    const readByAll = others.length > 0 && others.every(p => (p.lastReadMessageId || 0) >= m.id);
+    return { ...m, readByAll };
+  });
+
   const isMobile = window.innerWidth < 768;
   const showSidebar = !id || !isMobile;
   const showChat = !!id;
@@ -790,6 +1098,7 @@ const MessagingLayout = () => {
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
           currentUserId={user?.id || null}
+          onlineUsers={onlineUsers}
         />
       </div>
 
@@ -797,12 +1106,15 @@ const MessagingLayout = () => {
         {id && activeConversation ? (
           <ChatArea
             conversation={activeConversation}
-            messages={activeMessages}
+            messages={messagesWithReadStatus}
             currentUserId={user?.id || null}
             onSend={handleSendMessage}
             sending={isSending}
             onBack={() => navigate('/app/messages')}
             onReact={handleReaction}
+            onDeleteMessage={handleDeleteMessage}
+            onEditMessage={handleEditMessage}
+            onTyping={handleTyping}
             typingUsers={typingUsers}
           />
         ) : (
