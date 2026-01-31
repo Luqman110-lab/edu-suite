@@ -10,6 +10,7 @@ import {
     ChevronLeft
 } from 'lucide-react';
 import { LogoIcon } from '../Logo';
+import { useAuth } from '../../hooks/use-auth';
 
 interface AdminSidebarProps {
     collapsed: boolean;
@@ -17,6 +18,29 @@ interface AdminSidebarProps {
 
 export const AdminSidebar: React.FC<AdminSidebarProps> = ({ collapsed }) => {
     const location = useLocation();
+    const { user, isSuperAdmin, switchSchoolMutation, activeSchool } = useAuth(); // Assuming useAuth exposes these
+    const [schools, setSchools] = React.useState<{ id: number; name: string }[]>([]);
+    const [showSwitcher, setShowSwitcher] = React.useState(false);
+
+    React.useEffect(() => {
+        if (isSuperAdmin) {
+            fetch('/api/admin/schools')
+                .then(res => res.json())
+                .then(data => {
+                    if (Array.isArray(data)) setSchools(data);
+                })
+                .catch(err => console.error("Failed to load schools", err));
+        }
+    }, [isSuperAdmin]);
+
+    const handleSwitchSchool = (schoolId: number) => {
+        switchSchoolMutation.mutate(schoolId, {
+            onSuccess: () => {
+                setShowSwitcher(false);
+                window.location.reload(); // Force reload to ensure all queries reset with new context
+            }
+        });
+    };
 
     const navItems = [
         { path: '/app/admin', label: 'Overview', icon: LayoutDashboard, exact: true },
@@ -35,15 +59,48 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ collapsed }) => {
             `}
         >
             {/* Header */}
-            <div className={`h-16 flex items-center px-4 border-b border-slate-800 ${collapsed ? 'justify-center' : 'justify-between'}`}>
-                <div className="flex items-center gap-3 overflow-hidden">
-                    <LogoIcon className="w-8 h-8 text-blue-500 flex-shrink-0" />
-                    {!collapsed && (
-                        <div>
-                            <span className="font-bold text-lg tracking-tight whitespace-nowrap">Admin Console</span>
-                        </div>
-                    )}
+            <div className={`flex flex-col border-b border-slate-800`}>
+                <div className={`h-16 flex items-center px-4 ${collapsed ? 'justify-center' : 'justify-between'}`}>
+                    <div className="flex items-center gap-3 overflow-hidden">
+                        <LogoIcon className="w-8 h-8 text-blue-500 flex-shrink-0" />
+                        {!collapsed && (
+                            <div>
+                                <span className="font-bold text-lg tracking-tight whitespace-nowrap">Admin Console</span>
+                            </div>
+                        )}
+                    </div>
                 </div>
+
+                {/* School Switcher for Super Admin */}
+                {!collapsed && isSuperAdmin && (
+                    <div className="px-3 pb-3">
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowSwitcher(!showSwitcher)}
+                                className="w-full flex items-center justify-between px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition-colors text-sm"
+                            >
+                                <span className="truncate max-w-[140px] text-slate-200">
+                                    {activeSchool?.name || "Select School"}
+                                </span>
+                                <ChevronLeft className={`w-4 h-4 text-slate-400 transition-transform ${showSwitcher ? '-rotate-90' : '-rotate-90'}`} />
+                            </button>
+
+                            {showSwitcher && (
+                                <div className="absolute top-full left-0 right-0 mt-1 max-h-60 overflow-y-auto bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50">
+                                    {schools.map(school => (
+                                        <button
+                                            key={school.id}
+                                            onClick={() => handleSwitchSchool(school.id)}
+                                            className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-700 transition-colors ${activeSchool?.id === school.id ? 'text-blue-400 bg-slate-700/50' : 'text-slate-300'}`}
+                                        >
+                                            {school.name}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Nav */}
