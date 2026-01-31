@@ -845,6 +845,9 @@ const MessagingLayout = () => {
   const ws = useRef<WebSocket | null>(null);
   const typingTimeoutRef = useRef<number | null>(null);
 
+  // Vercel Migration: WebSockets are disabled
+  const ENABLE_WEBSOCKETS = false;
+
   // Request Notification Permission
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
@@ -854,22 +857,34 @@ const MessagingLayout = () => {
 
   // Initialize WS
   useEffect(() => {
-    if (!user) return;
+    if (!user || !ENABLE_WEBSOCKETS) return;
+
+    // WS Logic preserved but disabled
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const wsUrl = `${protocol}://${window.location.host}/ws`;
-    ws.current = new WebSocket(wsUrl);
 
-    ws.current.onopen = () => {
-      console.log('WS Connected');
-      ws.current?.send(JSON.stringify({ type: 'auth', userId: user.id }));
-    };
+    try {
+      ws.current = new WebSocket(wsUrl);
 
-    ws.current.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        handleWsMessage(data);
-      } catch (e) { console.error('WS Parse Error', e); }
-    };
+      ws.current.onopen = () => {
+        console.log('WS Connected');
+        ws.current?.send(JSON.stringify({ type: 'auth', userId: user.id }));
+      };
+
+      ws.current.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          handleWsMessage(data);
+        } catch (e) { console.error('WS Parse Error', e); }
+      };
+
+      ws.current.onerror = (e) => {
+        console.warn('WS Connection Error (Expected on Vercel):', e);
+      };
+
+    } catch (e) {
+      console.warn("WebSocket initialization failed:", e);
+    }
 
     return () => {
       ws.current?.close();

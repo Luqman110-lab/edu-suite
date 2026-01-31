@@ -28,7 +28,7 @@ if (!fs.existsSync(uploadsDir)) {
 }
 app.use("/uploads", express.static(uploadsDir));
 
-// Rate limiting is handled in server/auth.ts (apiRateLimiter applied to /api)
+// Rate limiting is handled in server/auth.ts
 
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -63,33 +63,48 @@ app.use((req, res, next) => {
   next();
 });
 
+// CRITICAL: registerRoutes MUST be called first to initialize passport middleware
+const server = registerRoutes(app);
 
+// Initialize WebSocket Server (ONLY if not on Vercel)
+// Vercel Serverless doesn't support long-running WS connections
+if (!process.env.VERCEL) {
+  import("./websocket").then(({ setupWebSocket }) => {
+    setupWebSocket(server);
+  }).catch(err => console.error("Failed to load websocket:", err));
+}
 
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  const status = err.status || err.statusCode || 500;
+  console.error("Error:", err);
 
-(async () => {
-  // CRITICAL: registerRoutes MUST be called first to initialize passport middleware
-  // Note: registerRoutes internally calls registerExtendedRoutes and setupAuth
-  const server = registerRoutes(app);
+  let message = "Internal Server Error";
 
-  // Initialize WebSocket Server
-  const { setupWebSocket } = await import("./websocket");
-  setupWebSocket(server);
+  if (status < 500) {
+    message = err.message || message;
+  } else if (!isProduction) {
+    message = err.message || message;
+  }
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    console.error("Error:", err);
+  res.status(status).json({ message });
+});
 
-    let message = "Internal Server Error";
+// Only start listening if this file is run directly (not imported)
+import { realpathSync } from 'fs';
 
-    if (status < 500) {
-      message = err.message || message;
-    } else if (!isProduction) {
-      message = err.message || message;
-    }
+const isMainModule = () => {
+  try {
+    const currentPath = fileURLToPath(import.meta.url);
+    // process.argv[1] is the file path executed by node
+    const executedPath = process.argv[1];
+    return currentPath === executedPath ||
+      currentPath === realpathSync(executedPath);
+  } catch (e) {
+    return false;
+  }
+};
 
-    res.status(status).json({ message });
-  });
-
+if (isMainModule()) {
   if (isProduction) {
     // In Docker, WORKDIR is /app. dist is at /app/dist.
     const distPath = path.join(process.cwd(), "dist");
@@ -111,4 +126,6 @@ app.use((req, res, next) => {
   server.listen(port, "0.0.0.0", () => {
     console.log(`Server running on port ${port}${isProduction ? " (production)" : ""}`);
   });
-})();
+}
+
+export default app;
