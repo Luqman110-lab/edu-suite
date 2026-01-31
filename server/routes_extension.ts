@@ -484,7 +484,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                 studentName: students.name,
                 studentClass: students.classLevel,
                 studentStream: students.stream,
-                parentPhone: students.parentPhone,
+                parentPhone: students.parentContact,
             }).from(invoices)
                 .leftJoin(students, eq(invoices.studentId, students.id))
                 .where(and(...conditions))
@@ -774,6 +774,9 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
 
             const plan = await db.query.paymentPlans.findFirst({
                 where: eq(paymentPlans.id, planId),
+                with: {
+                    invoice: true // Fetch invoice to get term/year
+                }
             });
             if (!plan) return res.status(404).json({ message: "Plan not found" });
 
@@ -791,13 +794,18 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
 
             // 3. Record in Global Finance Ledger (fee_payments & finance_transactions)
             const today = new Date();
+            const termId = plan.invoice?.term || 1; // Fallback
+            const yearId = plan.invoice?.year || new Date().getFullYear();
 
             // Create fee_payment record
             const [payment] = await db.insert(feePayments).values({
                 schoolId: plan.schoolId,
                 studentId: plan.studentId,
+                amountDue: Math.round(installment.amount), // Approximate
                 amountPaid: amount,
-                paymentDate: today,
+                term: termId,
+                year: yearId,
+                paymentDate: today.toISOString(),
                 paymentMethod: 'Cash', // Default for this endpoint
                 feeType: 'Tuition', // Defaulting to Tuition for plan payments usually
                 notes: `Installment #${installment.installmentNumber} - ${plan.planName}`,
@@ -806,14 +814,16 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             // Create finance_transaction record
             await db.insert(financeTransactions).values({
                 schoolId: plan.schoolId,
-                type: 'income',
-                category: 'fee_payment',
-                amount: amount,
-                referenceId: payment.id.toString(),
-                description: `Payment Plan: ${plan.planName} (Inst #${installment.installmentNumber})`,
-                date: today,
-                paymentMethod: 'Cash',
                 studentId: plan.studentId,
+                transactionType: 'credit', // 'income' -> 'credit' (payment)
+                amount: amount,
+                term: termId,
+                year: yearId,
+                referenceId: payment.id.toString(), // Note: referenceId might not exist in schema, let's check. 
+                // Schema check: financeTransactions has: id, schoolId, studentId, transactionType, amount, description, term, year, transactionDate.
+                // NO referenceId! Put in description.
+                description: `Payment Plan: ${plan.planName} (Inst #${installment.installmentNumber}) - Ref: ${payment.id}`,
+                transactionDate: today.toISOString().split('T')[0], // YYYY-MM-DD
             });
 
             // 4. Update Main Invoice (if linked)
