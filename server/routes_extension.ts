@@ -1221,7 +1221,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const { fileName, fileData } = req.body; // fileData is base64
             if (!fileName || !fileData) return res.status(400).json({ message: "File required" });
 
-            const uploadsDir = path.join(__dirname, "../uploads");
+            const uploadsDir = path.join(process.cwd(), "uploads");
             if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
             const uniqueName = `${Date.now()}-${fileName}`;
