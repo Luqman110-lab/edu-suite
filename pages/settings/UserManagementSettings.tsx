@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../hooks/use-auth';
 import { Button } from '../../components/Button';
-import { User, ActivityLog, Crown, GraduationCap, X } from 'lucide-react';
+import { User, Activity, Crown, GraduationCap, X, Plus } from 'lucide-react';
 
 // Use local interfaces as they match the parent Settings.tsx
 interface UserType {
@@ -143,8 +143,8 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = () 
     };
 
     const inputClasses = `mt-1 block w-full rounded-xl border px-4 py-3 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 focus:outline-none sm:text-sm transition-all duration-200 ${isDark
-            ? 'border-gray-600 bg-gray-700 text-white placeholder-gray-400 focus:bg-gray-600'
-            : 'border-gray-200 bg-gray-50 text-gray-900 focus:bg-white'
+        ? 'border-gray-600 bg-gray-700 text-white placeholder-gray-400 focus:bg-gray-600'
+        : 'border-gray-200 bg-gray-50 text-gray-900 focus:bg-white'
         }`;
 
     if (loading) return <div className="p-8 text-center">Loading users...</div>;

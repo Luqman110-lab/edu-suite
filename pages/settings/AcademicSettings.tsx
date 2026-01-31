@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { SchoolSettings, ClassLevel } from '../../types';
 import { dbService } from '../../services/api';
-import { Calendar, Plus, X, Edit2, Check } from 'lucide-react';
+import { Calendar, Plus, X, Edit2, Check, Trash2 } from 'lucide-react';
 
 interface AcademicSettingsProps {
     settings: SchoolSettings;
@@ -16,8 +16,8 @@ export const AcademicSettings: React.FC<AcademicSettingsProps> = ({ settings, on
     const [editingStream, setEditingStream] = useState<{ class: string, old: string, new: string } | null>(null);
 
     const inputClasses = `mt-1 block w-full rounded-xl border px-4 py-3 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 focus:outline-none sm:text-sm transition-all duration-200 ${isDark
-            ? 'border-gray-600 bg-gray-700 text-white placeholder-gray-400 focus:bg-gray-600'
-            : 'border-gray-200 bg-gray-50 text-gray-900 focus:bg-white'
+        ? 'border-gray-600 bg-gray-700 text-white placeholder-gray-400 focus:bg-gray-600'
+        : 'border-gray-200 bg-gray-50 text-gray-900 focus:bg-white'
         }`;
 
     const labelClasses = `block text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`;
@@ -194,8 +194,8 @@ export const AcademicSettings: React.FC<AcademicSettingsProps> = ({ settings, on
                                     onClick={() => addStream(level)}
                                     disabled={!newStreams[level]?.trim()}
                                     className={`p-2 rounded-lg transition-colors ${!newStreams[level]?.trim()
-                                            ? (isDark ? 'bg-gray-700 text-gray-500' : 'bg-gray-100 text-gray-400')
-                                            : (isDark ? 'bg-primary-600 hover:bg-primary-500 text-white' : 'bg-primary-600 hover:bg-primary-700 text-white')
+                                        ? (isDark ? 'bg-gray-700 text-gray-500' : 'bg-gray-100 text-gray-400')
+                                        : (isDark ? 'bg-primary-600 hover:bg-primary-500 text-white' : 'bg-primary-600 hover:bg-primary-700 text-white')
                                         }`}
                                 >
                                     <Plus className="w-5 h-5" />
