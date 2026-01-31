@@ -3,11 +3,116 @@ import { Express } from "express";
 import { db } from "./db";
 import { eq, and, desc, asc, sql, inArray, gt, or, isNull } from "drizzle-orm";
 
-import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, teacherAttendance, users, userSchools, feeStructures, financeTransactions, conversations, conversationParticipants, messages, promotionHistory, studentFeeOverrides, dormitories, dormRooms, beds, boardingRollCalls, leaveRequests, auditLogs, invoices, invoiceItems, paymentPlans, planInstallments, visitorLogs, boardingSettings } from "../shared/schema";
+import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, teacherAttendance, users, userSchools, feeStructures, financeTransactions, conversations, conversationParticipants, messages, promotionHistory, studentFeeOverrides, dormitories, dormRooms, beds, boardingRollCalls, leaveRequests, auditLogs, invoices, invoiceItems, paymentPlans, planInstallments, visitorLogs, boardingSettings, faceEmbeddings } from "../shared/schema";
 import { requireAuth, requireAdmin, requireSuperAdmin, getActiveSchoolId, hashPassword } from "./auth";
 import { MobileMoneyService } from "./services/MobileMoneyService";
 
 export function registerExtendedRoutes(app: Express) {
+
+    // --- Biometric Authentication (Face Recognition) ---
+
+    // Enroll a face (Save embedding)
+    app.post("/api/face-embeddings", requireAuth, async (req, res) => {
+        try {
+            const { personType, personId, embedding, quality } = req.body;
+            const schoolId = getActiveSchoolId(req);
+
+            if (!schoolId) {
+                return res.status(400).json({ message: "Active school required" });
+            }
+
+            if (!embedding || !Array.isArray(embedding) || embedding.length !== 128) {
+                return res.status(400).json({ message: "Invalid embedding format. Expected 128-float array." });
+            }
+
+            // upsert based on unique constraint (schoolId, personType, personId)
+            const [record] = await db.insert(faceEmbeddings).values({
+                schoolId,
+                personType,
+                personId,
+                embedding,
+                quality: quality || 0,
+                captureVersion: 1
+            }).onConflictDoUpdate({
+                target: [faceEmbeddings.schoolId, faceEmbeddings.personType, faceEmbeddings.personId],
+                set: {
+                    embedding,
+                    quality: quality || 0,
+                    updatedAt: new Date()
+                }
+            }).returning();
+
+            res.json(record);
+        } catch (error: any) {
+            console.error("Face enrollment error:", error);
+            res.status(500).json({ message: "Failed to enroll face: " + error.message });
+        }
+    });
+
+    // Identify a face
+    app.post("/api/face-embeddings/identify", requireAuth, async (req, res) => {
+        try {
+            const { embedding, threshold = 0.5 } = req.body;
+            const schoolId = getActiveSchoolId(req);
+
+            if (!schoolId) {
+                return res.status(400).json({ message: "Active school required" });
+            }
+
+            if (!embedding || !Array.isArray(embedding) || embedding.length !== 128) {
+                return res.status(400).json({ message: "Invalid embedding format." });
+            }
+
+            // Fetch active embeddings for this school
+            const candidates = await db.select().from(faceEmbeddings).where(
+                and(
+                    eq(faceEmbeddings.isActive, true),
+                    eq(faceEmbeddings.schoolId, schoolId)
+                )
+            );
+
+            let bestMatch: any = null;
+            let minDistance = Infinity;
+
+            for (const candidate of candidates) {
+                const storedEmbedding = candidate.embedding as number[];
+                if (!storedEmbedding || storedEmbedding.length !== 128) continue;
+
+                // Euclidean distance
+                const distance = Math.sqrt(
+                    embedding.reduce((sum, val, i) => sum + Math.pow(val - storedEmbedding[i], 2), 0)
+                );
+
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    bestMatch = candidate;
+                }
+            }
+
+            if (bestMatch && minDistance <= threshold) {
+                // Fetch person details
+                let personDetails = null;
+                if (bestMatch.personType === 'student') {
+                    [personDetails] = await db.select().from(students).where(eq(students.id, bestMatch.personId));
+                } else if (bestMatch.personType === 'teacher') {
+                    [personDetails] = await db.select().from(teachers).where(eq(teachers.id, bestMatch.personId));
+                }
+
+                return res.json({
+                    match: true,
+                    person: personDetails,
+                    personType: bestMatch.personType,
+                    distance: minDistance
+                });
+            }
+
+            res.json({ match: false, distance: minDistance });
+
+        } catch (error: any) {
+            console.error("Face identification error:", error);
+            res.status(500).json({ message: "Failed to identify face: " + error.message });
+        }
+    });
 
     // --- Fee Structures Endpoints ---
     app.get("/api/fee-structures", requireAuth, async (req, res) => {

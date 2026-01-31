@@ -1283,9 +1283,10 @@ export const faceEmbeddings = pgTable("face_embeddings", {
   schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
   personType: text("person_type").notNull(), // 'student' or 'teacher'
   personId: integer("person_id").notNull(), // references student.id or teacher.id
-  embedding: text("embedding").notNull(), // JSON array of 128-512 floats (~1-2KB)
-  captureVersion: integer("capture_version").default(1), // for re-enrollment
-  thumbnailBase64: text("thumbnail_base64"), // optional small thumbnail (<20KB)
+  embedding: json("embedding").notNull().$type<number[]>(), // JSON array of 128 floats
+  quality: real("quality").default(0),
+  captureVersion: integer("capture_version").default(1),
+  thumbnailBase64: text("thumbnail_base64"),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
