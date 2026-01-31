@@ -2932,6 +2932,87 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                 return res.status(404).json({ message: "School not found" });
             }
 
+            // Default configurations if null in DB
+            const defaultStreams = {
+                P1: [], P2: [], P3: [], P4: [], P5: [], P6: [], P7: []
+            };
+            const defaultGrading = {
+                grades: [
+                    { grade: "D1", minScore: 90, maxScore: 100, points: 1 },
+                    { grade: "D2", minScore: 80, maxScore: 89, points: 2 },
+                    { grade: "C3", minScore: 70, maxScore: 79, points: 3 },
+                    { grade: "C4", minScore: 60, maxScore: 69, points: 4 },
+                    { grade: "C5", minScore: 55, maxScore: 59, points: 5 },
+                    { grade: "C6", minScore: 50, maxScore: 54, points: 6 },
+                    { grade: "P7", minScore: 45, maxScore: 49, points: 7 },
+                    { grade: "P8", minScore: 40, maxScore: 44, points: 8 },
+                    { grade: "F9", minScore: 0, maxScore: 39, points: 9 },
+                ],
+                divisions: [
+                    { division: "I", minAggregate: 4, maxAggregate: 12 },
+                    { division: "II", minAggregate: 13, maxAggregate: 24 },
+                    { division: "III", minAggregate: 25, maxAggregate: 28 },
+                    { division: "IV", minAggregate: 29, maxAggregate: 32 },
+                    { division: "U", minAggregate: 33, maxAggregate: 36 },
+                ],
+                passingMark: 40,
+            };
+            const defaultSubjects = {
+                lowerPrimary: [
+                    { name: "English", code: "english", isCompulsory: true },
+                    { name: "Mathematics", code: "maths", isCompulsory: true },
+                    { name: "Literacy 1", code: "literacy1", isCompulsory: true },
+                    { name: "Literacy 2", code: "literacy2", isCompulsory: true },
+                ],
+                upperPrimary: [
+                    { name: "English", code: "english", isCompulsory: true },
+                    { name: "Mathematics", code: "maths", isCompulsory: true },
+                    { name: "Science", code: "science", isCompulsory: true },
+                    { name: "Social Studies", code: "sst", isCompulsory: true },
+                ],
+            };
+            const defaultReport = {
+                headteacherName: "",
+                headteacherTitle: "Headteacher",
+                showClassTeacherSignature: true,
+                showHeadteacherSignature: true,
+                showParentSignature: true,
+                commentTemplates: [
+                    "Excellent performance. Keep it up!",
+                    "Good work. Continue improving.",
+                    "Fair performance. More effort needed.",
+                    "Needs improvement. Work harder next term.",
+                    "Poor performance. Requires special attention.",
+                ],
+                conductOptions: ["Excellent", "Very Good", "Good", "Fair", "Needs Improvement"],
+            };
+            const defaultSecurity = {
+                passwordMinLength: 8,
+                passwordRequireUppercase: true,
+                passwordRequireLowercase: true,
+                passwordRequireNumbers: true,
+                passwordRequireSpecialChars: false,
+                passwordExpiryDays: 0,
+                sessionTimeoutMinutes: 60,
+                maxLoginAttempts: 5,
+                lockoutDurationMinutes: 15,
+                require2FA: false,
+                allowedIPAddresses: [],
+                enforceIPWhitelist: false,
+            };
+            const defaultIdCard = {
+                showBloodGroup: true,
+                showDob: true,
+                showEmergencyContact: true,
+                customTerms: [
+                    "Property of the school",
+                    "Carry at all times",
+                    "Report loss immediately",
+                    "Non-transferable"
+                ],
+                layout: 'single'
+            };
+
             // Return school settings in the expected format
             res.json({
                 id: school[0].id,
@@ -2947,12 +3028,12 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                 logoBase64: school[0].logoBase64 || "",
                 currentTerm: school[0].currentTerm || 1,
                 currentYear: school[0].currentYear || new Date().getFullYear(),
-                streams: school[0].streams || {},
-                gradingConfig: school[0].gradingConfig || null,
-                subjectsConfig: school[0].subjectsConfig || null,
-                reportConfig: school[0].reportConfig || null,
-                securityConfig: school[0].securityConfig || null,
-                idCardConfig: school[0].idCardConfig || null,
+                streams: school[0].streams || defaultStreams,
+                gradingConfig: school[0].gradingConfig || defaultGrading,
+                subjectsConfig: school[0].subjectsConfig || defaultSubjects,
+                reportConfig: school[0].reportConfig || defaultReport,
+                securityConfig: school[0].securityConfig || defaultSecurity,
+                idCardConfig: school[0].idCardConfig || defaultIdCard,
                 nextTermBeginBoarders: school[0].nextTermBeginBoarders || "",
                 nextTermBeginDay: school[0].nextTermBeginDay || "",
             });
