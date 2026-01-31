@@ -7,7 +7,7 @@ import {
     flexRender,
     createColumnHelper
 } from '@tanstack/react-table';
-import { Search, Plus, Pencil, Trash2, CheckCircle, XCircle } from 'lucide-react';
+import { Search, Plus, Pencil, Trash2, CheckCircle, XCircle, RefreshCcw } from 'lucide-react';
 import { School } from '../../../types';
 import { Button } from '../../../components/Button';
 import { SchoolForm } from '../../../components/admin/schools/SchoolForm';
@@ -67,6 +67,27 @@ export const SchoolList: React.FC = () => {
         }
     };
 
+    const handleActivate = async (school: School) => {
+        if (!window.confirm(`Reactivate ${school.name}?`)) return;
+        try {
+            const res = await fetch(`/api/schools/${school.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ isActive: true }),
+            });
+            if (res.ok) {
+                toast({ title: 'Success', description: 'School reactivated' });
+                fetchSchools();
+            } else {
+                const errData = await res.json();
+                toast({ title: 'Error', description: errData.message || 'Operation failed', variant: 'destructive' });
+            }
+        } catch (err) {
+            toast({ title: 'Error', description: 'Failed to reactivate school', variant: 'destructive' });
+        }
+    };
+
     const handleDelete = async (school: School) => {
         if (!window.confirm(`Delete ${school.name}?`)) return;
         try {
@@ -113,6 +134,17 @@ export const SchoolList: React.FC = () => {
             header: 'Actions',
             cell: props => (
                 <div className="flex gap-2">
+                    {!props.row.original.isActive && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-green-600 hover:text-green-700"
+                            title="Reactivate School"
+                            onClick={() => handleActivate(props.row.original)}
+                        >
+                            <RefreshCcw className="w-4 h-4" />
+                        </Button>
+                    )}
                     <Button
                         variant="ghost"
                         size="sm"
