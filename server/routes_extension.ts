@@ -393,7 +393,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                     totalAmount,
                     amountPaid: 0,
                     balance: totalAmount,
-                    dueDate: dueDate ? new Date(dueDate) : null,
+                    dueDate: dueDate ? new Date(dueDate).toISOString() : null,
                     status: 'unpaid',
                 }).returning();
 
