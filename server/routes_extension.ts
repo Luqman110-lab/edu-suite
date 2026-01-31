@@ -2950,6 +2950,11 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                 streams: school[0].streams || {},
                 gradingConfig: school[0].gradingConfig || null,
                 subjectsConfig: school[0].subjectsConfig || null,
+                reportConfig: school[0].reportConfig || null,
+                securityConfig: school[0].securityConfig || null,
+                idCardConfig: school[0].idCardConfig || null,
+                nextTermBeginBoarders: school[0].nextTermBeginBoarders || "",
+                nextTermBeginDay: school[0].nextTermBeginDay || "",
             });
         } catch (error: any) {
             console.error("Get settings error:", error);
@@ -2965,7 +2970,8 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
 
             const { schoolName, addressBox, contactPhones, email, motto, regNumber, centreNumber,
                 primaryColor, secondaryColor, logoBase64, currentTerm, currentYear,
-                streams, gradingConfig, subjectsConfig } = req.body;
+                streams, gradingConfig, subjectsConfig, reportConfig, securityConfig, idCardConfig,
+                nextTermBeginBoarders, nextTermBeginDay } = req.body;
 
             const updated = await db.update(schools)
                 .set({
@@ -2984,8 +2990,14 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                     streams,
                     gradingConfig,
                     subjectsConfig,
-                    updatedAt: new Date()
+                    reportConfig,
+                    securityConfig,
+                    idCardConfig,
+                    nextTermBeginBoarders,
+                    nextTermBeginDay,
+                    updatedAt: new Date(),
                 })
+
                 .where(eq(schools.id, schoolId))
                 .returning();
 
