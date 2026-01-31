@@ -300,8 +300,8 @@ const ChatBubble = ({
         )}
 
         <div className={`px-5 py-3 rounded-2xl shadow-sm text-sm relative leading-relaxed group/bubble ${isOwn
-            ? 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-br-none'
-            : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 border border-gray-100 dark:border-gray-700 rounded-bl-none'
+          ? 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-br-none'
+          : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 border border-gray-100 dark:border-gray-700 rounded-bl-none'
           }`}>
           {/* Menu Button */}
           {showActions && (
@@ -355,7 +355,7 @@ const ChatBubble = ({
             </div>
           )}
 
-          {msg.content}
+          {!(msg.content === 'Voice Note' && msg.attachments?.some(a => a.type.includes('audio'))) && msg.content}
           {msg.isEdited && <span className="text-[10px] opacity-60 ml-1 italic">(edited)</span>}
 
           {/* Read Receipt (Double Tick) */}

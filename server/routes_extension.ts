@@ -1579,6 +1579,12 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                 conversationId: messages.conversationId,
                 senderId: messages.senderId,
                 content: messages.content,
+                messageType: messages.messageType,
+                attachments: messages.attachments,
+                reactions: messages.reactions,
+                replyToId: messages.replyToId,
+                isEdited: messages.isEdited,
+                isDeleted: messages.isDeleted,
                 createdAt: messages.createdAt,
                 sender: {
                     id: users.id,
