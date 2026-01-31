@@ -75,7 +75,7 @@ export const DormitoryManager: React.FC = () => {
       if (bedsRes.ok) setBeds(await bedsRes.json());
       if (studentsRes.ok) {
         const allStudents = await studentsRes.json();
-        setStudents(allStudents.filter((s: Student) => s.boardingStatus === 'boarding'));
+        setStudents(allStudents.filter((s: Student) => s.boardingStatus?.toLowerCase() === 'boarding'));
       }
     } catch (err) {
       console.error('Failed to load data:', err);
@@ -237,7 +237,7 @@ export const DormitoryManager: React.FC = () => {
                     <p className="text-sm text-gray-500 dark:text-gray-400 capitalize">{dorm.gender} | Capacity: {dorm.capacity}</p>
                   </div>
                   <div className="flex gap-1">
-                    <button onClick={(e) => { e.stopPropagation(); setEditingDorm(dorm); setDormForm(dorm); setShowDormModal(true); }} className="p-1.5 text-gray-500 hover:text-primary-600">
+                    <button onClick={(e) => { e.stopPropagation(); setEditingDorm(dorm); setDormForm({ ...dorm, building: dorm.building || '', floor: dorm.floor || '', wardenName: dorm.wardenName || '', wardenPhone: dorm.wardenPhone || '', description: dorm.description || '' }); setShowDormModal(true); }} className="p-1.5 text-gray-500 hover:text-primary-600">
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                     </button>
                     <button onClick={(e) => { e.stopPropagation(); deleteDormitory(dorm.id); }} className="p-1.5 text-gray-500 hover:text-red-600">
@@ -322,7 +322,12 @@ export const DormitoryManager: React.FC = () => {
                         defaultValue=""
                       >
                         <option value="">Assign a student...</option>
-                        {unassignedStudents.filter(s => selectedDorm && (selectedDorm.gender === 'mixed' || s.gender.toLowerCase() === selectedDorm.gender)).map(s => (
+                        {unassignedStudents.filter(s => {
+                          if (!selectedDorm) return false;
+                          if (selectedDorm.gender === 'mixed') return true;
+                          const studentGender = s.gender === 'M' ? 'male' : 'female';
+                          return studentGender === selectedDorm.gender;
+                        }).map(s => (
                           <option key={s.id} value={s.id}>{s.name} ({s.classLevel})</option>
                         ))}
                       </select>
