@@ -60,8 +60,8 @@ const ProfileHeader = ({ student, onEdit, onBack, onPrintID, onEnrollFace, hasFa
             <div className="absolute bottom-2 right-2 h-6 w-6 rounded-full border-4 border-white dark:border-gray-900 bg-green-500 shadow-sm" title="Active Student"></div>
           </div>
 
-          <div className="mb-2 text-center md:text-left">
-            <h1 className={`text-3xl font-extrabold tracking-tight mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>{student.name}</h1>
+          <div className="mb-2 text-center md:text-left z-10 relative pt-2">
+            <h1 className={`text-4xl md:text-5xl font-black tracking-tight mb-3 ${isDark ? 'text-white' : 'text-gray-900 drop-shadow-sm'}`}>{student.name}</h1>
 
             <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
               <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border ${isDark ? 'bg-gray-800/80 border-gray-700 text-gray-300' : 'bg-white border-gray-200 text-gray-600 shadow-sm'}`}>
