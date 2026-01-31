@@ -37,7 +37,9 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ collapsed }) => {
         switchSchoolMutation.mutate(schoolId, {
             onSuccess: () => {
                 setShowSwitcher(false);
-                window.location.reload(); // Force reload to ensure all queries reset with new context
+                // Redirect to the main app dashboard for the selected school
+                window.location.href = '/#/app';
+                window.location.reload();
             }
         });
     };
