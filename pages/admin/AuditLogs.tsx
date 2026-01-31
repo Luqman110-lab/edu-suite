@@ -8,7 +8,7 @@ import {
     createColumnHelper
 } from '@tanstack/react-table';
 import { Search, Activity, User, Building2, Trash2, Edit, Key } from 'lucide-react';
-import { Button } from '../../../components/Button';
+import { Button } from '../../components/Button';
 import { format } from 'date-fns';
 
 export interface AuditLog {
