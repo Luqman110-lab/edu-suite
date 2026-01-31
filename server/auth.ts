@@ -163,11 +163,17 @@ async function getUserWithSchools(user: any, activeSchoolId?: number) {
     activeSchool = userSchoolsList.find(s => s.id === selectedSchoolId);
   }
 
+  // Ensure the active school is included in the list (crucial for Super Admin implicit access)
+  const finalSchoolsList = [...userSchoolsList];
+  if (activeSchool && !finalSchoolsList.some(s => s.id === activeSchool?.id)) {
+    finalSchoolsList.push(activeSchool);
+  }
+
   return {
     ...user,
     activeSchoolId: activeSchool?.id,
     activeSchoolRole: activeSchool?.role || user.role,
-    schools: userSchoolsList,
+    schools: finalSchoolsList,
   };
 }
 
