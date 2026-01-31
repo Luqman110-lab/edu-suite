@@ -284,3 +284,21 @@ export interface FeeStructure {
 export const SUBJECTS_LOWER = ['english', 'maths', 'literacy1', 'literacy2'];
 export const SUBJECTS_UPPER = ['english', 'maths', 'science', 'sst'];
 export const ALL_SUBJECTS = [...new Set([...SUBJECTS_LOWER, ...SUBJECTS_UPPER])];
+
+export interface BoardingSettings {
+  id?: number;
+  schoolId: number;
+  morningRollCallTime: string; // "06:30"
+  eveningRollCallTime: string; // "20:00"
+  nightRollCallTime: string;   // "22:00"
+  enableMorningRollCall: boolean;
+  enableEveningRollCall: boolean;
+  enableNightRollCall: boolean;
+  visitingDays: string[]; // ["Sunday"]
+  visitingHoursStart: string; // "14:00"
+  visitingHoursEnd: string;   // "17:00"
+  requireGuardianApproval: boolean;
+  autoMarkAbsentAfterMinutes: number;
+  createdAt?: string;
+  updatedAt?: string;
+}

@@ -8,7 +8,8 @@ import {
     Shield,
     Database,
     Menu,
-    X
+    X,
+    Bed
 } from 'lucide-react';
 
 interface SettingsLayoutProps {
@@ -32,6 +33,7 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
         { id: 'academic', label: 'Academic', icon: GraduationCap, description: 'Terms & streams' },
         { id: 'grading', label: 'Grading', icon: Calculator, description: 'Grading system' },
         { id: 'reports', label: 'Reports', icon: Database, description: 'Report card configuration' }, // Using Database as placeholder or maybe FileText
+        { id: 'boarding', label: 'Boarding Setup', icon: Bed, description: 'Hostel configuration' },
         ...(userRole === 'admin' ? [
             { id: 'users', label: 'Users', icon: Users, description: 'Manage access' },
             { id: 'security', label: 'Security', icon: Shield, description: 'Logs & permissions' },
@@ -61,12 +63,12 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
                                             setIsMobileMenuOpen(false);
                                         }}
                                         className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors ${isActive
-                                                ? isDark
-                                                    ? 'bg-primary-900/30 text-primary-400'
-                                                    : 'bg-primary-50 text-primary-700'
-                                                : isDark
-                                                    ? 'text-gray-400 hover:bg-gray-700/50 hover:text-gray-200'
-                                                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                            ? isDark
+                                                ? 'bg-primary-900/30 text-primary-400'
+                                                : 'bg-primary-50 text-primary-700'
+                                            : isDark
+                                                ? 'text-gray-400 hover:bg-gray-700/50 hover:text-gray-200'
+                                                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                                             }`}
                                     >
                                         <Icon className={`w-5 h-5 ${isActive ? 'text-primary-500' : 'text-gray-400'}`} />

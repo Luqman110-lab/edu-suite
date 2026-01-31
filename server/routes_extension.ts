@@ -3,7 +3,7 @@ import { Express } from "express";
 import { db } from "./db";
 import { eq, and, desc, asc, sql, inArray, gt, or, isNull } from "drizzle-orm";
 
-import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, teacherAttendance, users, userSchools, feeStructures, financeTransactions, conversations, conversationParticipants, messages, promotionHistory, studentFeeOverrides, dormitories, dormRooms, beds, boardingRollCalls, leaveRequests, auditLogs, invoices, invoiceItems, paymentPlans, planInstallments } from "../shared/schema";
+import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, teacherAttendance, users, userSchools, feeStructures, financeTransactions, conversations, conversationParticipants, messages, promotionHistory, studentFeeOverrides, dormitories, dormRooms, beds, boardingRollCalls, leaveRequests, auditLogs, invoices, invoiceItems, paymentPlans, planInstallments, visitorLogs, boardingSettings } from "../shared/schema";
 import { requireAuth, requireAdmin, requireSuperAdmin, getActiveSchoolId, hashPassword } from "./auth";
 import { MobileMoneyService } from "./services/MobileMoneyService";
 
@@ -3531,6 +3531,115 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         } catch (error: any) {
             console.error("Verification error:", error);
             res.status(500).json({ valid: false, message: "Verification failed" });
+        }
+    });
+
+
+    // Visitor Logs
+    app.get("/api/visitor-logs", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            const logs = await db.select({
+                log: visitorLogs,
+                studentName: students.name,
+                className: students.classLevel
+            })
+                .from(visitorLogs)
+                .leftJoin(students, eq(visitorLogs.studentId, students.id))
+                .where(eq(visitorLogs.schoolId, schoolId))
+                .orderBy(desc(visitorLogs.visitDate));
+
+            const flattened = logs.map(l => ({ ...l.log, studentName: l.studentName, className: l.className }));
+            res.json(flattened);
+        } catch (error: any) {
+            res.status(500).json({ message: "Failed to fetch visitor logs: " + error.message });
+        }
+    });
+
+    app.post("/api/visitor-logs", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            const data = {
+                ...req.body,
+                schoolId,
+                registeredById: req.user?.id
+            };
+            const newLog = await db.insert(visitorLogs).values(data).returning();
+            res.json(newLog[0]);
+        } catch (error: any) {
+            res.status(500).json({ message: "Failed to create visitor log: " + error.message });
+        }
+    });
+
+    app.put("/api/visitor-logs/:id/checkout", requireAuth, async (req, res) => {
+        try {
+            const id = parseInt(req.params.id);
+            const { checkOutTime } = req.body;
+
+            const updated = await db.update(visitorLogs)
+                .set({ checkOutTime: checkOutTime || new Date().toLocaleTimeString() })
+                .where(eq(visitorLogs.id, id))
+                .returning();
+
+            res.json(updated[0]);
+        } catch (error: any) {
+            res.status(500).json({ message: "Failed to checkout visitor: " + error.message });
+        }
+    });
+
+    app.delete("/api/visitor-logs/:id", requireAuth, async (req, res) => {
+        try {
+            const id = parseInt(req.params.id);
+            await db.delete(visitorLogs).where(eq(visitorLogs.id, id));
+            res.json({ message: "Visitor log deleted" });
+        } catch (error: any) {
+            res.status(500).json({ message: "Failed to delete visitor log: " + error.message });
+        }
+    });
+
+    // Boarding Settings
+    app.get("/api/boarding-settings", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            const settings = await db.select().from(boardingSettings).where(eq(boardingSettings.schoolId, schoolId)).limit(1);
+
+            if (settings.length === 0) {
+                // Return defaults if not found, but don't create yet
+                return res.json({});
+            }
+            res.json(settings[0]);
+        } catch (error: any) {
+            res.status(500).json({ message: "Failed to fetch boarding settings: " + error.message });
+        }
+    });
+
+    app.put("/api/boarding-settings", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            const existing = await db.select().from(boardingSettings).where(eq(boardingSettings.schoolId, schoolId)).limit(1);
+
+            if (existing.length > 0) {
+                const updated = await db.update(boardingSettings)
+                    .set({ ...req.body, updatedAt: new Date() })
+                    .where(eq(boardingSettings.id, existing[0].id))
+                    .returning();
+                res.json(updated[0]);
+            } else {
+                const created = await db.insert(boardingSettings)
+                    .values({ ...req.body, schoolId })
+                    .returning();
+                res.json(created[0]);
+            }
+        } catch (error: any) {
+            res.status(500).json({ message: "Failed to update boarding settings: " + error.message });
         }
     });
 

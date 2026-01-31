@@ -1,4 +1,4 @@
-import { School, AuthUser, UserSchool, SchoolSettings, SecurityConfig, GradingConfig, SubjectConfig, ReportConfig } from '../types';
+import { School, AuthUser, UserSchool, SchoolSettings, SecurityConfig, GradingConfig, SubjectConfig, ReportConfig, BoardingSettings } from '../types';
 
 const API_BASE = '/api';
 
@@ -409,6 +409,11 @@ export const apiService = {
 
     return stats;
   },
+
+  getBoardingSettings: () => apiRequest<BoardingSettings>('GET', '/boarding-settings'),
+
+  updateBoardingSettings: (settings: Partial<BoardingSettings>) =>
+    apiRequest<BoardingSettings>('PUT', '/boarding-settings', settings),
 };
 
 export { apiService as dbService };

@@ -11,6 +11,7 @@ import { ReportsSettings } from './settings/ReportsSettings';
 import { UserManagementSettings } from './settings/UserManagementSettings';
 import { SecuritySettings } from './settings/SecuritySettings';
 import { DataManagementSettings } from './settings/DataManagementSettings';
+import { BoardingSettings } from './settings/BoardingSettings';
 
 export const Settings: React.FC = () => {
   const { user, activeSchool } = useAuth();
@@ -43,40 +44,41 @@ export const Settings: React.FC = () => {
     passingMark: 40,
   };
 
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const fetchSettings = async () => {
+    // Fallback to first school if activeSchool is missing, though useAuth usually handles this
+    const targetSchoolId = activeSchool?.id || user?.schools?.[0]?.id;
+
+    if (!targetSchoolId) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const data = await dbService.getSchoolSettings(targetSchoolId);
+      // Ensure grading config has defaults if missing
+      setSettings({
+        ...data,
+        gradingConfig: data.gradingConfig || defaultGradingConfig
+      });
+    } catch (error) {
+      console.error('Failed to fetch settings:', error);
+      showToast('Failed to load settings', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchSettings = async () => {
-      // Fallback to first school if activeSchool is missing, though useAuth usually handles this
-      const targetSchoolId = activeSchool?.id || user?.schools?.[0]?.id;
-
-      if (!targetSchoolId) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const data = await dbService.getSchoolSettings(targetSchoolId);
-        // Ensure grading config has defaults if missing
-        setSettings({
-          ...data,
-          gradingConfig: data.gradingConfig || defaultGradingConfig
-        });
-      } catch (error) {
-        console.error('Failed to fetch settings:', error);
-        showToast('Failed to load settings', 'error');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     if (user) {
       fetchSettings();
     }
   }, [user, activeSchool]);
 
-  const showToast = (message: string, type: 'success' | 'error') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
-  };
 
   const handleUpdateSettings = async (updates: Partial<SchoolSettings>) => {
     if (!settings) return;
@@ -85,15 +87,16 @@ export const Settings: React.FC = () => {
     const updatedSettings = { ...settings, ...updates };
     setSettings(updatedSettings);
 
-    // Debounce actual save could be good, but for now we save directly or assume child components triggered this
     setSaving(true);
     try {
-      await dbService.updateSchoolSettings(settings.id, updates);
+      // dbService expects number for schoolId, but we might have string ID in settings object
+      // Actually updateSchoolSettings implementation in api.ts ignores the first argument!
+      // So passing 0 or any number is fine.
+      await dbService.updateSchoolSettings(0, updates);
       showToast('Settings saved successfully', 'success');
     } catch (error) {
       console.error('Failed to update settings:', error);
       showToast('Failed to save settings', 'error');
-      // Revert on failure request? For now simple notice.
     } finally {
       setSaving(false);
     }
@@ -121,9 +124,9 @@ export const Settings: React.FC = () => {
 
     switch (activeTab) {
       case 'general':
-        return <GeneralSettings settings={settings} onUpdate={handleUpdateSettings} />;
+        return <GeneralSettings settings={settings} onUpdate={handleUpdateSettings} isSaving={saving} />;
       case 'academic':
-        return <AcademicSettings settings={settings} onUpdate={handleUpdateSettings} />;
+        return <AcademicSettings settings={settings} onUpdate={handleUpdateSettings} onRefresh={fetchSettings} />;
       case 'grading':
         return <GradingSettings settings={settings} onUpdate={handleUpdateSettings} />;
       case 'reports':
@@ -134,6 +137,8 @@ export const Settings: React.FC = () => {
         return <SecuritySettings settings={settings} onUpdate={handleUpdateSettings} />;
       case 'data':
         return <DataManagementSettings />;
+      case 'boarding':
+        return <BoardingSettings />;
       default:
         return <div>Select a setting to view</div>;
     }
