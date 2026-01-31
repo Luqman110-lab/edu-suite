@@ -21,6 +21,13 @@ app.use(compression());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: false }));
 
+// Serve Uploads - IMPORTANT: Allow access to uploaded files
+const uploadsDir = path.join(__dirname, "../uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+app.use("/uploads", express.static(uploadsDir));
+
 // Rate limiting is handled in server/auth.ts (apiRateLimiter applied to /api)
 
 const isProduction = process.env.NODE_ENV === "production";
