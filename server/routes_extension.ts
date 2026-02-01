@@ -3,7 +3,7 @@ import { Express } from "express";
 import { db } from "./db";
 import { eq, and, desc, asc, sql, inArray, gt, or, isNull } from "drizzle-orm";
 
-import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, teacherAttendance, users, userSchools, feeStructures, financeTransactions, conversations, conversationParticipants, messages, promotionHistory, studentFeeOverrides, dormitories, beds, boardingRollCalls, leaveRequests, auditLogs, invoices, invoiceItems, paymentPlans, planInstallments, visitorLogs, boardingSettings, faceEmbeddings } from "../shared/schema";
+import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, teacherAttendance, users, userSchools, feeStructures, financeTransactions, conversations, conversationParticipants, messages, promotionHistory, studentFeeOverrides, dormitories, beds, boardingRollCalls, leaveRequests, auditLogs, invoices, invoiceItems, paymentPlans, planInstallments, visitorLogs, boardingSettings, faceEmbeddings, insertStudentSchema } from "../shared/schema";
 import { requireAuth, requireAdmin, requireSuperAdmin, getActiveSchoolId, hashPassword } from "./auth";
 import { MobileMoneyService } from "./services/MobileMoneyService";
 import { broadcastMessage } from "./websocket";
@@ -780,6 +780,11 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             });
             if (!plan) return res.status(404).json({ message: "Plan not found" });
 
+            // Security Check: Plan must belong to active school
+            if (plan.schoolId !== schoolId) {
+                return res.status(403).json({ message: "Access denied to payment plan from another school" });
+            }
+
             // 2. Update Installment
             const newPaidAmount = (installment.paidAmount || 0) + amount;
             const isFull = newPaidAmount >= installment.amount;
@@ -1110,13 +1115,44 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     app.post("/api/students", requireAuth, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
+            const userId = req.user!.id;
+            const userName = req.user!.name;
+
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
+            // VALIDATION
+            // Omit internal fields that shouldn't be in the body
+            const validationSchema = insertStudentSchema.omit({
+                id: true,
+                schoolId: true,
+                createdAt: true,
+                updatedAt: true,
+                isActive: true
+            });
+
+            const parseResult = validationSchema.safeParse(req.body);
+            if (!parseResult.success) {
+                return res.status(400).json({ message: "Invalid student data: " + parseResult.error.message });
+            }
+            const data = parseResult.data;
+
             const newStudent = await db.insert(students).values({
-                ...req.body,
+                ...data,
                 schoolId,
                 isActive: true
             }).returning();
+
+            // AUDIT LOG
+            await db.insert(auditLogs).values({
+                userId,
+                userName,
+                action: 'create',
+                entityType: 'student',
+                entityId: newStudent[0].id,
+                entityName: newStudent[0].name,
+                details: { indexNumber: newStudent[0].indexNumber, class: newStudent[0].classLevel },
+                ipAddress: req.ip
+            });
 
             res.status(201).json(newStudent[0]);
         } catch (error: any) {
@@ -1128,7 +1164,10 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     app.put("/api/students/:id", requireAuth, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
+            const userId = req.user!.id;
+            const userName = req.user!.name;
             const studentId = parseInt(req.params.id);
+
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
             if (isNaN(studentId)) return res.status(400).json({ message: "Invalid student ID" });
 
@@ -1138,10 +1177,36 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
 
             if (existing.length === 0) return res.status(404).json({ message: "Student not found" });
 
+            // Update Validation (Partial)
+            const validationSchema = insertStudentSchema.omit({
+                id: true,
+                schoolId: true,
+                createdAt: true,
+                updatedAt: true
+            });
+
+            const parseResult = validationSchema.partial().safeParse(req.body);
+            if (!parseResult.success) {
+                return res.status(400).json({ message: "Invalid update data: " + parseResult.error.message });
+            }
+            const data = parseResult.data;
+
             const updated = await db.update(students)
-                .set({ ...req.body, schoolId })
+                .set({ ...data, schoolId }) // Ensure schoolId doesn't change implicitly (though passed in body, it's safer to overwrite or check)
                 .where(eq(students.id, studentId))
                 .returning();
+
+            // AUDIT LOG
+            await db.insert(auditLogs).values({
+                userId,
+                userName,
+                action: 'update',
+                entityType: 'student',
+                entityId: studentId,
+                entityName: updated[0].name,
+                details: { changes: Object.keys(data) },
+                ipAddress: req.ip
+            });
 
             res.json(updated[0]);
         } catch (error: any) {
@@ -1153,7 +1218,10 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     app.delete("/api/students/:id", requireAuth, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
+            const userId = req.user!.id;
+            const userName = req.user!.name;
             const studentId = parseInt(req.params.id);
+
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
             if (isNaN(studentId)) return res.status(400).json({ message: "Invalid student ID" });
 
@@ -1167,6 +1235,18 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                 .set({ isActive: false })
                 .where(eq(students.id, studentId));
 
+            // AUDIT LOG
+            await db.insert(auditLogs).values({
+                userId,
+                userName,
+                action: 'delete', // Soft delete
+                entityType: 'student',
+                entityId: studentId,
+                entityName: existing[0].name,
+                details: { type: 'soft_delete' },
+                ipAddress: req.ip
+            });
+
             res.json({ message: "Student deleted successfully" });
         } catch (error: any) {
             console.error("Delete student error:", error);
@@ -1177,6 +1257,9 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     app.delete("/api/students", requireAuth, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
+            const userId = req.user!.id;
+            const userName = req.user!.name;
+
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
             const { ids } = req.body;
@@ -1190,6 +1273,18 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                     eq(students.schoolId, schoolId),
                     inArray(students.id, ids)
                 ));
+
+            // AUDIT LOG
+            await db.insert(auditLogs).values({
+                userId,
+                userName,
+                action: 'delete_batch',
+                entityType: 'student',
+                entityId: 0, // 0 for batch
+                entityName: 'Batch Students',
+                details: { count: ids.length, ids },
+                ipAddress: req.ip
+            });
 
             res.json({ message: "Students deleted successfully" });
         } catch (error: any) {
@@ -2022,6 +2117,15 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
 
             const { studentId, term, year, type } = req.body;
 
+            // Security Check: Ensure student belongs to this school
+            const studentCheck = await db.select({ id: students.id }).from(students)
+                .where(and(eq(students.id, studentId), eq(students.schoolId, schoolId)))
+                .limit(1);
+
+            if (studentCheck.length === 0) {
+                return res.status(403).json({ message: "Student does not belong to the active school" });
+            }
+
             // Check for existing mark and update (upsert logic)
             const existing = await db.select().from(marks)
                 .where(and(
@@ -2061,6 +2165,18 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const { marks: marksToSave } = req.body;
             if (!Array.isArray(marksToSave) || marksToSave.length === 0) {
                 return res.status(400).json({ message: "No marks provided" });
+            }
+
+            // Security Check: Verify all students belong to school
+            const studentIds = [...new Set(marksToSave.map((m: any) => m.studentId))];
+            const validStudents = await db.select({ id: students.id }).from(students)
+                .where(and(
+                    inArray(students.id, studentIds),
+                    eq(students.schoolId, schoolId)
+                ));
+
+            if (validStudents.length !== studentIds.length) {
+                return res.status(403).json({ message: "One or more students do not belong to the active school" });
             }
 
             const results = [];
@@ -2196,6 +2312,16 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
             const { studentId, feeType, amountDue, amountPaid, term, year, paymentMethod, receiptNumber, notes } = req.body;
+
+            // Security Check: Ensure student belongs to this school
+            const studentCheck = await db.select({ id: students.id }).from(students)
+                .where(and(eq(students.id, studentId), eq(students.schoolId, schoolId)))
+                .limit(1);
+
+            if (studentCheck.length === 0) {
+                return res.status(403).json({ message: "Student does not belong to the active school" });
+            }
+
             const balance = amountDue - (amountPaid || 0);
             const status = balance <= 0 ? 'paid' : (amountPaid > 0 ? 'partial' : 'pending');
 
