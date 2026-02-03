@@ -11,9 +11,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "db:push": "drizzle-kit push",
-    "postinstall": "npm run db:push || echo 'DB push failed, continuing...'",
     "server": "tsx server/index.ts",
-    "start": "NODE_ENV=production tsx server/index.ts"
+    "start": "node server/start-production.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
