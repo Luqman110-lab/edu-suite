@@ -38,6 +38,7 @@ import { VisitorLog } from './pages/VisitorLog';
 import { Messages, ConversationView } from './pages/Messages';
 import { Supervision } from './pages/Supervision';
 import { Planning } from './pages/Planning';
+import { ClassManagement } from './pages/ClassManagement';
 import FinancialHub from './pages/FinancialHub';
 
 function LandingWrapper() {
@@ -110,6 +111,7 @@ export default function App() {
                     <Layout>
                       <Routes>
                         <Route index element={<Dashboard />} />
+                        <Route path="classes" element={<ClassManagement />} />
                         <Route path="students" element={<Students />} />
                         <Route path="teachers" element={<Teachers />} />
                         <Route path="marks" element={<MarksEntry />} />

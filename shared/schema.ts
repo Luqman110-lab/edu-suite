@@ -21,6 +21,9 @@ export const schools = pgTable("schools", {
   nextTermBeginBoarders: text("next_term_begin_boarders").default(""),
   nextTermBeginDay: text("next_term_begin_day").default(""),
   streams: json("streams").$type<{ [key: string]: string[] }>().default({
+    N1: [],
+    N2: [],
+    N3: [],
     P1: [],
     P2: [],
     P3: [],
@@ -343,6 +346,9 @@ export const deprecatedSettings = pgTable("settings", {
   nextTermBeginBoarders: text("next_term_begin_boarders").default(""),
   nextTermBeginDay: text("next_term_begin_day").default(""),
   streams: json("streams").$type<{ [key: string]: string[] }>().default({
+    N1: [],
+    N2: [],
+    N3: [],
     P1: [],
     P2: [],
     P3: [],
@@ -2471,3 +2477,4 @@ export const insertProgramItemSchema = createInsertSchema(programItems);
 export const selectProgramItemSchema = createSelectSchema(programItems);
 export type ProgramItem = typeof programItems.$inferSelect;
 export type InsertProgramItem = typeof programItems.$inferInsert;
+

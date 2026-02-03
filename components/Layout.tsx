@@ -39,7 +39,8 @@ import {
   Calendar,
   FileBadge,
   Search,
-  School2
+  School2,
+  Layers
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -377,6 +378,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       label: 'Academics',
       icon: BookOpen,
       items: [
+        { path: '/app/classes', label: 'Classes', icon: Layers },
         { path: '/app/marks', label: 'Marks Entry', icon: ClipboardList },
         { path: '/app/reports', label: 'Reports', icon: FileText },
         { path: '/app/assessments', label: 'Assessments', icon: CheckSquare },

@@ -41,6 +41,7 @@ export interface AuthUser {
 export type User = AuthUser;
 
 export enum ClassLevel {
+  N1 = 'N1', N2 = 'N2', N3 = 'N3',
   P1 = 'P1', P2 = 'P2', P3 = 'P3',
   P4 = 'P4', P5 = 'P5', P6 = 'P6', P7 = 'P7'
 }
@@ -415,3 +416,4 @@ export interface SchoolRoutine {
   isActive: boolean;
   slots?: RoutineSlot[];
 }
+
