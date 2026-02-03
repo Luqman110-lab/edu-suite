@@ -1,4 +1,4 @@
-import { db } from "./db";
+import { db } from "../server/db";
 import { students, marks, testSessions, testScores, p7ExamSets, p7Scores } from "../shared/schema";
 import { sql } from "drizzle-orm";
 
