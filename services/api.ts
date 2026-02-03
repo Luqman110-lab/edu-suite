@@ -225,6 +225,15 @@ export const apiService = {
     }
   },
 
+  updateClassAlias: async (classLevel: string, alias: string) => {
+    const settings = await apiService.getSettings();
+    if (!settings.classAliases) {
+      settings.classAliases = {};
+    }
+    settings.classAliases[classLevel] = alias;
+    await apiService.saveSettings(settings);
+  },
+
   exportData: async () => {
     const [students, teachers, marks, settings] = await Promise.all([
       apiService.getStudents(),

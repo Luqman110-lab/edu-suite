@@ -6,6 +6,7 @@ import {
 import { dbService } from '../services/api';
 import { ClassLevel, Student, MarkRecord, SchoolSettings } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
+import { useClassNames } from '../hooks/use-class-names';
 
 interface AnalyticsData {
   students: Student[];
@@ -58,6 +59,7 @@ const ChartCard = ({ title, children, className = "", isDark }: { title: string;
 
 export const Analytics: React.FC = () => {
   const { isDark } = useTheme();
+  const { getDisplayName, getAllClasses } = useClassNames();
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -165,7 +167,7 @@ export const Analytics: React.FC = () => {
     });
 
     return Object.values(ClassLevel).map(cls => ({
-      class: cls,
+      class: getDisplayName(cls),
       avgAggregate: classStats[cls] ? (classStats[cls].aggregate / classStats[cls].count).toFixed(1) : 0,
       students: classStats[cls]?.count || 0,
     }));
@@ -344,7 +346,7 @@ export const Analytics: React.FC = () => {
               onChange={(e) => setSelectedClass(e.target.value as ClassLevel | 'all')}
             >
               <option value="all">All Classes</option>
-              {Object.values(ClassLevel).map(c => <option key={c} value={c}>{c}</option>)}
+              {getAllClasses().map(({ level, displayName }) => <option key={level} value={level}>{displayName}</option>)}
             </select>
           </div>
           <div>
@@ -389,7 +391,7 @@ export const Analytics: React.FC = () => {
         />
         <StatCard
           title="Best Class"
-          value={summaryStats.bestClass}
+          value={summaryStats.bestClass === '-' ? '-' : getDisplayName(summaryStats.bestClass)}
           subtitle="Lowest avg aggregate"
           color="bg-purple-100 text-purple-600"
           isDark={isDark}
@@ -555,22 +557,22 @@ export const Analytics: React.FC = () => {
                       <tr key={item.student.id} className={`border-b ${isDark ? 'border-gray-700 hover:bg-gray-700' : 'border-gray-50 hover:bg-gray-50'}`}>
                         <td className="py-3 px-4">
                           <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${index === 0 ? 'bg-yellow-100 text-yellow-700' :
-                              index === 1 ? (isDark ? 'bg-gray-600 text-gray-300' : 'bg-gray-100 text-gray-700') :
-                                index === 2 ? 'bg-orange-100 text-orange-700' :
-                                  (isDark ? 'bg-gray-700 text-gray-400' : 'bg-gray-50 text-gray-500')
+                            index === 1 ? (isDark ? 'bg-gray-600 text-gray-300' : 'bg-gray-100 text-gray-700') :
+                              index === 2 ? 'bg-orange-100 text-orange-700' :
+                                (isDark ? 'bg-gray-700 text-gray-400' : 'bg-gray-50 text-gray-500')
                             }`}>
                             {index + 1}
                           </span>
                         </td>
                         <td className={`py-3 px-4 font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{item.student.name}</td>
-                        <td className={`py-3 px-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{item.student.classLevel}</td>
+                        <td className={`py-3 px-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{getDisplayName(item.student.classLevel)}</td>
                         <td className={`py-3 px-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{item.student.stream}</td>
                         <td className="py-3 px-4 text-center font-semibold text-primary-600">{item.aggregate}</td>
                         <td className="py-3 px-4 text-center">
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${item.division === 'I' ? 'bg-success-100 text-success-700' :
-                              item.division === 'II' ? 'bg-info-100 text-info-700' :
-                                item.division === 'III' ? 'bg-warning-100 text-warning-700' :
-                                  (isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700')
+                            item.division === 'II' ? 'bg-info-100 text-info-700' :
+                              item.division === 'III' ? 'bg-warning-100 text-warning-700' :
+                                (isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700')
                             }`}>
                             Division {item.division}
                           </span>

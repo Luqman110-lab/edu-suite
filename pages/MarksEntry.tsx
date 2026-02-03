@@ -3,6 +3,7 @@ import { dbService } from '../services/api';
 import { Student, ClassLevel, SubjectMarks, AssessmentType, MarkRecord, SUBJECTS_LOWER, SUBJECTS_UPPER, SchoolSettings } from '../types';
 import { calculateGrade, calculateAggregate, calculateDivision } from '../services/grading';
 import { Button } from '../components/Button';
+import { useClassNames } from '../hooks/use-class-names';
 import * as XLSX from 'xlsx';
 
 interface HistoryState {
@@ -14,6 +15,7 @@ interface HistoryState {
 }
 
 export const MarksEntry: React.FC = () => {
+  const { getDisplayName, getAllClasses } = useClassNames();
   const [selectedClass, setSelectedClass] = useState<ClassLevel>(ClassLevel.P7);
   const [selectedStream, setSelectedStream] = useState<string>('All');
   const [selectedTerm, setSelectedTerm] = useState(1);
@@ -1294,7 +1296,7 @@ export const MarksEntry: React.FC = () => {
               value={selectedClass}
               onChange={(e) => setSelectedClass(e.target.value as ClassLevel)}
             >
-              {Object.values(ClassLevel).map(c => <option key={c} value={c}>{c}</option>)}
+              {getAllClasses().map(({ level, displayName }) => <option key={level} value={level}>{displayName}</option>)}
             </select>
           </div>
           <div>
@@ -1919,7 +1921,7 @@ export const MarksEntry: React.FC = () => {
                 Are you sure you want to delete marks for {selectedForDelete.size} selected student(s)?
               </p>
               <p className="text-sm text-amber-600 dark:text-amber-400 mt-2">
-                This will delete marks for {selectedClass} {selectedStream !== 'All' ? selectedStream : ''} - Term {selectedTerm} {selectedType}
+                This will delete marks for {getDisplayName(selectedClass)} {selectedStream !== 'All' ? selectedStream : ''} - Term {selectedTerm} {selectedType}
               </p>
             </div>
             <div className="p-6 flex justify-end gap-3">

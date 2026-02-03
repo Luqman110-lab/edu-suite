@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Teacher, ClassLevel, Gender, ALL_SUBJECTS, SchoolSettings } from '../types';
+import { useClassNames } from '../hooks/use-class-names';
 
 // ============ ICONS ============
 const Icons = {
@@ -161,6 +162,7 @@ export const TeacherFormWizard: React.FC<TeacherFormWizardProps> = ({
     const [showWebcam, setShowWebcam] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [newTeachingClass, setNewTeachingClass] = useState('');
+    const { getDisplayName, getAllClasses } = useClassNames();
 
     const [formData, setFormData] = useState<Partial<Teacher>>({
         employeeId: '',
@@ -427,10 +429,10 @@ export const TeacherFormWizard: React.FC<TeacherFormWizardProps> = ({
                         <label
                             key={role}
                             className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border cursor-pointer transition-all ${formData.roles?.includes(role)
-                                    ? 'bg-gradient-to-r from-[#7B1113] to-[#1E3A5F] text-white border-transparent shadow-lg'
-                                    : isDark
-                                        ? 'bg-gray-700 text-gray-300 border-gray-600 hover:border-[#7B1113]'
-                                        : 'bg-white text-gray-700 border-gray-300 hover:border-[#7B1113]'
+                                ? 'bg-gradient-to-r from-[#7B1113] to-[#1E3A5F] text-white border-transparent shadow-lg'
+                                : isDark
+                                    ? 'bg-gray-700 text-gray-300 border-gray-600 hover:border-[#7B1113]'
+                                    : 'bg-white text-gray-700 border-gray-300 hover:border-[#7B1113]'
                                 }`}
                         >
                             <input
@@ -461,8 +463,8 @@ export const TeacherFormWizard: React.FC<TeacherFormWizardProps> = ({
                                 }}
                             >
                                 <option value="">Select Class</option>
-                                {Object.values(ClassLevel).map(c => (
-                                    <option key={c} value={c}>{c}</option>
+                                {getAllClasses().map(({ level, displayName }) => (
+                                    <option key={level} value={level}>{displayName}</option>
                                 ))}
                             </select>
                         </div>
@@ -497,10 +499,10 @@ export const TeacherFormWizard: React.FC<TeacherFormWizardProps> = ({
                                 <label
                                     key={sub}
                                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs cursor-pointer transition-all ${formData.subjects?.includes(sub)
-                                            ? 'bg-green-600 text-white border-transparent'
-                                            : isDark
-                                                ? 'bg-gray-700 text-gray-300 border-gray-600 hover:border-green-500'
-                                                : 'bg-white text-gray-600 border-gray-300 hover:border-green-500'
+                                        ? 'bg-green-600 text-white border-transparent'
+                                        : isDark
+                                            ? 'bg-gray-700 text-gray-300 border-gray-600 hover:border-green-500'
+                                            : 'bg-white text-gray-600 border-gray-300 hover:border-green-500'
                                         }`}
                                 >
                                     <input
@@ -538,8 +540,8 @@ export const TeacherFormWizard: React.FC<TeacherFormWizardProps> = ({
                                 onChange={e => setNewTeachingClass(e.target.value)}
                             >
                                 <option value="">Select Class</option>
-                                {Object.values(ClassLevel).map(c => (
-                                    <option key={c} value={c}>{c}</option>
+                                {getAllClasses().map(({ level, displayName }) => (
+                                    <option key={level} value={level}>{displayName}</option>
                                 ))}
                             </select>
                             {newTeachingClass && (
@@ -631,7 +633,7 @@ export const TeacherFormWizard: React.FC<TeacherFormWizardProps> = ({
                     <div className={`mt-4 p-3 rounded-lg ${isDark ? 'bg-blue-900/30 border-blue-800' : 'bg-blue-50 border-blue-200'} border`}>
                         <span className={`text-xs uppercase font-semibold ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>Class Teacher:</span>
                         <span className={`ml-2 font-bold ${isDark ? 'text-blue-200' : 'text-blue-900'}`}>
-                            {formData.assignedClass} {formData.assignedStream}
+                            {getDisplayName(formData.assignedClass!)} {formData.assignedStream}
                         </span>
                     </div>
                 )}
@@ -681,17 +683,17 @@ export const TeacherFormWizard: React.FC<TeacherFormWizardProps> = ({
                                     <button
                                         onClick={() => validateStep(currentStep) && setCurrentStep(step.id)}
                                         className={`flex items-center gap-2 ${currentStep === step.id
-                                                ? 'text-[#7B1113]'
-                                                : currentStep > step.id
-                                                    ? isDark ? 'text-green-400' : 'text-green-600'
-                                                    : isDark ? 'text-gray-500' : 'text-gray-400'
+                                            ? 'text-[#7B1113]'
+                                            : currentStep > step.id
+                                                ? isDark ? 'text-green-400' : 'text-green-600'
+                                                : isDark ? 'text-gray-500' : 'text-gray-400'
                                             }`}
                                     >
                                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${currentStep === step.id
-                                                ? 'bg-[#7B1113] text-white'
-                                                : currentStep > step.id
-                                                    ? 'bg-green-500 text-white'
-                                                    : isDark ? 'bg-gray-700 text-gray-400' : 'bg-gray-200 text-gray-500'
+                                            ? 'bg-[#7B1113] text-white'
+                                            : currentStep > step.id
+                                                ? 'bg-green-500 text-white'
+                                                : isDark ? 'bg-gray-700 text-gray-400' : 'bg-gray-200 text-gray-500'
                                             }`}>
                                             {currentStep > step.id ? <Icons.Check className="w-4 h-4" /> : step.id}
                                         </div>

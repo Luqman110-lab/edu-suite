@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/use-auth';
 import { dbService } from '../services/api';
 import { ClassLevel, SchoolSettings } from '../types';
 import { useQuery } from '@tanstack/react-query';
-import { Plus, Trash2, Users, Layers, BookOpen, AlertCircle, X, Check } from 'lucide-react';
+import { Plus, Trash2, Users, Layers, BookOpen, AlertCircle, X, Check, Edit2 } from 'lucide-react';
 
 const fetchSettings = async () => {
     return await dbService.getSettings();
@@ -19,6 +19,7 @@ export function ClassManagement() {
     });
 
     const [newStreams, setNewStreams] = useState<{ [key: string]: string }>({});
+    const [editingAlias, setEditingAlias] = useState<{ level: string, value: string } | null>(null);
     const [loading, setLoading] = useState(false);
 
     // Group class levels
@@ -42,6 +43,24 @@ export function ClassManagement() {
         } catch (error) {
             console.error(error);
             alert('Failed to add stream');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleUpdateAlias = async () => {
+        if (!editingAlias) return;
+        const { level, value } = editingAlias;
+        if (!value.trim()) return;
+
+        setLoading(true);
+        try {
+            await dbService.updateClassAlias(level, value.trim());
+            setEditingAlias(null);
+            refetch();
+        } catch (error) {
+            console.error(error);
+            alert('Failed to update class name');
         } finally {
             setLoading(false);
         }
@@ -78,9 +97,36 @@ export function ClassManagement() {
                             {level}
                         </div>
                         <div>
-                            <h3 className="font-bold text-gray-900 dark:text-white">
-                                {nurseryLevels.includes(level) ? 'Nursery' : 'Primary'} {level.replace(/\D/g, '')}
-                            </h3>
+                            {editingAlias?.level === level ? (
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="text"
+                                        value={editingAlias.value}
+                                        onChange={(e) => setEditingAlias({ ...editingAlias, value: e.target.value })}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleUpdateAlias()}
+                                        className="w-32 px-2 py-1 text-sm border rounded dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+                                        autoFocus
+                                    />
+                                    <button onClick={handleUpdateAlias} className="text-green-500 hover:text-green-600">
+                                        <Check className="w-4 h-4" />
+                                    </button>
+                                    <button onClick={() => setEditingAlias(null)} className="text-red-500 hover:text-red-600">
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-2 group/title">
+                                    <h3 className="font-bold text-gray-900 dark:text-white">
+                                        {settings?.classAliases?.[level] || (nurseryLevels.includes(level) ? 'Nursery' : 'Primary') + ' ' + level.replace(/\D/g, '')}
+                                    </h3>
+                                    <button
+                                        onClick={() => setEditingAlias({ level, value: settings?.classAliases?.[level] || (nurseryLevels.includes(level) ? 'Nursery' : 'Primary') + ' ' + level.replace(/\D/g, '') })}
+                                        className="opacity-0 group-hover/title:opacity-100 text-gray-400 hover:text-primary-500 transition-opacity"
+                                    >
+                                        <Edit2 className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
+                            )}
                             <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
                                 <Layers className="w-3 h-3" />
                                 {streams.length} Streams
@@ -125,8 +171,8 @@ export function ClassManagement() {
                             onClick={() => handleAddStream(level)}
                             disabled={!inputStream || loading}
                             className={`absolute right-1.5 top-1.5 p-1.5 rounded-lg transition-all ${inputStream
-                                    ? 'bg-primary-500 text-white shadow-sm hover:bg-primary-600'
-                                    : 'bg-gray-200 text-gray-400 dark:bg-gray-700 dark:text-gray-500 cursor-not-allowed'
+                                ? 'bg-primary-500 text-white shadow-sm hover:bg-primary-600'
+                                : 'bg-gray-200 text-gray-400 dark:bg-gray-700 dark:text-gray-500 cursor-not-allowed'
                                 }`}
                         >
                             <Plus className="w-4 h-4" />

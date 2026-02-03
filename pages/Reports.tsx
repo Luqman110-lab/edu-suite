@@ -5,6 +5,7 @@ import { ClassLevel, AssessmentType, SUBJECTS_UPPER, SUBJECTS_LOWER, SchoolSetti
 import { calculateGrade, getComment, getClassTeacherComment, getHeadTeacherComment } from '../services/grading';
 import { Button } from '../components/Button';
 import { useTheme } from '../contexts/ThemeContext';
+import { useClassNames } from '../hooks/use-class-names';
 
 declare const jspdf: any;
 
@@ -91,6 +92,7 @@ const calculatePositionFromMarks = (studentId: number, marks: ApiMarkRecord[], c
 
 export const Reports: React.FC = () => {
   const { isDark } = useTheme();
+  const { getDisplayName, getAllClasses } = useClassNames();
   const [selectedClass, setSelectedClass] = useState<ClassLevel>(ClassLevel.P7);
   const [selectedStream, setSelectedStream] = useState<string>('All');
   const [selectedTerm, setSelectedTerm] = useState(1);
@@ -528,7 +530,7 @@ export const Reports: React.FC = () => {
       doc.text("CLASS:", col1X, cursorY);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(0, 0, 0);
-      doc.text(student.classLevel, col1X + 14, cursorY);
+      doc.text(getDisplayName(student.classLevel), col1X + 14, cursorY);
 
       doc.setFont("helvetica", "bold");
       doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
@@ -903,7 +905,7 @@ export const Reports: React.FC = () => {
                   value={selectedClass}
                   onChange={(e) => setSelectedClass(e.target.value as ClassLevel)}
                 >
-                  {Object.values(ClassLevel).map(c => <option key={c} value={c}>{c}</option>)}
+                  {getAllClasses().map(({ level, displayName }) => <option key={level} value={level}>{displayName}</option>)}
                 </select>
               </div>
 

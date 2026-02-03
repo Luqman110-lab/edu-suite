@@ -130,7 +130,7 @@ export interface Teacher {
   assignedClass?: ClassLevel;
   assignedStream?: string; // Changed from enum to string
   subjects: string[];
-  teachingClasses: ClassLevel[];
+  teachingClasses: string[]; // "Class-Stream" strings
   qualifications?: string;
   dateJoined?: string;
   initials?: string;
@@ -230,6 +230,7 @@ export interface SchoolSettings {
   nextTermBeginBoarders: string;
   nextTermBeginDay: string;
   streams: { [key: string]: string[] };
+  classAliases?: { [key: string]: string };
   gradingConfig?: GradingConfig;
   subjectConfig?: SubjectConfig;
   reportConfig?: ReportConfig;

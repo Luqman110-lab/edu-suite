@@ -32,6 +32,7 @@ export const schools = pgTable("schools", {
     P6: [],
     P7: [],
   }),
+  classAliases: json("class_aliases").$type<{ [key: string]: string }>().default({}),
   gradingConfig: json("grading_config").$type<{
     grades: { grade: string; minScore: number; maxScore: number; points: number }[];
     divisions: { division: string; minAggregate: number; maxAggregate: number }[];
@@ -357,6 +358,7 @@ export const deprecatedSettings = pgTable("settings", {
     P6: [],
     P7: [],
   }),
+  classAliases: json("class_aliases").$type<{ [key: string]: string }>().default({}),
   gradingConfig: json("grading_config").$type<{
     grades: { grade: string; minScore: number; maxScore: number; points: number }[];
     divisions: { division: string; minAggregate: number; maxAggregate: number }[];
@@ -2477,4 +2479,5 @@ export const insertProgramItemSchema = createInsertSchema(programItems);
 export const selectProgramItemSchema = createSelectSchema(programItems);
 export type ProgramItem = typeof programItems.$inferSelect;
 export type InsertProgramItem = typeof programItems.$inferInsert;
+
 

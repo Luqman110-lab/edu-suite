@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from './Button';
 import { ClassLevel, Gender, Student, SchoolSettings } from '../types';
+import { useClassNames } from '../hooks/use-class-names';
 
 interface WebcamCaptureProps {
     onCapture: (imageData: string) => void;
@@ -198,6 +199,7 @@ export const StudentFormWizard: React.FC<StudentFormWizardProps> = ({
     const [submitting, setSubmitting] = useState(false);
     const [errors, setErrors] = useState<{ [key: string]: string }>({});
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const { getDisplayName, getAllClasses } = useClassNames();
 
     const [formData, setFormData] = useState<StudentFormData>(() => ({
         name: initialData?.name || '',
@@ -457,8 +459,8 @@ export const StudentFormWizard: React.FC<StudentFormWizardProps> = ({
                                     value={formData.classLevel}
                                     onChange={e => setFormData(prev => ({ ...prev, classLevel: e.target.value as ClassLevel }))}
                                 >
-                                    {Object.values(ClassLevel).map(c => (
-                                        <option key={c} value={c}>{c}</option>
+                                    {getAllClasses().map(({ level, displayName }) => (
+                                        <option key={level} value={level}>{displayName}</option>
                                     ))}
                                 </select>
                             </div>
@@ -770,7 +772,7 @@ export const StudentFormWizard: React.FC<StudentFormWizardProps> = ({
                                 <div>
                                     <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>{formData.name || 'No Name'}</h3>
                                     <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                                        {formData.classLevel} {formData.stream && `• ${formData.stream}`} • {formData.gender === 'M' ? 'Male' : 'Female'}
+                                        {getDisplayName(formData.classLevel)} {formData.stream && `• ${formData.stream}`} • {formData.gender === 'M' ? 'Male' : 'Female'}
                                     </p>
                                     <p className={`text-sm font-mono ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{formData.indexNumber}</p>
                                 </div>
@@ -847,15 +849,15 @@ export const StudentFormWizard: React.FC<StudentFormWizardProps> = ({
                                 key={step.id}
                                 onClick={() => currentStep > step.id && setCurrentStep(step.id)}
                                 className={`flex flex-col items-center transition-all ${currentStep >= step.id
-                                        ? 'text-primary-600'
-                                        : isDark ? 'text-gray-500' : 'text-gray-400'
+                                    ? 'text-primary-600'
+                                    : isDark ? 'text-gray-500' : 'text-gray-400'
                                     } ${currentStep > step.id ? 'cursor-pointer hover:text-primary-500' : 'cursor-default'}`}
                             >
                                 <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-1 transition-all ${currentStep === step.id
-                                        ? 'bg-primary-600 text-white scale-110 shadow-lg'
-                                        : currentStep > step.id
-                                            ? 'bg-primary-100 text-primary-600 dark:bg-primary-900'
-                                            : isDark ? 'bg-gray-700 text-gray-500' : 'bg-gray-200 text-gray-400'
+                                    ? 'bg-primary-600 text-white scale-110 shadow-lg'
+                                    : currentStep > step.id
+                                        ? 'bg-primary-100 text-primary-600 dark:bg-primary-900'
+                                        : isDark ? 'bg-gray-700 text-gray-500' : 'bg-gray-200 text-gray-400'
                                     }`}>
                                     {currentStep > step.id ? '✓' : step.icon}
                                 </div>

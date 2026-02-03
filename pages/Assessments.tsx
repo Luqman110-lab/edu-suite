@@ -4,6 +4,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { dbService } from '../services/api';
 import { ClassLevel, AssessmentType, SUBJECTS_UPPER, SUBJECTS_LOWER, SchoolSettings, MarkRecord, Student, Gender, Teacher } from '../types';
 import { calculateGrade, calculateAggregate, calculateDivision } from '../services/grading';
+import { useClassNames } from '../hooks/use-class-names';
 import { Button } from '../components/Button';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 
@@ -32,6 +33,7 @@ const Icons = {
 
 export const Assessments: React.FC = () => {
   const { isDark } = useTheme();
+  const { getDisplayName, getAllClasses } = useClassNames();
   const [selectedClass, setSelectedClass] = useState<ClassLevel>(ClassLevel.P7);
   const [selectedStream, setSelectedStream] = useState<string>('ALL');
   const [selectedTerm, setSelectedTerm] = useState(1);
@@ -302,7 +304,7 @@ export const Assessments: React.FC = () => {
 
     const teacherForStream = streamFilter !== 'ALL'
       ? teachers.find(t => {
-        const assignments = t.teachingAssignments || [];
+        const assignments = t.teachingClasses || [];
         const hasAssignment = assignments.some((a: string) => {
           if (a.includes('-')) {
             const [cls, strm] = a.split('-');
@@ -313,7 +315,7 @@ export const Assessments: React.FC = () => {
         return hasAssignment && (t.roles || []).includes('Class Teacher');
       })
       : teachers.find(t => {
-        const assignments = t.teachingAssignments || [];
+        const assignments = t.teachingClasses || [];
         const hasAssignment = assignments.some((a: string) => a === selectedClass || a.startsWith(selectedClass + '-'));
         return hasAssignment && (t.roles || []).includes('Class Teacher');
       });
@@ -402,7 +404,7 @@ export const Assessments: React.FC = () => {
     doc.setFont("helvetica", "bold");
     doc.text("Class:", col1X, infoY1);
     doc.setFont("helvetica", "normal");
-    doc.text(`${selectedClass}${streamText}`, col1X + 15, infoY1);
+    doc.text(`${getDisplayName(selectedClass)}${streamText}`, col1X + 15, infoY1);
 
     doc.setFont("helvetica", "bold");
     doc.text("Term:", col2X, infoY1);
@@ -659,7 +661,7 @@ export const Assessments: React.FC = () => {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
     doc.setTextColor(colors.muted[0], colors.muted[1], colors.muted[2]);
-    doc.text(`${selectedClass}${streamText} | ${typeText} | Term ${termFull} ${year}`, pageWidth / 2, analysisY, { align: 'center' });
+    doc.text(`${getDisplayName(selectedClass)}${streamText} | ${typeText} | Term ${termFull} ${year}`, pageWidth / 2, analysisY, { align: 'center' });
     analysisY += 4;
 
     doc.setDrawColor(colors.primary[0], colors.primary[1], colors.primary[2]);
@@ -937,7 +939,7 @@ export const Assessments: React.FC = () => {
               value={selectedClass}
               onChange={(e) => setSelectedClass(e.target.value as ClassLevel)}
             >
-              {Object.values(ClassLevel).map(c => <option key={c} value={c}>{c}</option>)}
+              {getAllClasses().map(({ level, displayName }) => <option key={level} value={level}>{displayName}</option>)}
             </select>
           </div>
           <div>
@@ -997,7 +999,7 @@ export const Assessments: React.FC = () => {
                 Class Teacher: {classTeacher.name}
               </div>
               <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                {selectedClass} {selectedStream !== 'ALL' ? selectedStream : ''}
+                {getDisplayName(selectedClass)} {selectedStream !== 'ALL' ? selectedStream : ''}
               </div>
             </div>
           </div>
@@ -1154,14 +1156,14 @@ export const Assessments: React.FC = () => {
             )}
 
             <div className={`text-center text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'} mt-4`}>
-              Analysis based on {stats.totalStudents} records for {selectedClass} {selectedStream !== 'ALL' ? selectedStream : ''} - {selectedType === 'BOTH' ? 'End of Term' : (selectedType === 'BOT' ? 'Beginning of Term' : 'End of Term')}.
+              Analysis based on {stats.totalStudents} records for {getDisplayName(selectedClass)} {selectedStream !== 'ALL' ? selectedStream : ''} - {selectedType === 'BOTH' ? 'End of Term' : (selectedType === 'BOT' ? 'Beginning of Term' : 'End of Term')}.
             </div>
           </div>
         ) : stats && stats.totalStudents === 0 ? (
           <div className={`py-16 text-center ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
             <Icons.BarChart3 className="w-12 h-12 mx-auto mb-3 opacity-30" />
             <p className="font-medium">No assessment data found</p>
-            <p className="text-sm mt-1">Enter marks for {selectedClass} {selectedStream !== 'ALL' ? selectedStream : ''} to see analytics</p>
+            <p className="text-sm mt-1">Enter marks for {getDisplayName(selectedClass)} {selectedStream !== 'ALL' ? selectedStream : ''} to see analytics</p>
           </div>
         ) : null}
 
