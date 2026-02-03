@@ -38,6 +38,8 @@ export interface AuthUser {
   schools?: UserSchool[];
 }
 
+export type User = AuthUser;
+
 export enum ClassLevel {
   P1 = 'P1', P2 = 'P2', P3 = 'P3',
   P4 = 'P4', P5 = 'P5', P6 = 'P6', P7 = 'P7'
@@ -301,4 +303,115 @@ export interface BoardingSettings {
   autoMarkAbsentAfterMinutes: number;
   createdAt?: string;
   updatedAt?: string;
+}
+
+// ==================== PLANNING & PROGRAMMING ====================
+
+export interface TermPlan {
+  id: number;
+  schoolId?: number;
+  name: string;
+  term: number;
+  year: number;
+  startDate: string;
+  endDate: string;
+  theme?: string;
+  objectives: string[];
+  keyActivities: { week: number; activity: string; responsible?: string }[];
+  status: string;
+}
+
+export interface EventCommittee {
+  id: number;
+  eventId: number;
+  userId: number;
+  role: string;
+  responsibilities?: string;
+}
+
+export interface EventTask {
+  id: number;
+  eventId: number;
+  title: string;
+  description?: string;
+  assignedToId?: number;
+  dueDate?: string;
+  priority: string;
+  status: string;
+}
+
+export interface ProgramItem {
+  id: number;
+  eventId: number;
+  title: string;
+  startTime?: string;
+  endTime?: string;
+  durationMinutes?: number;
+  responsiblePerson?: string;
+  description?: string;
+  sortOrder: number;
+}
+
+export interface SchoolEvent {
+  id: number;
+  termPlanId?: number;
+  name: string;
+  eventType: string;
+  description?: string;
+  startDate: string;
+  endDate?: string;
+  startTime?: string;
+  endTime?: string;
+  venue?: string;
+  targetAudience?: string;
+  targetClasses?: string[];
+  budget?: number;
+  status: string;
+  notes?: string;
+  coordinatorId?: number;
+  committees?: EventCommittee[];
+  tasks?: EventTask[];
+  programItems?: ProgramItem[];
+}
+
+export interface TimetablePeriod {
+  id: number;
+  name: string;
+  periodType: string;
+  startTime: string;
+  endTime: string;
+  duration?: number;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+export interface ClassTimetable {
+  id: number;
+  periodId: number;
+  classLevel: string;
+  stream?: string;
+  dayOfWeek: string;
+  subject?: string;
+  teacherId?: number;
+  room?: string;
+}
+
+export interface RoutineSlot {
+  id?: number;
+  activity: string;
+  customActivity?: string;
+  startTime: string;
+  endTime: string;
+  description?: string;
+}
+
+export interface SchoolRoutine {
+  id: number;
+  name: string;
+  description?: string;
+  appliesTo: string;
+  dayOfWeek: string[];
+  isDefault: boolean;
+  isActive: boolean;
+  slots?: RoutineSlot[];
 }

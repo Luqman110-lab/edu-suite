@@ -2415,3 +2415,59 @@ export const insertPlanInstallmentSchema = createInsertSchema(planInstallments);
 export const selectPlanInstallmentSchema = createSelectSchema(planInstallments);
 export type PlanInstallment = typeof planInstallments.$inferSelect;
 export type InsertPlanInstallment = typeof planInstallments.$inferInsert;
+
+// ==================== PUSH NOTIFICATIONS ====================
+
+export const pushSubscriptions = pgTable("push_subscriptions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  endpoint: text("endpoint").notNull(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  userIdx: index("push_subscriptions_user_idx").on(table.userId),
+  endpointUnique: unique().on(table.endpoint),
+}));
+
+export const pushSubscriptionsRelations = relations(pushSubscriptions, ({ one }) => ({
+  user: one(users, {
+    fields: [pushSubscriptions.userId],
+    references: [users.id],
+  }),
+}));
+
+export const insertPushSubscriptionSchema = createInsertSchema(pushSubscriptions);
+export const selectPushSubscriptionSchema = createSelectSchema(pushSubscriptions);
+export type PushSubscription = typeof pushSubscriptions.$inferSelect;
+export type InsertPushSubscription = typeof pushSubscriptions.$inferInsert;
+
+// ==================== EVENT PROGRAMS ====================
+
+// Program Items - detailed agenda for an event (Run of Show)
+export const programItems = pgTable("program_items", {
+  id: serial("id").primaryKey(),
+  eventId: integer("event_id").notNull().references(() => schoolEvents.id, { onDelete: "cascade" }),
+  title: text("title").notNull(), // e.g. "Opening Prayer"
+  startTime: text("start_time"), // "10:00"
+  endTime: text("end_time"), // "10:15"
+  durationMinutes: integer("duration_minutes"),
+  responsiblePerson: text("responsible_person"), // e.g. "Headteacher"
+  description: text("description"),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  eventIdx: index("program_items_event_idx").on(table.eventId),
+}));
+
+export const programItemsRelations = relations(programItems, ({ one }) => ({
+  event: one(schoolEvents, {
+    fields: [programItems.eventId],
+    references: [schoolEvents.id],
+  }),
+}));
+
+export const insertProgramItemSchema = createInsertSchema(programItems);
+export const selectProgramItemSchema = createSelectSchema(programItems);
+export type ProgramItem = typeof programItems.$inferSelect;
+export type InsertProgramItem = typeof programItems.$inferInsert;

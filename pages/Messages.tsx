@@ -822,6 +822,23 @@ const NewMessageModal = ({
     </div>
   );
 };
+
+// Helper to convert VAPID key
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/-/g, '+')
+    .replace(/_/g, '/');
+
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
 // ------------------------------------
 
 const MessagingLayout = () => {
@@ -849,10 +866,50 @@ const MessagingLayout = () => {
   const ENABLE_WEBSOCKETS = false;
 
   // Request Notification Permission
+  // Request Notification Permission & Subscribe
   useEffect(() => {
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
+    const registerPush = async () => {
+      if ('Notification' in window && 'serviceWorker' in navigator) {
+        // 1. Request Permission
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          try {
+            // 2. Register Service Worker
+            const registration = await navigator.serviceWorker.register('/sw.js', {
+              scope: '/'
+            });
+            console.log('Service Worker registered');
+
+            // 3. Subscribe
+            const publicVapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+            if (!publicVapidKey) {
+              console.warn("VITE_VAPID_PUBLIC_KEY not found");
+              return;
+            }
+
+            const subscription = await registration.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
+            });
+
+            // 4. Send to Backend
+            await fetch('/api/notifications/subscribe', {
+              method: 'POST',
+              body: JSON.stringify(subscription),
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              credentials: 'include'
+            });
+            console.log('Push Subscribe success');
+
+          } catch (err) {
+            console.error('Push Subscribe error', err);
+          }
+        }
+      }
+    };
+    registerPush();
   }, []);
 
   // Initialize WS
@@ -1099,13 +1156,10 @@ const MessagingLayout = () => {
     return { ...m, readByAll };
   });
 
-  const isMobile = window.innerWidth < 768;
-  const showSidebar = !id || !isMobile;
-  const showChat = !!id;
-
   return (
     <div className="h-[calc(100vh-6rem)] md:h-[calc(100vh-8rem)] bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden flex">
-      <div className={`${showSidebar ? 'w-full md:w-80 lg:w-96 flex-shrink-0' : 'hidden md:block md:w-80 lg:w-96'} h-full`}>
+      {/* Sidebar: - On mobile: show if NO chat selected (id undefined) - On desktop: always show */}
+      <div className={`${id ? 'hidden md:block' : 'w-full'} md:w-80 lg:w-96 flex-shrink-0 h-full border-r border-gray-200 dark:border-gray-700`}>
         <MessagingSidebar
           conversations={conversations}
           activeId={id ? parseInt(id) : undefined}
@@ -1117,7 +1171,8 @@ const MessagingLayout = () => {
         />
       </div>
 
-      <div className={`${showChat ? 'w-full md:flex-1' : 'hidden md:flex md:flex-1'} h-full bg-gray-50/50 dark:bg-black/20`}>
+      {/* Chat Area: - On mobile: show if chat SELECTED (id defined) - On desktop: always show (flex-1) */}
+      <div className={`${!id ? 'hidden md:flex' : 'w-full flex'} md:flex-1 h-full bg-gray-50/50 dark:bg-black/20 flex-col`}>
         {id && activeConversation ? (
           <ChatArea
             conversation={activeConversation}

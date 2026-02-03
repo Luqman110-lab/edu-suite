@@ -10,6 +10,8 @@ import { broadcastMessage } from "./websocket";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { NotificationService } from "./services/NotificationService";
+import { pushSubscriptions, programItems } from "../shared/schema";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -4428,6 +4430,91 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                 .limit(limit);
 
             res.json(logs);
+        } catch (error: any) {
+            res.status(500).json({ message: error.message });
+        }
+    });
+
+    // ==================== NOTIFICATIONS ====================
+
+    app.post("/api/notifications/subscribe", requireAuth, async (req, res) => {
+        try {
+            const subscription = req.body;
+            // Check if exists
+            const existing = await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.endpoint, subscription.endpoint));
+            if (existing.length === 0) {
+                await db.insert(pushSubscriptions).values({
+                    userId: (req.user as any).id,
+                    endpoint: subscription.endpoint,
+                    p256dh: subscription.keys.p256dh,
+                    auth: subscription.keys.auth
+                });
+            }
+            res.status(201).json({ message: "Subscribed" });
+        } catch (error: any) {
+            res.status(500).json({ message: "Failed to subscribe: " + error.message });
+        }
+    });
+
+    app.post("/api/notifications/test", requireAuth, async (req, res) => {
+        try {
+            await NotificationService.sendToUser((req.user as any).id, "Test Notification", "System check successful!");
+            res.json({ message: "Test notification sent" });
+        } catch (error: any) {
+            res.status(500).json({ message: error.message });
+        }
+    });
+
+    // ==================== EVENT PROGRAMS ====================
+
+    app.get("/api/events/:eventId/program", requireAuth, async (req, res) => {
+        try {
+            const eventId = parseInt(req.params.eventId);
+            const items = await db.select().from(programItems)
+                .where(eq(programItems.eventId, eventId))
+                .orderBy(asc(programItems.sortOrder));
+            res.json(items);
+        } catch (error: any) {
+            res.status(500).json({ message: error.message });
+        }
+    });
+
+    app.post("/api/events/:eventId/program", requireAuth, async (req, res) => {
+        try {
+            const eventId = parseInt(req.params.eventId);
+            const { title, startTime, endTime, responsiblePerson, description } = req.body;
+
+            const [newItem] = await db.insert(programItems).values({
+                eventId,
+                title,
+                startTime,
+                endTime,
+                responsiblePerson,
+                description,
+                sortOrder: 0 // Logic to put at end?
+            }).returning();
+
+            res.json(newItem);
+        } catch (error: any) {
+            res.status(500).json({ message: error.message });
+        }
+    });
+
+    app.delete("/api/program-items/:id", requireAuth, async (req, res) => {
+        try {
+            const id = parseInt(req.params.id);
+            await db.delete(programItems).where(eq(programItems.id, id));
+            res.json({ message: "Item deleted" });
+        } catch (error: any) {
+            res.status(500).json({ message: error.message });
+        }
+    });
+
+    app.put("/api/program-items/:id", requireAuth, async (req, res) => {
+        try {
+            const id = parseInt(req.params.id);
+            const [updated] = await db.update(programItems).set(req.body).where(eq(programItems.id, id)).returning();
+            res.json(updated);
         } catch (error: any) {
             res.status(500).json({ message: error.message });
         }
