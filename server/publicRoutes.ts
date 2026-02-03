@@ -1,6 +1,6 @@
 import type { Express } from "express";
-import { db } from "../db";
-import { students } from "../../shared/schema";
+import { db } from "./db";
+import { students } from "../shared/schema";
 import { eq } from "drizzle-orm";
 
 export function setupPublicRoutes(app: Express) {
