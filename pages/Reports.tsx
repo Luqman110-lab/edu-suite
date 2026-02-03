@@ -6,6 +6,8 @@ import { calculateGrade, getComment, getClassTeacherComment, getHeadTeacherComme
 import { Button } from '../components/Button';
 import { useTheme } from '../contexts/ThemeContext';
 import { useClassNames } from '../hooks/use-class-names';
+import * as XLSX from 'xlsx';
+import { ReportPreviewModal } from '../components/ReportPreviewModal';
 
 declare const jspdf: any;
 
@@ -105,6 +107,13 @@ export const Reports: React.FC = () => {
   const [dataLoading, setDataLoading] = useState(false);
   const [allMarks, setAllMarks] = useState<ApiMarkRecord[]>([]);
   const [allTeachers, setAllTeachers] = useState<ApiTeacher[]>([]);
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewData, setPreviewData] = useState<any>(null);
+  // Enhanced filters
+  const [filterDivision, setFilterDivision] = useState<string>('All');
+  const [filterAggregateMin, setFilterAggregateMin] = useState<string>('');
+  const [filterAggregateMax, setFilterAggregateMax] = useState<string>('');
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   const availableStreams = settings?.streams[selectedClass] || [];
 
@@ -878,6 +887,157 @@ export const Reports: React.FC = () => {
     }
   };
 
+  const exportToExcel = () => {
+    if (filteredPreviews.length === 0) {
+      alert('No student data to export');
+      return;
+    }
+
+    const subjects = ['P1', 'P2', 'P3'].includes(selectedClass) ? SUBJECTS_LOWER : SUBJECTS_UPPER;
+    const year = settings?.currentYear || new Date().getFullYear();
+    const termText = selectedTerm === 1 ? "ONE" : selectedTerm === 2 ? "TWO" : "THREE";
+    const isBotReport = reportType === AssessmentType.BOT;
+
+    // Prepare data for Excel
+    const excelData = filteredPreviews.map((preview, index) => {
+      const student = preview.student;
+      const currentRecord = isBotReport ? preview.botMarks : preview.eotMarks;
+      const currentPosition = isBotReport ? preview.botPosition : preview.eotPosition;
+
+      const row: any = {
+        '#': index + 1,
+        'Student Name': student.name,
+        'Index Number': student.indexNumber || '-',
+        'Gender': student.gender === 'M' ? 'Male' : 'Female',
+        'Class': getDisplayName(student.classLevel),
+        'Stream': student.stream || '-',
+      };
+
+      // Add subject marks and grades
+      subjects.forEach(sub => {
+        const mark = currentRecord?.marks ? (currentRecord.marks as any)[sub] : undefined;
+        const { grade } = calculateGrade(mark, settings?.gradingConfig);
+        const displaySubject = sub.toUpperCase();
+        row[`${displaySubject} Mark`] = mark !== undefined ? mark : '-';
+        row[`${displaySubject} Grade`] = grade;
+      });
+
+      // Add aggregate, division, position
+      row['Aggregate'] = currentRecord?.aggregate || '-';
+      row['Division'] = currentRecord?.division || '-';
+      row['Position'] = currentPosition;
+
+      // Add comments if available
+      if (currentRecord?.division) {
+        const studentForComment = {
+          ...student,
+          classLevel: student.classLevel as any,
+          gender: student.gender as any,
+          specialCases: student.specialCases || { absenteeism: false, sickness: false, fees: false }
+        };
+        row['Class Teacher Comment'] = getClassTeacherComment(currentRecord.division, studentForComment);
+        row['Head Teacher Comment'] = getHeadTeacherComment(currentRecord.division, studentForComment);
+      }
+
+      return row;
+    });
+
+    // Create worksheet
+    const ws = XLSX.utils.json_to_sheet(excelData);
+
+    // Set column widths
+    const colWidths = [
+      { wch: 5 },  // #
+      { wch: 30 }, // Name
+      { wch: 15 }, // Index
+      { wch: 10 }, // Gender
+      { wch: 10 }, // Class
+      { wch: 12 }, // Stream
+    ];
+    subjects.forEach(() => {
+      colWidths.push({ wch: 10 }); // Mark
+      colWidths.push({ wch: 8 });  // Grade
+    });
+    colWidths.push({ wch: 10 }); // Aggregate
+    colWidths.push({ wch: 10 }); // Division
+    colWidths.push({ wch: 10 }); // Position
+    colWidths.push({ wch: 50 }); // CT Comment
+    colWidths.push({ wch: 50 }); // HT Comment
+    ws['!cols'] = colWidths;
+
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+    const sheetName = `${getDisplayName(selectedClass)}_Term${selectedTerm}_${isBotReport ? 'BOT' : 'EOT'}`;
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+
+    // Generate filename
+    const fileName = `Report_Cards_${getDisplayName(selectedClass)}_${selectedStream !== 'All' ? selectedStream + '_' : ''}Term${selectedTerm}_${year}_${isBotReport ? 'BOT' : 'EOT'}.xlsx`;
+
+    // Save file
+    XLSX.writeFile(wb, fileName);
+  };
+
+  const exportToCSV = () => {
+    if (!studentPreviews || studentPreviews.length === 0) {
+      alert('No student data to export');
+      return;
+    }
+
+    const subjects = ['P1', 'P2', 'P3'].includes(selectedClass) ? SUBJECTS_LOWER : SUBJECTS_UPPER;
+    const year = settings?.currentYear || new Date().getFullYear();
+    const isBotReport = reportType === AssessmentType.BOT;
+    const currentMarks = isBotReport
+      ? allMarks.filter(m => m.type === AssessmentType.BOT && m.term === selectedTerm && m.year === year)
+      : allMarks.filter(m => m.type === AssessmentType.EOT && m.term === selectedTerm && m.year === year);
+
+    const headers = [
+      'Student Name', 'Index Number', 'Gender', 'Class', 'Stream',
+      ...subjects.map(s => `${s}_Mark`),
+      ...subjects.map(s => `${s}_Grade`),
+      'Aggregate', 'Division', 'Position',
+      'Class Teacher Comment', 'Head Teacher Comment'
+    ];
+
+    const rows = studentPreviews.map(preview => {
+      const student = preview.student;
+      const markRecord = currentMarks.find(m => m.studentId === student.id);
+      const position = isBotReport ? preview.botPosition : preview.eotPosition;
+
+      const studentForComment = {
+        ...student,
+        classLevel: student.classLevel as any,
+        gender: student.gender as any,
+        specialCases: student.specialCases || { absenteeism: false, sickness: false, fees: false }
+      };
+
+      const ctComment = getClassTeacherComment(markRecord?.division || 'U', studentForComment);
+      const htComment = getHeadTeacherComment(markRecord?.division || 'U', studentForComment);
+
+      return [
+        student.name, student.indexNumber || '', student.gender, student.classLevel, student.stream || '',
+        ...subjects.map(s => markRecord?.marks?.[s] ?? ''),
+        ...subjects.map(s => {
+          const mark = markRecord?.marks?.[s];
+          return mark !== undefined ? calculateGrade(mark) : '';
+        }),
+        markRecord?.aggregate || '', markRecord?.division || '', position,
+        `"${ctComment.replace(/"/g, '""')}"`, `"${htComment.replace(/"/g, '""')}"`
+      ];
+    });
+
+    const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    const fileName = `Report_Cards_${getDisplayName(selectedClass)}_${selectedStream !== 'All' ? selectedStream + '_' : ''}Term${selectedTerm}_${year}_${isBotReport ? 'BOT' : 'EOT'}.csv`;
+    link.setAttribute('href', url);
+    link.setAttribute('download', fileName);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -1021,10 +1181,38 @@ export const Reports: React.FC = () => {
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                     </svg>
-                    Generate {selectedStudentIds.size} Report{selectedStudentIds.size !== 1 ? 's' : ''}
+                    Generate {selectedStudentIds.size} PDF Report{selectedStudentIds.size !== 1 ? 's' : ''}
                   </span>
                 )}
               </Button>
+
+              <button
+                onClick={exportToExcel}
+                disabled={filteredPreviews.length === 0}
+                className={`w-full px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-200 flex items-center justify-center gap-2 ${filteredPreviews.length === 0
+                  ? isDark ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : isDark ? 'bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-900/20' : 'bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-600/20'
+                  }`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Export to Excel
+              </button>
+
+              <button
+                onClick={exportToCSV}
+                disabled={studentPreviews.length === 0}
+                className={`w-full px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-200 flex items-center justify-center gap-2 ${studentPreviews.length === 0
+                  ? isDark ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : isDark ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-900/20' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/20'
+                  }`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Export to CSV
+              </button>
 
               <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'} text-center`}>
                 {selectedStudentIds.size} of {stats.total} students selected

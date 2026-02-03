@@ -40,10 +40,10 @@ export const StudentIDCard: React.FC<StudentIDCardProps> = ({
     const qrData = `${window.location.origin}/verify-student/${student.id}`;
 
     QRCode.toDataURL(qrData, {
-      width: 100,
+      width: 200,
       margin: 1,
       color: { dark: '#000000', light: '#ffffff' },
-      errorCorrectionLevel: 'M'
+      errorCorrectionLevel: 'H'
     }).then(setQrDataUrl).catch(console.error);
   }, [student, settings]);
 
@@ -296,8 +296,7 @@ export const StudentIDCard: React.FC<StudentIDCardProps> = ({
     `);
     printWindow.document.close();
     printWindow.focus();
-    setTimeout(() => printWindow.print(), 300);
-    setTimeout(() => printWindow.print(), 300);
+    setTimeout(() => printWindow.print(), 500);
   };
 
   const handleDownload = async () => {

@@ -6,6 +6,7 @@ import { LogoIcon } from './Logo';
 import { PWAInstallPrompt } from './PWAInstallPrompt';
 import { NetworkStatus } from './NetworkStatus';
 import { MobileBottomNav } from './MobileBottomNav';
+import { QRScanner } from './QRScanner';
 import {
   LayoutDashboard,
   Users,
@@ -40,7 +41,8 @@ import {
   FileBadge,
   Search,
   School2,
-  Layers
+  Layers,
+  Camera
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -300,6 +302,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState(0);
+  const [showScanner, setShowScanner] = useState(false);
 
   useEffect(() => {
     setSidebarOpen(false);
@@ -707,9 +710,25 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         </main>
       </div>
 
+
       <MobileBottomNav unreadMessages={unreadMessages} />
       <PWAInstallPrompt />
       <NetworkStatus />
+
+      {/* Floating QR Scanner Button */}
+      <button
+        onClick={() => setShowScanner(true)}
+        className="fixed bottom-20 md:bottom-6 right-6 z-30 w-14 h-14 rounded-full bg-gradient-to-br from-[#0052CC] to-[#003D99] text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 flex items-center justify-center group"
+        title="Scan QR Code"
+      >
+        <Camera className="w-6 h-6" />
+        <span className="absolute -top-8 right-0 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+          Scan QR Code
+        </span>
+      </button>
+
+      {/* QR Scanner Modal */}
+      {showScanner && <QRScanner onClose={() => setShowScanner(false)} />}
     </div>
   );
 };
