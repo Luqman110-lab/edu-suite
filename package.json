@@ -11,6 +11,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "db:push": "drizzle-kit push",
+    "migrate:classes": "tsx scripts/normalize-class-names.ts",
     "server": "tsx server/index.ts",
     "start": "node server/start-production.js"
   },
