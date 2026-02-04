@@ -2190,8 +2190,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                         eq(marks.studentId, studentId),
                         eq(marks.term, term),
                         eq(marks.year, year),
-                        eq(marks.type, type),
-                        eq(marks.schoolId, schoolId)
+                        eq(marks.type, type)
                     ))
                     .limit(1);
 
