@@ -1,28 +1,6 @@
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Users, Search, UserPlus, CheckCircle, XCircle, Key, RefreshCw, Copy, Check } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/components/ui/use-toast";
+import { Users, Search, UserPlus, CheckCircle, XCircle, RefreshCw, Copy, Check, X } from "lucide-react";
 
 interface Guardian {
     id: number;
@@ -40,8 +18,13 @@ export function ParentManagement() {
     const [inviteGuardian, setInviteGuardian] = useState<Guardian | null>(null);
     const [credentials, setCredentials] = useState<{ username: string; password: string } | null>(null);
     const [copied, setCopied] = useState(false);
-    const { toast } = useToast();
+    const [toastMsg, setToastMsg] = useState<string | null>(null);
     const queryClient = useQueryClient();
+
+    const showToast = (message: string) => {
+        setToastMsg(message);
+        setTimeout(() => setToastMsg(null), 3000);
+    };
 
     const { data: guardians, isLoading } = useQuery<Guardian[]>({
         queryKey: ['admin-guardians', search],
@@ -64,10 +47,10 @@ export function ParentManagement() {
         onSuccess: (data) => {
             setCredentials(data.credentials);
             queryClient.invalidateQueries({ queryKey: ['admin-guardians'] });
-            toast({ title: "Account Created", description: "Parent account has been created successfully." });
+            showToast("Account created successfully!");
         },
         onError: (err: Error) => {
-            toast({ title: "Error", description: err.message, variant: "destructive" });
+            showToast(`Error: ${err.message}`);
         }
     });
 
@@ -79,18 +62,12 @@ export function ParentManagement() {
         },
         onSuccess: (data) => {
             setCredentials(data.credentials);
-            toast({ title: "Password Reset", description: "New password generated." });
+            showToast("Password reset successfully!");
         },
         onError: (err: Error) => {
-            toast({ title: "Error", description: err.message, variant: "destructive" });
+            showToast(`Error: ${err.message}`);
         }
     });
-
-    const handleInvite = () => {
-        if (inviteGuardian) {
-            inviteMutation.mutate(inviteGuardian.id);
-        }
-    };
 
     const copyCredentials = () => {
         if (credentials) {
@@ -98,7 +75,7 @@ export function ParentManagement() {
             navigator.clipboard.writeText(text);
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
-            toast({ title: "Copied", description: "Credentials copied to clipboard" });
+            showToast("Credentials copied to clipboard");
         }
     };
 
@@ -114,140 +91,167 @@ export function ParentManagement() {
 
     return (
         <div className="space-y-6">
+            {/* Toast Notification */}
+            {toastMsg && (
+                <div className="fixed top-4 right-4 z-50 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 px-4 py-3 rounded-lg shadow-lg animate-in fade-in slide-in-from-top-2">
+                    {toastMsg}
+                </div>
+            )}
+
+            {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Parent Access Management</h1>
-                    <p className="text-muted-foreground">Manage parent accounts and portal access.</p>
+                    <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Parent Access Management</h1>
+                    <p className="text-gray-500 dark:text-gray-400">Manage parent accounts and portal access.</p>
                 </div>
             </div>
 
-            <Card>
-                <CardHeader>
+            {/* Main Card */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+                {/* Card Header */}
+                <div className="border-b border-gray-200 dark:border-gray-700 px-6 py-4">
                     <div className="flex items-center justify-between">
-                        <CardTitle>Guardians</CardTitle>
+                        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Guardians</h2>
                         <div className="relative w-64">
-                            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                            <Input
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <input
+                                type="text"
                                 placeholder="Search by name or phone..."
-                                className="pl-8"
+                                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                             />
                         </div>
                     </div>
-                </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Guardian Name</TableHead>
-                                <TableHead>Contact</TableHead>
-                                <TableHead>Children</TableHead>
-                                <TableHead>Account Status</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
+                </div>
+
+                {/* Table */}
+                <div className="overflow-x-auto">
+                    <table className="w-full">
+                        <thead className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-600">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Guardian Name</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Contact</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Children</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Account Status</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                             {isLoading ? (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="text-center py-4">Loading...</TableCell>
-                                </TableRow>
+                                <tr>
+                                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">Loading...</td>
+                                </tr>
                             ) : filteredGuardians?.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">No guardians found.</TableCell>
-                                </TableRow>
+                                <tr>
+                                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">No guardians found.</td>
+                                </tr>
                             ) : (
                                 filteredGuardians?.map((guardian) => (
-                                    <TableRow key={guardian.id}>
-                                        <TableCell className="font-medium">
-                                            {guardian.name}
-                                            <div className="text-xs text-muted-foreground">{guardian.relationship}</div>
-                                        </TableCell>
-                                        <TableCell>{guardian.phoneNumber || guardian.email || '-'}</TableCell>
-                                        <TableCell>{guardian.studentCount} Student(s)</TableCell>
-                                        <TableCell>
+                                    <tr key={guardian.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                        <td className="px-6 py-4">
+                                            <div className="font-medium text-gray-900 dark:text-white">{guardian.name}</div>
+                                            <div className="text-xs text-gray-500 dark:text-gray-400">{guardian.relationship}</div>
+                                        </td>
+                                        <td className="px-6 py-4 text-gray-700 dark:text-gray-300">{guardian.phoneNumber || guardian.email || '-'}</td>
+                                        <td className="px-6 py-4 text-gray-700 dark:text-gray-300">{guardian.studentCount} Student(s)</td>
+                                        <td className="px-6 py-4">
                                             {guardian.userId ? (
-                                                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 gap-1">
+                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-700 rounded-md text-sm">
                                                     <CheckCircle className="w-3 h-3" /> Active
-                                                    <span className="text-xs text-muted-foreground ml-1">({guardian.username})</span>
-                                                </Badge>
+                                                    <span className="text-xs opacity-75">({guardian.username})</span>
+                                                </span>
                                             ) : (
-                                                <Badge variant="outline" className="bg-gray-50 text-gray-500 gap-1">
+                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-600 rounded-md text-sm">
                                                     <XCircle className="w-3 h-3" /> Not Invited
-                                                </Badge>
+                                                </span>
                                             )}
-                                        </TableCell>
-                                        <TableCell className="text-right">
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
                                             {guardian.userId ? (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
+                                                <button
                                                     onClick={() => {
                                                         setInviteGuardian(guardian);
                                                         resetPasswordMutation.mutate(guardian.id);
                                                     }}
+                                                    className="p-2 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors"
                                                     title="Reset Password"
                                                 >
-                                                    <RefreshCw className="w-4 h-4 text-orange-600" />
-                                                </Button>
+                                                    <RefreshCw className="w-4 h-4" />
+                                                </button>
                                             ) : (
-                                                <Button
-                                                    size="sm"
-                                                    className="gap-2"
+                                                <button
                                                     onClick={() => {
                                                         setInviteGuardian(guardian);
                                                         inviteMutation.mutate(guardian.id);
                                                     }}
+                                                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
                                                 >
                                                     <UserPlus className="w-4 h-4" /> Enable Access
-                                                </Button>
+                                                </button>
                                             )}
-                                        </TableCell>
-                                    </TableRow>
+                                        </td>
+                                    </tr>
                                 ))
                             )}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
 
-            <Dialog open={!!inviteGuardian && !!credentials} onOpenChange={closeDialog}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Parent Account Details</DialogTitle>
-                        <DialogDescription>
-                            Share these credentials with <strong>{inviteGuardian?.name}</strong>.
-                            They can use them to log in to the Parent Portal.
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    <div className="space-y-4 py-4">
-                        <div className="bg-slate-950 text-slate-50 p-4 rounded-lg font-mono text-sm space-y-2 relative">
-                            <div className="flex justify-between items-center">
-                                <span>Username: <span className="text-green-400">{credentials?.username}</span></span>
+            {/* Credentials Modal */}
+            {inviteGuardian && credentials && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full border border-gray-200 dark:border-gray-700">
+                        {/* Modal Header */}
+                        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Parent Account Details</h3>
+                                <button
+                                    onClick={closeDialog}
+                                    className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
                             </div>
-                            <div className="flex justify-between items-center">
-                                <span>Password: <span className="text-green-400">{credentials?.password}</span></span>
-                            </div>
-                            <Button
-                                size="icon"
-                                variant="ghost"
-                                className="absolute top-2 right-2 text-white hover:bg-white/20"
-                                onClick={copyCredentials}
-                            >
-                                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                            </Button>
+                            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                Share these credentials with <strong>{inviteGuardian.name}</strong>. They can use them to log in to the Parent Portal.
+                            </p>
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                            Note: This password is temporary. The parent should change it after logging in (feature pending).
-                        </p>
-                    </div>
 
-                    <DialogFooter>
-                        <Button onClick={closeDialog}>Done</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                        {/* Modal Body */}
+                        <div className="px-6 py-4 space-y-4">
+                            <div className="bg-gray-900 dark:bg-gray-950 text-gray-100 p-4 rounded-lg font-mono text-sm space-y-2 relative">
+                                <div className="flex justify-between items-center">
+                                    <span>Username: <span className="text-green-400">{credentials.username}</span></span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span>Password: <span className="text-green-400">{credentials.password}</span></span>
+                                </div>
+                                <button
+                                    onClick={copyCredentials}
+                                    className="absolute top-2 right-2 p-2 text-white hover:bg-white/20 rounded-lg transition-colors"
+                                >
+                                    {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                                </button>
+                            </div>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                                Note: This password is temporary. The parent should change it after logging in (feature pending).
+                            </p>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end">
+                            <button
+                                onClick={closeDialog}
+                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+                            >
+                                Done
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
