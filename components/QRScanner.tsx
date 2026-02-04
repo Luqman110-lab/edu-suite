@@ -85,44 +85,56 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScan, title = "
     };
 
     const handleDefaultScan = (decodedText: string) => {
-        // Stop scanning
+        console.log("Scanned QR Content:", decodedText);
+
+        // Stop scanning immediately on detection
         if (scannerRef.current) {
-            scannerRef.current.stop().catch(console.error);
+            scannerRef.current.pause(true);
         }
 
         try {
-            // Try to parse as JSON first (for student ID cards)
+            // 1. Try JSON parsing (Standard ID Cards)
+            // Example: {"studentId":123, "name":"John", ...}
             const data = JSON.parse(decodedText);
 
             if (data.studentId || data.id) {
-                // Navigate to student verification
                 const studentId = data.studentId || data.id;
+                console.log("Navigating to verification for:", studentId);
                 navigate(`/verify-student/${studentId}`);
                 onClose();
-            } else if (data.term && data.year) {
-                // Report card QR code
+                return;
+            }
+
+            if (data.term && data.year) {
                 alert(`Report Card Scanned!\n\nStudent: ${data.name || data.studentName}\nClass: ${data.class || data.classLevel}\nTerm ${data.term}, ${data.year}`);
                 onClose();
-            } else {
-                alert(`QR Code Data:\n${JSON.stringify(data, null, 2)}`);
-                onClose();
+                return;
             }
+
+            alert(`QR Code Data:\n${JSON.stringify(data, null, 2)}`);
+            onClose();
+
         } catch (e) {
-            // Not JSON, might be a URL
-            if (decodedText.startsWith('http')) {
-                // Extract student ID from URL if it's a verify link
-                const match = decodedText.match(/verify-student\/(\d+)/);
-                if (match && match[1]) {
-                    navigate(`/verify-student/${match[1]}`);
-                    onClose();
-                } else {
-                    window.open(decodedText, '_blank');
-                    onClose();
-                }
-            } else {
-                alert(`Scanned: ${decodedText}`);
+            // 2. Not JSON, might be a direct URL or ID string
+            const urlPattern = /verify-student\/(\d+)/;
+            const match = decodedText.match(urlPattern);
+
+            if (match && match[1]) {
+                console.log("Found ID in URL:", match[1]);
+                navigate(`/verify-student/${match[1]}`);
                 onClose();
+                return;
             }
+
+            if (decodedText.startsWith('http')) {
+                window.open(decodedText, '_blank');
+                onClose();
+                return;
+            }
+
+            // Fallback
+            alert(`Scanned Value: ${decodedText}`);
+            onClose();
         }
     };
 

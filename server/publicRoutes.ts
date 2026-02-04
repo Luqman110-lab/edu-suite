@@ -38,7 +38,7 @@ export function setupPublicRoutes(app: Express) {
             res.json({
                 valid: true,
                 student: {
-                    name: `${student.firstName} ${student.lastName}`,
+                    name: student.name,
                     photoBase64: student.photoBase64,
                     classLevel: student.classLevel,
                     stream: student.stream,
