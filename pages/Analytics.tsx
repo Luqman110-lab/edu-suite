@@ -70,13 +70,44 @@ export const Analytics: React.FC = () => {
 
   useEffect(() => {
     const loadData = async () => {
-      const [students, marks, settings] = await Promise.all([
-        dbService.getStudents(),
-        dbService.getMarks(),
-        dbService.getSettings()
-      ]);
-      setData({ students, marks, settings });
-      setLoading(false);
+      try {
+        // Fetch independently to prevent one failure from blocking others
+        const studentsPromise = dbService.getStudents().catch(err => {
+          console.error("Failed to fetch students:", err);
+          return [];
+        });
+        const marksPromise = dbService.getMarks().catch(err => {
+          console.error("Failed to fetch marks:", err);
+          return [];
+        });
+        const settingsPromise = dbService.getSettings().catch(err => {
+          console.error("Failed to fetch settings:", err);
+          // Return valid default settings to prevent crashes
+          return {
+            currentYear: new Date().getFullYear(),
+            currentTerm: 1,
+            streams: {},
+            classAliases: {},
+            gradingConfig: { grades: [], divisions: [], passingMark: 40 },
+            subjectsConfig: { lowerPrimary: [], upperPrimary: [] },
+            reportConfig: { conductOptions: [], commentTemplates: [] },
+            idCardConfig: { customTerms: [] },
+            securityConfig: {}
+          } as SchoolSettings;
+        });
+
+        const [students, marks, settings] = await Promise.all([
+          studentsPromise,
+          marksPromise,
+          settingsPromise
+        ]);
+
+        setData({ students, marks, settings });
+      } catch (err) {
+        console.error("Critical error loading analytics:", err);
+      } finally {
+        setLoading(false);
+      }
     };
     loadData();
   }, []);

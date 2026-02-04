@@ -528,9 +528,36 @@ export const Students: React.FC = () => {
   });
 
   const loadData = async () => {
-    const [data, s] = await Promise.all([dbService.getStudents(), dbService.getSettings()]);
-    setStudents(data as any);
-    setSettings(s);
+    try {
+      // Robust data fetching
+      const studentsPromise = dbService.getStudents().catch(err => {
+        console.error("Failed to fetch students:", err);
+        return [];
+      });
+
+      const settingsPromise = dbService.getSettings().catch(err => {
+        console.error("Failed to fetch settings:", err);
+        return {
+          currentYear: new Date().getFullYear(),
+          currentTerm: 1,
+          streams: { P1: [], P2: [], P3: [], P4: [], P5: [], P6: [], P7: [] },
+          classAliases: {},
+          gradingConfig: { grades: [], divisions: [], passingMark: 40 },
+          subjectsConfig: { lowerPrimary: [], upperPrimary: [] },
+          reportConfig: { conductOptions: [], commentTemplates: [] },
+          idCardConfig: { customTerms: [] },
+          securityConfig: {}
+        } as SchoolSettings;
+      });
+
+      const [data, s] = await Promise.all([studentsPromise, settingsPromise]);
+      setStudents(data as any);
+      setSettings(s);
+    } catch (err) {
+      console.error("Error loading student directory:", err);
+      // Ensure students is at least an empty array if everything blows up
+      setStudents([]);
+    }
 
     if (s && s.streams['P1'] && s.streams['P1'].length > 0) {
       setFormData(prev => ({ ...prev, stream: s.streams['P1'][0] }));
