@@ -153,6 +153,9 @@ export const apiService = {
   saveMarks: (marks: Omit<MarkRecord, 'id'>[]) =>
     apiRequest<MarkRecord[]>('POST', '/marks/batch', { marks }),
 
+  saveMarksBatch: (marks: Omit<MarkRecord, 'id'>[]) =>
+    apiRequest<MarkRecord[]>('POST', '/marks/batch', { marks }),
+
   deleteMarks: (studentIds: number[], term: number, year: number, type: string) =>
     apiRequest<{ deleted: number; requested: number; message: string }>('DELETE', '/marks/batch', { studentIds, term, year, type }),
 
