@@ -74,6 +74,7 @@ export interface Student {
   paycode?: string;
   parentName?: string;
   parentContact?: string;
+  photoBase64?: string;
   specialCases: {
     absenteeism: boolean;
     sickness: boolean;

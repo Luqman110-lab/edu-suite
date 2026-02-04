@@ -469,6 +469,18 @@ export const Reports: React.FC = () => {
         } catch (e) { }
       }
 
+      // ================= STUDENT PHOTO =================
+      if (student.photoBase64) {
+        try {
+          const photoData = student.photoBase64;
+          let format = 'PNG';
+          if (photoData.startsWith('data:image/jpeg') || photoData.startsWith('data:image/jpg')) format = 'JPEG';
+          // Place on top right, mirroring the logo
+          const photoX = pageWidth - margin - logoSize;
+          doc.addImage(photoData, format, photoX, cursorY - 5, logoSize, logoSize);
+        } catch (e) { }
+      }
+
       doc.setFont("helvetica", "bold");
       doc.setFontSize(14);
       doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
