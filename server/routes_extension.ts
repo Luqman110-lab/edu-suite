@@ -16,7 +16,12 @@ import { pushSubscriptions, programItems } from "../shared/schema";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+import { parentRoutes } from "./routes/parent";
+import { guardianRoutes } from "./routes/admin/guardians";
+
 export function registerExtendedRoutes(app: Express) {
+    app.use("/api/parent", parentRoutes);
+    app.use("/api/guardians", guardianRoutes);
 
     // --- Biometric Authentication (Face Recognition) ---
 

@@ -420,6 +420,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         { path: '/app/planning', label: 'Planning', icon: Calendar },
         { path: '/app/supervision', label: 'Supervision', icon: Eye },
         { path: '/app/messages', label: 'Messages', icon: MessageSquare },
+        { path: '/app/parents', label: 'Parent Access', icon: UserRound },
       ]
     },
     { path: '/app/finance-hub', label: 'Finance', icon: BadgeDollarSign },

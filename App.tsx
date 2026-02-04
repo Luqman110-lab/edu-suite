@@ -24,6 +24,7 @@ import { SchoolDetails } from './pages/admin/schools/SchoolDetails';
 import { UserList } from './pages/admin/users/UserList';
 import { AuditLogs } from './pages/admin/AuditLogs';
 import { Settings as AdminSettings } from './pages/admin/Settings';
+import { ParentManagement } from './pages/admin/ParentManagement';
 import { VerifyStudent } from './pages/VerifyStudent';
 import LandingPage from './pages/marketing/LandingPage';
 import { GateAttendance } from './pages/GateAttendance';
@@ -40,6 +41,9 @@ import { Supervision } from './pages/Supervision';
 import { Planning } from './pages/Planning';
 import { ClassManagement } from './pages/ClassManagement';
 import FinancialHub from './pages/FinancialHub';
+import ParentLayout from './pages/parent/ParentLayout';
+import ParentDashboard from './pages/parent/ParentDashboard';
+import ParentStudentView from './pages/parent/ParentStudentView';
 
 function LandingWrapper() {
   const { user, isLoading } = useAuth();
@@ -136,6 +140,7 @@ export default function App() {
                         <Route path="messages/:id" element={<ConversationView />} />
                         <Route path="supervision" element={<Supervision />} />
                         <Route path="planning" element={<Planning />} />
+                        <Route path="parents" element={<ParentManagement />} />
                         <Route path="settings" element={<Settings />} />
                         <Route path="*" element={<Navigate to="/app" replace />} />
                       </Routes>
@@ -143,6 +148,21 @@ export default function App() {
                   </ProtectedRoute>
                 }
               />
+
+
+              {/* Parent Portal Routes */}
+              <Route
+                path="/parent/*"
+                element={
+                  <ProtectedRoute>
+                    <ParentLayout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route index element={<ParentDashboard />} />
+                <Route path="student/:id" element={<ParentStudentView />} />
+              </Route>
+
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </HashRouter>

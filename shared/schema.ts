@@ -240,6 +240,7 @@ export const students = pgTable("students", {
 
 export const guardians = pgTable("guardians", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id").unique().references(() => users.id, { onDelete: "set null" }),
   schoolId: integer("school_id").references(() => schools.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   relationship: text("relationship").notNull(),
@@ -529,6 +530,7 @@ export const schoolsRelations = relations(schools, ({ many }) => ({
 
 export const usersRelations = relations(users, ({ many }) => ({
   userSchools: many(userSchools),
+  guardians: one(guardians),
 }));
 
 export const userSchoolsRelations = relations(userSchools, ({ one }) => ({
@@ -568,6 +570,10 @@ export const guardiansRelations = relations(guardians, ({ many, one }) => ({
     references: [schools.id],
   }),
   studentGuardians: many(studentGuardians),
+  user: one(users, {
+    fields: [guardians.userId],
+    references: [users.id],
+  }),
 }));
 
 export const studentGuardiansRelations = relations(studentGuardians, ({ one }) => ({
