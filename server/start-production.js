@@ -34,7 +34,20 @@ async function initDatabase() {
         const tsxPath = path.resolve(process.cwd(), 'node_modules', '.bin', 'tsx');
         const executable = fs.existsSync(tsxPath) ? tsxPath : 'tsx';
 
+        console.log(`Current Working Directory: ${process.cwd()}`);
         console.log(`Using executable: ${executable}`);
+
+        if (fs.existsSync('server/index.ts')) {
+            console.log('✅ server/index.ts found');
+        } else {
+            console.error('❌ server/index.ts NOT found!');
+        }
+
+        if (fs.existsSync('node_modules')) {
+            console.log('✅ node_modules found');
+        } else {
+            console.error('❌ node_modules NOT found!');
+        }
 
         const server = spawn(executable, ['server/index.ts'], {
             stdio: 'inherit',
