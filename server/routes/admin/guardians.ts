@@ -76,7 +76,7 @@ guardianRoutes.post("/", requireAuth, requireAdmin, async (req, res) => {
             schoolId,
             name,
             relationship,
-            phoneNumber,
+            phone: phoneNumber,
             email,
         }).returning();
 
