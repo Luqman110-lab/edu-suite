@@ -2,7 +2,7 @@
 import { Router } from "express";
 import { db } from "../../db";
 import { eq, and, sql, desc, ilike } from "drizzle-orm";
-import { students, guardians, studentGuardians, users } from "../../shared/schema";
+import { students, guardians, studentGuardians, users } from "../../../shared/schema";
 import { requireAuth, requireAdmin, getActiveSchoolId, hashPassword } from "../../auth";
 import crypto from 'crypto';
 
