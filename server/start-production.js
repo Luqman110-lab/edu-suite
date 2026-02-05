@@ -37,6 +37,12 @@ async function initDatabase() {
             process.exit(1);
         });
 
+        // Forward child process exit to the main process
+        server.on('close', (code) => {
+            console.log(`Server process exited with code ${code}`);
+            process.exit(code || 0);
+        });
+
     } catch (error) {
         console.error('❌ Database schema push failed:', error.message);
         console.log('⚠️  Attempting to start server anyway...');

@@ -104,7 +104,9 @@ const isMainModule = () => {
   }
 };
 
-if (isMainModule()) {
+// Simplified startup check
+if (true) { // Always run as we are invoking explicitly
+
   if (isProduction) {
     // In Docker, WORKDIR is /app. dist is at /app/dist.
     const distPath = path.join(process.cwd(), "dist");
