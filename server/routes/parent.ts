@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "../db";
 import { eq, and, desc, inArray } from "drizzle-orm";
-import { students, guardians, studentGuardians, marks, testScores, testSessions, users } from "../shared/schema";
+import { students, guardians, studentGuardians, marks, testScores, testSessions, users } from "../../shared/schema";
 import { requireAuth } from "../auth";
 
 export const parentRoutes = Router();
