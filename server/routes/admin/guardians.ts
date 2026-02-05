@@ -26,24 +26,23 @@ guardianRoutes.get("/", requireAuth, requireAdmin, async (req, res) => {
             id: guardians.id,
             name: guardians.name,
             relationship: guardians.relationship,
-            phoneNumber: guardians.phoneNumber,
+            phoneNumber: guardians.phone,
             email: guardians.email,
             userId: guardians.userId,
             studentCount: sql<number>`count(${studentGuardians.studentId})`,
-            username: users.username, // Joined user info
+            username: users.username,
         })
             .from(guardians)
             .leftJoin(studentGuardians, eq(guardians.id, studentGuardians.guardianId))
-            .leftJoin(users, eq(guardians.userId, users.id)) // Join linked user
+            .leftJoin(users, eq(guardians.userId, users.id))
             .where(and(...conditions))
-            .groupBy(guardians.id, users.username, users.id)
+            .groupBy(guardians.id, guardians.name, guardians.relationship, guardians.phone, guardians.email, guardians.userId, users.username, users.id)
             .orderBy(desc(guardians.createdAt));
 
         // Execute query
         let results = await query;
 
-        // Simple in-memory search if needed (or better: rebuild query with where clause)
-        // Since we didn't add the where clause dynamically above correctly, let's filter here for MVP
+        // Simple in-memory search if needed
         if (search) {
             const searchLower = (search as string).toLowerCase();
             results = results.filter(g =>
@@ -65,10 +64,16 @@ guardianRoutes.post("/", requireAuth, requireAdmin, async (req, res) => {
         const schoolId = getActiveSchoolId(req);
         if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-        const { name, relationship, phoneNumber, email, studentId } = req.body;
+        // Accept phone or phoneNumber, prioritizing phoneNumber if both exist (though unlikely)
+        const { name, relationship, phoneNumber, phone, email, studentId } = req.body;
+        const finalPhone = phoneNumber || phone;
 
         if (!name || !relationship) {
             return res.status(400).json({ message: "Name and relationship are required" });
+        }
+
+        if (!finalPhone) {
+            return res.status(400).json({ message: "Phone number is required" });
         }
 
         // 1. Create Guardian
@@ -76,7 +81,7 @@ guardianRoutes.post("/", requireAuth, requireAdmin, async (req, res) => {
             schoolId,
             name,
             relationship,
-            phone: phoneNumber,
+            phone: finalPhone,
             email,
         }).returning();
 
@@ -85,7 +90,7 @@ guardianRoutes.post("/", requireAuth, requireAdmin, async (req, res) => {
             await db.insert(studentGuardians).values({
                 studentId,
                 guardianId: guardian.id,
-                relationship // Use same relationship for the link
+                relationship
             });
         }
 
