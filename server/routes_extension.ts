@@ -833,7 +833,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                 amount: amount,
                 term: termId,
                 year: yearId,
-                referenceId: payment.id.toString(), // Note: referenceId might not exist in schema, let's check. 
+                // referenceId removed (not in schema) 
                 // Schema check: financeTransactions has: id, schoolId, studentId, transactionType, amount, description, term, year, transactionDate.
                 // NO referenceId! Put in description.
                 description: `Payment Plan: ${plan.planName} (Inst #${installment.installmentNumber}) - Ref: ${payment.id}`,

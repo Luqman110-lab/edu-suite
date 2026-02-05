@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { mobileMoneyTransactions, feePayments, invoices, planInstallments, financeTransactions, paymentPlans } from "../../shared/schema";
+import { mobileMoneyTransactions, feePayments, invoices, planInstallments, financeTransactions, paymentPlans, schools } from "../../shared/schema";
 import { eq } from "drizzle-orm";
 
 interface PaymentRequest {
@@ -170,28 +170,40 @@ export class MobileMoneyService {
                 return;
             }
 
+            // Fetch School for Term/Year
+            const school = await db.query.schools.findFirst({
+                where: eq(schools.id, transaction.schoolId)
+            });
+
+            if (!school) {
+                console.log("[MoMo Ledger] Could not find school for transaction.");
+                return;
+            }
+
             // Create Fee Payment
             const [payment] = await db.insert(feePayments).values({
                 schoolId: transaction.schoolId,
                 studentId: studentId,
                 amountPaid: transaction.amount,
-                paymentDate: new Date(),
+                amountDue: transaction.amount, // Set amountDue to amountPaid for ad-hoc payments
+                paymentDate: new Date().toISOString().split('T')[0],
                 paymentMethod: 'Mobile Money',
-                feeType: 'Tuition', // Broad assumption for MoMo
+                feeType: 'Tuition', // Broad assumption
                 notes: `MoMo: ${transaction.provider} - Ref: ${transaction.externalReference}`,
+                term: school.currentTerm || 1,
+                year: school.currentYear || 2025
             }).returning();
 
             // Create Finance Transaction (The Dashboard Source)
             await db.insert(financeTransactions).values({
                 schoolId: transaction.schoolId,
-                type: 'income',
-                category: 'fee_payment',
-                amount: transaction.amount,
-                referenceId: payment.id.toString(),
-                description: description || `MoMo Payment (${transaction.provider})`,
-                date: new Date(),
-                paymentMethod: 'Mobile Money',
                 studentId: studentId,
+                transactionType: 'credit',
+                amount: transaction.amount,
+                description: description || `MoMo Payment (${transaction.provider})`,
+                term: school.currentTerm || 1,
+                year: school.currentYear || 2025,
+                transactionDate: new Date().toISOString().split('T')[0],
             });
 
             console.log(`[MoMo Ledger] Created ledger records for transaction ${transaction.id}`);
