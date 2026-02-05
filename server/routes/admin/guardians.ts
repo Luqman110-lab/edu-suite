@@ -36,7 +36,7 @@ guardianRoutes.get("/", requireAuth, requireAdmin, async (req, res) => {
             .leftJoin(studentGuardians, eq(guardians.id, studentGuardians.guardianId))
             .leftJoin(users, eq(guardians.userId, users.id))
             .where(and(...conditions))
-            .groupBy(guardians.id, guardians.name, guardians.relationship, guardians.phone, guardians.email, guardians.userId, users.username, users.id)
+            .groupBy(guardians.id, guardians.name, guardians.relationship, guardians.phone, guardians.email, guardians.userId, guardians.createdAt, users.username, users.id)
             .orderBy(desc(guardians.createdAt));
 
         // Execute query
@@ -195,7 +195,7 @@ guardianRoutes.post("/:id/invite", requireAuth, requireAdmin, async (req, res) =
         if (guardian.userId) return res.status(400).json({ message: "Guardian already has a linked account" });
 
         // 2. Generate Credentials
-        const finalUsername = username || guardian.phoneNumber?.replace(/\s/g, '') || `parent${guardianId}`;
+        const finalUsername = username || (guardian.phone ? guardian.phone.replace(/\s/g, '') : `parent${guardianId}`);
         const rawPassword = crypto.randomBytes(4).toString('hex'); // 8 char random hex
         const hashedPassword = await hashPassword(rawPassword);
 
