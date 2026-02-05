@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useParams, Link } from "react-router-dom";
 import { ArrowLeft, BookOpen, Clock, Award, FileText, Download } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
 import { useState } from "react";
 
 export default function ParentStudentView() {
@@ -73,8 +72,8 @@ export default function ParentStudentView() {
                 {activeTab === 'overview' && (
                     <div className="grid gap-6 md:grid-cols-2">
                         {/* Latest Result Card */}
-                        <Card>
-                            <CardContent className="p-6">
+                        <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+                            <div className="p-6">
                                 <div className="flex items-center gap-2 mb-4">
                                     <Award className="w-5 h-5 text-yellow-600" />
                                     <h3 className="font-bold text-gray-900">Latest Performance</h3>
@@ -99,12 +98,12 @@ export default function ParentStudentView() {
                                 ) : (
                                     <p className="text-gray-500 text-sm text-center py-4">No recent marks available.</p>
                                 )}
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
 
                         {/* Recent Tests */}
-                        <Card>
-                            <CardContent className="p-6">
+                        <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+                            <div className="p-6">
                                 <div className="flex items-center gap-2 mb-4">
                                     <Clock className="w-5 h-5 text-blue-600" />
                                     <h3 className="font-bold text-gray-900">Recent Tests</h3>
@@ -123,16 +122,16 @@ export default function ParentStudentView() {
                                         <p className="text-center text-gray-500 py-2">No recent test scores.</p>
                                     )}
                                 </div>
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
                     </div>
                 )}
 
                 {activeTab === 'academics' && (
                     <div className="space-y-6">
                         {/* Term History */}
-                        <Card>
-                            <CardContent className="p-6">
+                        <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+                            <div className="p-6">
                                 <h3 className="font-bold text-gray-900 mb-4">Term Reports</h3>
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-sm">
@@ -165,12 +164,12 @@ export default function ParentStudentView() {
                                         </tbody>
                                     </table>
                                 </div>
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
 
                         {/* All Tests */}
-                        <Card>
-                            <CardContent className="p-6">
+                        <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+                            <div className="p-6">
                                 <h3 className="font-bold text-gray-900 mb-4">All Test Scores</h3>
                                 <div className="space-y-3">
                                     {academic.tests.map((test: any, idx: number) => (
@@ -188,8 +187,8 @@ export default function ParentStudentView() {
                                         </div>
                                     ))}
                                 </div>
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>

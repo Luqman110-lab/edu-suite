@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Users, AlertCircle, ChevronRight, School } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
 
 export default function ParentDashboard() {
     const { data, isLoading, error } = useQuery({
@@ -41,8 +40,8 @@ export default function ParentDashboard() {
                 <div className="grid gap-6 md:grid-cols-2">
                     {children.map((child: any) => (
                         <Link to={`/parent/student/${child.id}`} key={child.id}>
-                            <Card className="hover:shadow-md transition-shadow cursor-pointer border-l-4 border-l-[#0052CC]">
-                                <CardContent className="p-6 flex items-center gap-4">
+                            <div className="bg-white rounded-lg border border-gray-200 hover:shadow-md transition-shadow cursor-pointer border-l-4 border-l-[#0052CC]">
+                                <div className="p-6 flex items-center gap-4">
                                     <div className="w-16 h-16 bg-gray-100 rounded-full flex-shrink-0 overflow-hidden border">
                                         {child.photoBase64 ? (
                                             <img src={child.photoBase64} alt={child.name} className="w-full h-full object-cover" />
@@ -70,8 +69,8 @@ export default function ParentDashboard() {
                                         )}
                                     </div>
                                     <ChevronRight className="w-5 h-5 text-gray-400" />
-                                </CardContent>
-                            </Card>
+                                </div>
+                            </div>
                         </Link>
                     ))}
                 </div>
