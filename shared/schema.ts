@@ -528,7 +528,7 @@ export const schoolsRelations = relations(schools, ({ many }) => ({
   testScores: many(testScores),
 }));
 
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ many, one }) => ({
   userSchools: many(userSchools),
   guardians: one(guardians),
 }));
