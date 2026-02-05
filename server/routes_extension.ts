@@ -18,10 +18,12 @@ const __dirname = path.dirname(__filename);
 
 import { parentRoutes } from "./routes/parent";
 import { guardianRoutes } from "./routes/admin/guardians";
+import { academicRoutes } from "./routes/academic";
 
 export function registerExtendedRoutes(app: Express) {
     app.use("/api/parent", parentRoutes);
     app.use("/api/guardians", guardianRoutes);
+    app.use("/api", academicRoutes);
 
     // --- Biometric Authentication (Face Recognition) ---
 
