@@ -1,8 +1,8 @@
 
 import { Router } from "express";
 import { db } from "../../db";
-import { eq, and, sql, desc, ilike } from "drizzle-orm";
-import { students, guardians, studentGuardians, users } from "../../../shared/schema";
+import { eq, and, sql, desc, ilike, inArray } from "drizzle-orm";
+import { students, guardians, studentGuardians, users, userSchools } from "../../../shared/schema";
 import { requireAuth, requireAdmin, getActiveSchoolId, hashPassword } from "../../auth";
 import crypto from 'crypto';
 
@@ -19,7 +19,14 @@ guardianRoutes.get("/", requireAuth, requireAdmin, async (req, res) => {
         let conditions = [eq(guardians.schoolId, schoolId)];
 
         if (studentId) {
-            conditions.push(eq(studentGuardians.studentId, parseInt(studentId as string)));
+            conditions.push(
+                inArray(
+                    guardians.id,
+                    db.select({ guardianId: studentGuardians.guardianId })
+                        .from(studentGuardians)
+                        .where(eq(studentGuardians.studentId, parseInt(studentId as string)))
+                )
+            );
         }
 
         let query = db.select({
@@ -29,17 +36,14 @@ guardianRoutes.get("/", requireAuth, requireAdmin, async (req, res) => {
             phoneNumber: guardians.phone,
             email: guardians.email,
             userId: guardians.userId,
-            studentCount: sql<number>`count(${studentGuardians.studentId})`,
+            studentCount: sql<number>`(SELECT COUNT(*) FROM ${studentGuardians} WHERE ${studentGuardians.guardianId} = ${guardians.id})`.mapWith(Number),
             username: users.username,
         })
             .from(guardians)
-            .leftJoin(studentGuardians, eq(guardians.id, studentGuardians.guardianId))
             .leftJoin(users, eq(guardians.userId, users.id))
             .where(and(...conditions))
-            .groupBy(guardians.id, guardians.name, guardians.relationship, guardians.phone, guardians.email, guardians.userId, guardians.createdAt, users.username, users.id)
             .orderBy(desc(guardians.createdAt));
 
-        // Execute query
         let results = await query;
 
         // Simple in-memory search if needed
@@ -88,9 +92,8 @@ guardianRoutes.post("/", requireAuth, requireAdmin, async (req, res) => {
         // 2. Link to Student (if provided)
         if (studentId) {
             await db.insert(studentGuardians).values({
-                studentId,
-                guardianId: guardian.id,
-                relationship
+                studentId: parseInt(String(studentId)),
+                guardianId: guardian.id
             });
         }
 
@@ -115,7 +118,7 @@ guardianRoutes.post("/:id/students", requireAuth, requireAdmin, async (req, res)
         const existing = await db.query.studentGuardians.findFirst({
             where: and(
                 eq(studentGuardians.guardianId, guardianId),
-                eq(studentGuardians.studentId, studentId)
+                eq(studentGuardians.studentId, parseInt(String(studentId)))
             )
         });
 
@@ -125,8 +128,7 @@ guardianRoutes.post("/:id/students", requireAuth, requireAdmin, async (req, res)
 
         await db.insert(studentGuardians).values({
             guardianId,
-            studentId,
-            relationship
+            studentId: parseInt(String(studentId))
         });
 
         res.json({ message: "Guardian linked successfully" });
@@ -165,10 +167,11 @@ guardianRoutes.get("/:id/students", requireAuth, requireAdmin, async (req, res) 
             name: students.name,
             classLevel: students.classLevel,
             stream: students.stream,
-            relationship: studentGuardians.relationship
+            relationship: guardians.relationship
         })
             .from(students)
             .innerJoin(studentGuardians, eq(students.id, studentGuardians.studentId))
+            .innerJoin(guardians, eq(studentGuardians.guardianId, guardians.id))
             .where(eq(studentGuardians.guardianId, guardianId));
 
         res.json(linkedStudents);
@@ -211,9 +214,15 @@ guardianRoutes.post("/:id/invite", requireAuth, requireAdmin, async (req, res) =
             password: hashedPassword,
             name: guardian.name,
             role: 'parent',
-            schoolId,
-            status: 'active'
         }).returning();
+
+        // 3a. Link user to school
+        await db.insert(userSchools).values({
+            userId: newUser.id,
+            schoolId,
+            role: 'parent',
+            isPrimary: true
+        });
 
         // 4. Link to Guardian
         await db.update(guardians)
