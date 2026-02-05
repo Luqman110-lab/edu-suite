@@ -27,7 +27,16 @@ async function initDatabase() {
         // Start the actual server
         console.log('🚀 Starting server...');
         const { spawn } = await import('child_process');
-        const server = spawn('tsx', ['server/index.ts'], {
+        const path = await import('path');
+        const fs = await import('fs');
+
+        // Find tsx executable
+        const tsxPath = path.resolve(process.cwd(), 'node_modules', '.bin', 'tsx');
+        const executable = fs.existsSync(tsxPath) ? tsxPath : 'tsx';
+
+        console.log(`Using executable: ${executable}`);
+
+        const server = spawn(executable, ['server/index.ts'], {
             stdio: 'inherit',
             env: process.env
         });
@@ -48,10 +57,28 @@ async function initDatabase() {
         console.log('⚠️  Attempting to start server anyway...');
 
         // Try to start server even if schema push fails
+        // Try to start server even if schema push fails
         const { spawn } = await import('child_process');
-        spawn('tsx', ['server/index.ts'], {
+        const path = await import('path');
+        const fs = await import('fs');
+
+        // Find tsx executable
+        const tsxPath = path.resolve(process.cwd(), 'node_modules', '.bin', 'tsx');
+        const executable = fs.existsSync(tsxPath) ? tsxPath : 'tsx';
+
+        const server = spawn(executable, ['server/index.ts'], {
             stdio: 'inherit',
             env: process.env
+        });
+
+        server.on('error', (err) => {
+            console.error('Failed to start server (fallback):', err);
+            process.exit(1);
+        });
+
+        server.on('close', (code) => {
+            console.log(`Fallback server process exited with code ${code}`);
+            process.exit(code || 0);
         });
     }
 }
