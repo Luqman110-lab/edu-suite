@@ -14,7 +14,13 @@ guardianRoutes.get("/", requireAuth, requireAdmin, async (req, res) => {
         const schoolId = getActiveSchoolId(req);
         if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-        const { search } = req.query;
+        const { search, studentId } = req.query;
+
+        let conditions = [eq(guardians.schoolId, schoolId)];
+
+        if (studentId) {
+            conditions.push(eq(studentGuardians.studentId, parseInt(studentId as string)));
+        }
 
         let query = db.select({
             id: guardians.id,
@@ -29,37 +35,144 @@ guardianRoutes.get("/", requireAuth, requireAdmin, async (req, res) => {
             .from(guardians)
             .leftJoin(studentGuardians, eq(guardians.id, studentGuardians.guardianId))
             .leftJoin(users, eq(guardians.userId, users.id)) // Join linked user
-            .where(eq(guardians.schoolId, schoolId))
+            .where(and(...conditions))
             .groupBy(guardians.id, users.username, users.id)
             .orderBy(desc(guardians.createdAt));
 
-        if (search) {
-            // @ts-ignore - simple search filter
-            // Note: For complex filtering, we'd add where clause
-            // But since we built the query first, we need to reconstruct or filter in memory if simple
-            // Let's simple use filter in DB if we can
-        }
-
         // Execute query
-        const results = await query;
+        let results = await query;
 
         // Simple in-memory search if needed (or better: rebuild query with where clause)
         // Since we didn't add the where clause dynamically above correctly, let's filter here for MVP
-        let filtered = results;
         if (search) {
             const searchLower = (search as string).toLowerCase();
-            filtered = results.filter(g =>
+            results = results.filter(g =>
                 g.name.toLowerCase().includes(searchLower) ||
                 (g.phoneNumber && g.phoneNumber.includes(searchLower))
             );
         }
 
-        res.json(filtered);
+        res.json(results);
     } catch (error: any) {
         console.error("List guardians error:", error);
         res.status(500).json({ message: "Failed to list guardians" });
     }
 });
+
+// POST /api/admin/guardians - Create new guardian
+guardianRoutes.post("/", requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const schoolId = getActiveSchoolId(req);
+        if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+        const { name, relationship, phoneNumber, email, studentId } = req.body;
+
+        if (!name || !relationship) {
+            return res.status(400).json({ message: "Name and relationship are required" });
+        }
+
+        // 1. Create Guardian
+        const [guardian] = await db.insert(guardians).values({
+            schoolId,
+            name,
+            relationship,
+            phoneNumber,
+            email,
+        }).returning();
+
+        // 2. Link to Student (if provided)
+        if (studentId) {
+            await db.insert(studentGuardians).values({
+                studentId,
+                guardianId: guardian.id,
+                relationship // Use same relationship for the link
+            });
+        }
+
+        res.json(guardian);
+    } catch (error: any) {
+        console.error("Create guardian error:", error);
+        res.status(500).json({ message: "Failed to create guardian: " + error.message });
+    }
+});
+
+// POST /api/admin/guardians/:id/students - Link guardian to student
+guardianRoutes.post("/:id/students", requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const guardianId = parseInt(req.params.id);
+        const { studentId, relationship } = req.body;
+
+        if (!studentId || !relationship) {
+            return res.status(400).json({ message: "Student ID and relationship are required" });
+        }
+
+        // Check if link already exists
+        const existing = await db.query.studentGuardians.findFirst({
+            where: and(
+                eq(studentGuardians.guardianId, guardianId),
+                eq(studentGuardians.studentId, studentId)
+            )
+        });
+
+        if (existing) {
+            return res.status(400).json({ message: "Guardian is already linked to this student" });
+        }
+
+        await db.insert(studentGuardians).values({
+            guardianId,
+            studentId,
+            relationship
+        });
+
+        res.json({ message: "Guardian linked successfully" });
+    } catch (error: any) {
+        console.error("Link guardian error:", error);
+        res.status(500).json({ message: "Failed to link guardian: " + error.message });
+    }
+});
+
+// DELETE /api/admin/guardians/:id/students/:studentId - Unlink guardian
+guardianRoutes.delete("/:id/students/:studentId", requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const guardianId = parseInt(req.params.id);
+        const studentId = parseInt(req.params.studentId);
+
+        await db.delete(studentGuardians)
+            .where(and(
+                eq(studentGuardians.guardianId, guardianId),
+                eq(studentGuardians.studentId, studentId)
+            ));
+
+        res.json({ message: "Guardian unlinked successfully" });
+    } catch (error: any) {
+        console.error("Unlink guardian error:", error);
+        res.status(500).json({ message: "Failed to unlink guardian: " + error.message });
+    }
+});
+
+// GET /api/admin/guardians/:id/students - Get linked students
+guardianRoutes.get("/:id/students", requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const guardianId = parseInt(req.params.id);
+
+        const linkedStudents = await db.select({
+            id: students.id,
+            name: students.name,
+            classLevel: students.classLevel,
+            stream: students.stream,
+            relationship: studentGuardians.relationship
+        })
+            .from(students)
+            .innerJoin(studentGuardians, eq(students.id, studentGuardians.studentId))
+            .where(eq(studentGuardians.guardianId, guardianId));
+
+        res.json(linkedStudents);
+    } catch (error: any) {
+        console.error("Get guardian students error:", error);
+        res.status(500).json({ message: "Failed to fetch linked students" });
+    }
+});
+
 
 // POST /api/admin/guardians/:id/invite - Create/Link User Account
 guardianRoutes.post("/:id/invite", requireAuth, requireAdmin, async (req, res) => {
