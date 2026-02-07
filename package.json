@@ -13,7 +13,9 @@
     "db:push": "drizzle-kit push",
     "migrate:classes": "tsx scripts/normalize-class-names.ts",
     "server": "tsx server/index.ts",
-    "start": "node server/start-production.js"
+    "start": "node server/start-production.js",
+    "test": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -30,6 +32,8 @@
     "@types/web-push": "^3.6.4",
     "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^4.2.1",
+    "axios": "^1.13.4",
+    "axios-cookiejar-support": "^6.0.5",
     "compression": "^1.8.1",
     "connect-pg-simple": "^10.0.0",
     "date-fns": "^4.1.0",
@@ -59,6 +63,7 @@
     "recharts": "^3.4.1",
     "resend": "^6.5.2",
     "sharp": "^0.34.5",
+    "tough-cookie": "^6.0.0",
     "trust-proxy": "^1.0.0",
     "tsx": "^4.20.6",
     "typescript": "^5.3.3",
@@ -71,12 +76,19 @@
     "zod-validation-error": "^5.0.0"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@types/compression": "^1.8.1",
     "@types/helmet": "^0.0.48",
     "@types/node": "^22.14.0",
     "@types/react": "^18.2.55",
     "@types/react-dom": "^18.2.19",
+    "@types/supertest": "^6.0.3",
+    "@vitest/coverage-v8": "^4.0.18",
     "baseline-browser-mapping": "^2.9.18",
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "jsdom": "^28.0.0",
+    "supertest": "^7.2.2",
+    "vitest": "^4.0.18"
   }
 }

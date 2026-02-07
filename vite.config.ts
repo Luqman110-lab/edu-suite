@@ -26,6 +26,20 @@ export default defineConfig(({ mode }) => {
       react(),
       // VitePWA({ ... }) disabled for debugging
     ],
+    test: {
+      globals: true,
+      environment: 'jsdom',
+      setupFiles: './setupTests.ts', // Will create this file
+      css: true,
+      coverage: {
+        provider: 'v8', // or 'istanbul'
+        reporter: ['text', 'json', 'html'],
+        exclude: ['node_modules/', 'server/', 'migrations/', 'dist/', 'public/', 'scripts/', '**/*.cjs'],
+      },
+      deps: {
+        inline: ['@tanstack/react-query'], // Required for react-query in tests
+      },
+    },
     define: {
       'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY || ''),
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || '')

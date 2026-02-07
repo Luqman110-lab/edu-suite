@@ -7,6 +7,7 @@ import { Button } from '../components/Button';
 import { useTheme } from '../contexts/ThemeContext';
 import { TeacherFormWizard } from '../components/TeacherFormWizard';
 import { TeacherAttendanceSummaryCard, TeacherPerformanceMetricsCard, TeacherQuickStatsCard } from '../components/TeacherProfileCards';
+const FaceEnrollment = React.lazy(() => import('../client/src/components/FaceEnrollment'));
 
 const ROLES = ['Class Teacher', 'Subject Teacher', 'Headteacher', 'DOS'];
 
@@ -86,7 +87,7 @@ const Toast = ({ message, type, onClose }: { message: string; type: 'success' | 
   );
 };
 
-const TeacherProfile = ({ teacher, students, onEdit, onDelete, onBack, isDark }: { teacher: Teacher; students: Student[]; onEdit: () => void; onDelete: () => void; onBack: () => void; isDark: boolean }) => {
+const TeacherProfile = ({ teacher, students, onEdit, onDelete, onBack, onEnrollFace, hasFaceEnrolled, isDark }: { teacher: Teacher; students: Student[]; onEdit: () => void; onDelete: () => void; onBack: () => void; onEnrollFace: () => void; hasFaceEnrolled: boolean; isDark: boolean }) => {
   const roles = teacher.roles || [];
   const teachingClasses = (teacher.teachingClasses || []).map(tc => String(tc));
   const subjects = teacher.subjects || [];
@@ -363,6 +364,9 @@ export const Teachers: React.FC = () => {
   const [showFilters, setShowFilters] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [newTeachingClassSelected, setNewTeachingClassSelected] = useState<string>('');
+  const [showFaceEnrollment, setShowFaceEnrollment] = useState(false);
+  const [faceEnrollTeacher, setFaceEnrollTeacher] = useState<Teacher | null>(null);
+  const [enrolledFaceIds, setEnrolledFaceIds] = useState<Set<number>>(new Set());
 
   const initialFormState: Partial<Teacher> = {
     employeeId: '',
@@ -390,6 +394,17 @@ export const Teachers: React.FC = () => {
     setTeachers(t);
     setSettings(s);
     setStudents(st);
+
+    try {
+      const faceResp = await fetch('/api/face-embeddings?personType=teacher');
+      if (faceResp.ok) {
+        const faceData = await faceResp.json();
+        const ids = new Set<number>(faceData.map((f: any) => f.personId));
+        setEnrolledFaceIds(ids);
+      }
+    } catch (err) {
+      console.error('Failed to load face embeddings:', err);
+    }
   };
 
   useEffect(() => {
@@ -735,6 +750,11 @@ export const Teachers: React.FC = () => {
         onEdit={() => handleOpenModal(selectedTeacher)}
         onDelete={() => handleDelete(selectedTeacher.id!)}
         onBack={handleBackToList}
+        onEnrollFace={() => {
+          setFaceEnrollTeacher(selectedTeacher);
+          setShowFaceEnrollment(true);
+        }}
+        hasFaceEnrolled={enrolledFaceIds.has(selectedTeacher.id!)}
         isDark={isDark}
       />
     );
@@ -798,6 +818,26 @@ export const Teachers: React.FC = () => {
       <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg p-4 border shadow-sm`}>
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1 relative">
+
+            {showFaceEnrollment && faceEnrollTeacher && (
+              <React.Suspense fallback={<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="bg-white dark:bg-gray-800 rounded-xl p-8"><div className="animate-spin w-8 h-8 border-4 border-[#800020] border-t-transparent rounded-full"></div></div></div>}>
+                <FaceEnrollment
+                  personId={faceEnrollTeacher.id!}
+                  personType="teacher"
+                  personName={faceEnrollTeacher.name}
+                  onSuccess={() => {
+                    setShowFaceEnrollment(false);
+                    setFaceEnrollTeacher(null);
+                    setEnrolledFaceIds(prev => new Set([...prev, faceEnrollTeacher.id!]));
+                    showToast('Face enrolled successfully!', 'success');
+                  }}
+                  onCancel={() => {
+                    setShowFaceEnrollment(false);
+                    setFaceEnrollTeacher(null);
+                  }}
+                />
+              </React.Suspense>
+            )}
             <Icons.Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${isDark ? 'text-gray-400' : 'text-gray-400'}`} />
             <input
               type="text"

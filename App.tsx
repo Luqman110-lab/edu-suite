@@ -44,6 +44,12 @@ import FinancialHub from './pages/FinancialHub';
 import ParentLayout from './pages/parent/ParentLayout';
 import ParentDashboard from './pages/parent/ParentDashboard';
 import ParentStudentView from './pages/parent/ParentStudentView';
+import ParentAttendance from './pages/parent/ParentAttendance';
+import ParentFees from './pages/parent/ParentFees';
+import ParentMessages from './pages/parent/ParentMessages';
+import ParentNotifications from './pages/parent/ParentNotifications';
+import ParentProfile from './pages/parent/ParentProfile';
+import ParentSchoolInfo from './pages/parent/ParentSchoolInfo';
 
 function LandingWrapper() {
   const { user, isLoading } = useAuth();
@@ -161,6 +167,13 @@ export default function App() {
               >
                 <Route index element={<ParentDashboard />} />
                 <Route path="student/:id" element={<ParentStudentView />} />
+                <Route path="attendance" element={<ParentAttendance />} />
+                <Route path="fees" element={<ParentFees />} />
+                <Route path="messages" element={<ParentMessages />} />
+                <Route path="messages/:id" element={<ParentMessages />} /> {/* For specific conversation */}
+                <Route path="notifications" element={<ParentNotifications />} />
+                <Route path="profile" element={<ParentProfile />} />
+                <Route path="school-info" element={<ParentSchoolInfo />} />
               </Route>
 
               <Route path="*" element={<Navigate to="/" replace />} />

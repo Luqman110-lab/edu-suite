@@ -130,7 +130,36 @@ export function registerExtendedRoutes(app: Express) {
         }
     });
 
+
+
+    // Get all face embeddings for the school (for frontend matching)
+    app.get("/api/face-embeddings", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            const { personType } = req.query;
+            const conditions = [
+                eq(faceEmbeddings.schoolId, schoolId),
+                eq(faceEmbeddings.isActive, true)
+            ];
+
+            if (personType && typeof personType === 'string') {
+                conditions.push(eq(faceEmbeddings.personType, personType));
+            }
+
+            const embeddings = await db.select().from(faceEmbeddings)
+                .where(and(...conditions));
+
+            res.json(embeddings);
+        } catch (error: any) {
+            console.error("Get face embeddings error:", error);
+            res.status(500).json({ message: "Failed to fetch face embeddings: " + error.message });
+        }
+    });
+
     // --- Fee Structures Endpoints ---
+
     app.get("/api/fee-structures", requireAuth, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
