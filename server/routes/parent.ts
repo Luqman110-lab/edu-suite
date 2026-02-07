@@ -242,9 +242,7 @@ parentRoutes.get("/dashboard-stats", requireAuth, requireParent, async (req: any
         }
 
         // Recent activity (marks posted in last 30 days + payments received)
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        const dateStr30 = thirtyDaysAgo.toISOString().split('T')[0];
+        // Reuse dateStr from line 187 (thirtyDaysAgo already defined above)
 
         const recentActivity: any[] = [];
 
