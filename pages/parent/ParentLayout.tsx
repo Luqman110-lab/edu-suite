@@ -1,7 +1,8 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
-import { User, LogOut, LayoutDashboard, Menu, X, ChevronRight } from "lucide-react";
+import { User, LogOut, LayoutDashboard, Menu, X, BookOpen, DollarSign, CalendarCheck, MessageSquare, Bell, School } from "lucide-react";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import ParentErrorBoundary from "../../components/parent/ParentErrorBoundary";
 
 interface ParentUser {
     id: number;
@@ -14,7 +15,6 @@ export default function ParentLayout() {
     const location = useLocation();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-    // Fetch current user (this assumes your auth system exposes /api/user)
     const { data: user, isLoading } = useQuery<ParentUser>({
         queryKey: ['user'],
         queryFn: async () => {
@@ -23,6 +23,20 @@ export default function ParentLayout() {
             return res.json();
         }
     });
+
+    // Poll for unread message count
+    const { data: statsData } = useQuery({
+        queryKey: ['parent-nav-stats'],
+        queryFn: async () => {
+            const res = await fetch('/api/parent/dashboard-stats', { credentials: 'include' });
+            if (!res.ok) return { unreadMessages: 0, notifications: [] };
+            return res.json();
+        },
+        refetchInterval: 30000,
+    });
+
+    const unreadMessages = statsData?.unreadMessages || 0;
+    const notificationCount = statsData?.recentActivity?.length || 0;
 
     const handleLogout = async () => {
         await fetch('/api/logout', { method: 'POST', credentials: 'include' });
@@ -33,7 +47,19 @@ export default function ParentLayout() {
 
     const navItems = [
         { icon: LayoutDashboard, label: 'Dashboard', path: '/parent' },
+        { icon: BookOpen, label: 'Academics', path: '/parent/student' },
+        { icon: DollarSign, label: 'Fees', path: '/parent/fees', },
+        { icon: CalendarCheck, label: 'Attendance', path: '/parent/attendance' },
+        { icon: MessageSquare, label: 'Messages', path: '/parent/messages', badge: unreadMessages },
+        { icon: Bell, label: 'Notifications', path: '/parent/notifications', badge: notificationCount },
+        { icon: User, label: 'My Profile', path: '/parent/profile' },
+        { icon: School, label: 'School Info', path: '/parent/school-info' },
     ];
+
+    const isActive = (path: string) => {
+        if (path === '/parent') return location.pathname === '/parent';
+        return location.pathname.startsWith(path);
+    };
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row">
@@ -44,18 +70,23 @@ export default function ParentLayout() {
                     <p className="text-sm text-gray-500 mt-1">Broadway Primary</p>
                 </div>
 
-                <nav className="flex-1 p-4 space-y-2">
+                <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
                     {navItems.map((item) => (
                         <Link
                             key={item.path}
                             to={item.path}
-                            className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${location.pathname === item.path
+                            className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${isActive(item.path)
                                 ? 'bg-blue-50 text-blue-700'
                                 : 'text-gray-600 hover:bg-gray-50'
                                 }`}
                         >
                             <item.icon className="w-5 h-5" />
-                            {item.label}
+                            <span className="flex-1">{item.label}</span>
+                            {item.badge ? (
+                                <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center">
+                                    {item.badge > 99 ? '99+' : item.badge}
+                                </span>
+                            ) : null}
                         </Link>
                     ))}
                 </nav>
@@ -88,27 +119,42 @@ export default function ParentLayout() {
                     </div>
                     <span className="font-bold text-gray-900">Parent Portal</span>
                 </div>
-                <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
-                    {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-                </button>
+                <div className="flex items-center gap-2">
+                    {unreadMessages > 0 && (
+                        <Link to="/parent/messages" className="relative p-2">
+                            <MessageSquare className="w-5 h-5 text-gray-600" />
+                            <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                                {unreadMessages > 9 ? '9+' : unreadMessages}
+                            </span>
+                        </Link>
+                    )}
+                    <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+                        {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                    </button>
+                </div>
             </div>
 
             {/* Mobile Menu */}
             {isMobileMenuOpen && (
                 <div className="md:hidden fixed inset-0 z-10 bg-white pt-20 px-4">
-                    <nav className="space-y-2">
+                    <nav className="space-y-1">
                         {navItems.map((item) => (
                             <Link
                                 key={item.path}
                                 to={item.path}
                                 onClick={() => setIsMobileMenuOpen(false)}
-                                className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium ${location.pathname === item.path
+                                className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium ${isActive(item.path)
                                     ? 'bg-blue-50 text-blue-700'
                                     : 'text-gray-600'
                                     }`}
                             >
                                 <item.icon className="w-5 h-5" />
-                                {item.label}
+                                <span className="flex-1">{item.label}</span>
+                                {item.badge ? (
+                                    <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                                        {item.badge}
+                                    </span>
+                                ) : null}
                             </Link>
                         ))}
                         <button
@@ -124,7 +170,9 @@ export default function ParentLayout() {
 
             {/* Main Content */}
             <main className="flex-1 md:ml-64 p-4 md:p-8 overflow-auto">
-                <Outlet />
+                <ParentErrorBoundary>
+                    <Outlet />
+                </ParentErrorBoundary>
             </main>
         </div>
     );
