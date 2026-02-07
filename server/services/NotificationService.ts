@@ -8,19 +8,25 @@ import { eq } from 'drizzle-orm';
 const publicVapidKey = process.env.VAPID_PUBLIC_KEY!;
 const privateVapidKey = process.env.VAPID_PRIVATE_KEY!;
 
+let vapidConfigured = false;
 if (publicVapidKey && privateVapidKey) {
-    webpush.setVapidDetails(
-        'mailto:support@broadwayschools.com',
-        publicVapidKey,
-        privateVapidKey
-    );
+    try {
+        webpush.setVapidDetails(
+            'mailto:support@broadwayschools.com',
+            publicVapidKey,
+            privateVapidKey
+        );
+        vapidConfigured = true;
+    } catch (err) {
+        console.warn("Invalid VAPID keys. Push notifications will not work:", (err as Error).message);
+    }
 } else {
     console.warn("VAPID keys not set. Push notifications will not work.");
 }
 
 export class NotificationService {
     static async sendToUser(userId: number, title: string, body: string, url?: string) {
-        if (!publicVapidKey || !privateVapidKey) return;
+        if (!vapidConfigured) return;
 
         const subscriptions = await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.userId, userId));
 
@@ -56,7 +62,7 @@ export class NotificationService {
     }
 
     static async broadcast(title: string, body: string, url?: string) {
-        if (!publicVapidKey || !privateVapidKey) return;
+        if (!vapidConfigured) return;
 
         // In a real app, you might want to batch this or use a queue
         const allSubs = await db.select().from(pushSubscriptions);
