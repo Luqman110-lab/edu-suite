@@ -76,7 +76,12 @@ if (!process.env.VERCEL) {
 
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   const status = err.status || err.statusCode || 500;
-  console.error("Error:", err);
+  console.error("Error CAUGHT in index.ts:", err);
+  if (err instanceof Error) {
+    console.error("Stack:", err.stack);
+  } else {
+    console.error("Error is not an instance of Error:", JSON.stringify(err, null, 2));
+  }
 
   let message = "Internal Server Error";
 

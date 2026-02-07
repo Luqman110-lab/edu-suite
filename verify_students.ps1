@@ -3,7 +3,7 @@ $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
 
 # 1. Login
 Write-Host "Attempting Login..."
-$loginUrl = "http://localhost:5000/api/login"
+$loginUrl = "http://localhost:3001/api/login"
 $loginBody = @{ username = "admin_rec"; password = "Admin123!" } | ConvertTo-Json
 $userStruct = $null
 
@@ -34,7 +34,7 @@ if (-not $activeSchoolId) {
     if ($userStruct.schools.Count -gt 0) {
         $schoolId = $userStruct.schools[0].id
         Write-Host "Switching to School ID: $schoolId"
-        $switchUrl = "http://localhost:5000/api/switch-school"
+        $switchUrl = "http://localhost:3001/api/switch-school"
         $switchBody = @{ schoolId = $schoolId } | ConvertTo-Json
         
         try {
@@ -61,7 +61,7 @@ else {
 
 # 2. List Students (Initial)
 Write-Host "Listing Students..."
-$listUrl = "http://localhost:5000/api/students"
+$listUrl = "http://localhost:3001/api/students"
 try {
     $listRes = Invoke-WebRequest -Uri $listUrl -Method Get -WebSession $session
     $students = $listRes.Content | ConvertFrom-Json
@@ -79,7 +79,7 @@ catch {
 
 # 3. Create Student
 Write-Host "Creating Student..."
-$createUrl = "http://localhost:5000/api/students"
+$createUrl = "http://localhost:3001/api/students"
 $uniqueIdx = "IDX-" + (Get-Date).ToString("yyyyMMddHHmmss")
 $newStudent = @{
     name           = "Test Student Verification"
@@ -109,7 +109,7 @@ catch {
 
 # 4. Update Student
 Write-Host "Updating Student..."
-$updateUrl = "http://localhost:5000/api/students/$($created.id)"
+$updateUrl = "http://localhost:3001/api/students/$($created.id)"
 $updateBody = @{ name = "Test Student Updated" } | ConvertTo-Json
 try {
     Invoke-WebRequest -Uri $updateUrl -Method Put -Body $updateBody -ContentType "application/json" -WebSession $session
@@ -122,7 +122,7 @@ catch {
 
 # 5. Delete Student (Soft Delete)
 Write-Host "Deleting Student (Soft Delete)..."
-$deleteUrl = "http://localhost:5000/api/students/$($created.id)"
+$deleteUrl = "http://localhost:3001/api/students/$($created.id)"
 try {
     Invoke-WebRequest -Uri $deleteUrl -Method Delete -WebSession $session
     Write-Host "Student Soft Deleted"
