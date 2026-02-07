@@ -63,7 +63,7 @@ const Button = ({ children, onClick, variant = 'primary', size = 'md', disabled 
     danger: 'bg-red-600 hover:bg-red-700 text-white focus:ring-red-500',
     outline: 'border border-gray-300 dark:border-gray-600 bg-transparent hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
   };
-  
+
   return (
     <button
       onClick={onClick}
@@ -116,7 +116,7 @@ export const GateAttendance: React.FC = () => {
         fetch('/api/attendance-settings', { credentials: 'include' }),
         fetch('/api/face-embeddings?personType=student', { credentials: 'include' }),
       ]);
-      
+
       if (studentsRes.ok) {
         const allStudents = await studentsRes.json();
         setStudents(allStudents.filter((s: Student) => s.boardingStatus === 'day' || !s.boardingStatus));
@@ -164,28 +164,28 @@ export const GateAttendance: React.FC = () => {
 
   const findBestFaceMatch = (descriptor: Float32Array): { studentId: number; confidence: number } | null => {
     if (faceEmbeddings.length === 0) return null;
-    
+
     let bestMatch: { studentId: number; confidence: number } | null = null;
     let minDistance = Infinity;
     const threshold = settings?.faceConfidenceThreshold || 0.6;
-    
+
     for (const emb of faceEmbeddings) {
       if (emb.personType !== 'student') continue;
       const distance = computeDistance(emb.embedding, descriptor);
       const confidence = distanceToConfidence(distance);
-      
+
       if (distance < minDistance && confidence >= threshold) {
         minDistance = distance;
         bestMatch = { studentId: emb.personId, confidence };
       }
     }
-    
+
     return bestMatch;
   };
 
   const startCamera = async (type: 'qr' | 'face' = 'qr') => {
     setScannerType(type);
-    
+
     if (type === 'face') {
       const modelsLoaded = await loadFaceModels();
       if (!modelsLoaded && typeof faceapi === 'undefined') {
@@ -193,14 +193,14 @@ export const GateAttendance: React.FC = () => {
         return;
       }
     }
-    
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { 
-          facingMode: type === 'face' ? 'user' : 'environment', 
-          width: { ideal: 640 }, 
-          height: { ideal: 480 } 
-        } 
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: type === 'face' ? 'user' : 'environment',
+          width: { ideal: 640 },
+          height: { ideal: 480 }
+        }
       });
       streamRef.current = stream;
       scanningRef.current = true;
@@ -224,22 +224,22 @@ export const GateAttendance: React.FC = () => {
 
   const runFaceScanner = async () => {
     if (!videoRef.current || !streamRef.current || !scanningRef.current) return;
-    
+
     const video = videoRef.current;
     if (video.readyState !== video.HAVE_ENOUGH_DATA) {
       requestAnimationFrame(runFaceScanner);
       return;
     }
-    
+
     try {
       const detection = await faceapi
-        .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+        .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 512, scoreThreshold: 0.3 }))
         .withFaceLandmarks()
         .withFaceDescriptor();
-      
+
       if (detection) {
         setFaceDetected(true);
-        
+
         if (overlayCanvasRef.current) {
           const canvas = overlayCanvasRef.current;
           canvas.width = video.videoWidth;
@@ -253,7 +253,7 @@ export const GateAttendance: React.FC = () => {
             ctx.strokeRect(box.x, box.y, box.width, box.height);
           }
         }
-        
+
         const match = findBestFaceMatch(detection.descriptor);
         if (match) {
           setMatchConfidence(match.confidence);
@@ -262,7 +262,7 @@ export const GateAttendance: React.FC = () => {
             setLastScannedStudent(student);
             scanningRef.current = false;
             await processAttendance(match.studentId, 'face');
-            
+
             setTimeout(() => {
               scanningRef.current = true;
               if (streamRef.current) requestAnimationFrame(runFaceScanner);
@@ -273,7 +273,7 @@ export const GateAttendance: React.FC = () => {
       } else {
         setFaceDetected(false);
         setMatchConfidence(null);
-        
+
         if (overlayCanvasRef.current) {
           const ctx = overlayCanvasRef.current.getContext('2d');
           if (ctx) ctx.clearRect(0, 0, overlayCanvasRef.current.width, overlayCanvasRef.current.height);
@@ -282,30 +282,30 @@ export const GateAttendance: React.FC = () => {
     } catch (err) {
       console.error('Face detection error:', err);
     }
-    
+
     if (scanningRef.current) {
       requestAnimationFrame(runFaceScanner);
     }
   };
-  
+
   const runScanner = () => {
     if (!videoRef.current || !canvasRef.current || !streamRef.current) return;
-    
+
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
-    
+
     if (!ctx || video.readyState !== video.HAVE_ENOUGH_DATA) {
       requestAnimationFrame(runScanner);
       return;
     }
-    
+
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    
+
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    
+
     try {
       const jsQR = (window as any).jsQR;
       if (jsQR) {
@@ -318,7 +318,7 @@ export const GateAttendance: React.FC = () => {
     } catch (e) {
       console.error('QR scan error:', e);
     }
-    
+
     requestAnimationFrame(runScanner);
   };
 
@@ -337,27 +337,27 @@ export const GateAttendance: React.FC = () => {
     try {
       const parsed = JSON.parse(data);
       const studentId = parsed.studentId || parsed.id;
-      
+
       if (!studentId) {
         setScanResult({ success: false, message: 'Invalid QR code format' });
         setTimeout(() => requestAnimationFrame(runScanner), 2000);
         return;
       }
-      
+
       const student = students.find(s => s.id === studentId);
       if (!student) {
         setScanResult({ success: false, message: 'Student not found' });
         setTimeout(() => requestAnimationFrame(runScanner), 2000);
         return;
       }
-      
+
       setLastScannedStudent(student);
       await processAttendance(studentId);
-      
+
       setTimeout(() => {
         if (streamRef.current) requestAnimationFrame(runScanner);
       }, 2000);
-      
+
     } catch (e) {
       const studentId = parseInt(data);
       if (!isNaN(studentId)) {
@@ -371,7 +371,7 @@ export const GateAttendance: React.FC = () => {
       } else {
         setScanResult({ success: false, message: 'Invalid QR code' });
       }
-      
+
       setTimeout(() => {
         if (streamRef.current) requestAnimationFrame(runScanner);
       }, 2000);
@@ -379,10 +379,10 @@ export const GateAttendance: React.FC = () => {
   };
 
   const processAttendance = async (studentId: number, method: string = 'qr') => {
-    const endpoint = scanMode === 'check-in' 
-      ? '/api/gate-attendance/check-in' 
+    const endpoint = scanMode === 'check-in'
+      ? '/api/gate-attendance/check-in'
       : '/api/gate-attendance/check-out';
-    
+
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -390,13 +390,13 @@ export const GateAttendance: React.FC = () => {
         credentials: 'include',
         body: JSON.stringify({ studentId, method }),
       });
-      
+
       const result = await response.json();
-      
+
       if (response.ok) {
-        setScanResult({ 
-          success: true, 
-          message: scanMode === 'check-in' 
+        setScanResult({
+          success: true,
+          message: scanMode === 'check-in'
             ? `Checked in at ${result.checkInTime} - ${result.status === 'late' ? 'LATE' : 'On Time'}`
             : `Checked out at ${result.checkOutTime}`
         });
@@ -417,7 +417,7 @@ export const GateAttendance: React.FC = () => {
 
   const markAllAbsent = async () => {
     if (!confirm('Mark all students who have not checked in as absent?')) return;
-    
+
     try {
       const response = await fetch('/api/gate-attendance/mark-absent', {
         method: 'POST',
@@ -425,7 +425,7 @@ export const GateAttendance: React.FC = () => {
         credentials: 'include',
         body: JSON.stringify({ date: selectedDate }),
       });
-      
+
       if (response.ok) {
         const result = await response.json();
         alert(`Marked ${result.marked} students as absent`);
@@ -442,7 +442,7 @@ export const GateAttendance: React.FC = () => {
     return { status: record.status, record };
   };
 
-  const filteredStudents = students.filter(s => 
+  const filteredStudents = students.filter(s =>
     s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     s.indexNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     s.classLevel.toLowerCase().includes(searchQuery.toLowerCase())
@@ -516,25 +516,23 @@ export const GateAttendance: React.FC = () => {
           <h2 className={`font-semibold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
             {scannerType === 'qr' ? 'QR Scanner' : 'Face Recognition'}
           </h2>
-          
+
           <div className="flex gap-2 mb-4">
             <button
               onClick={() => setScanMode('check-in')}
-              className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
-                scanMode === 'check-in'
+              className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${scanMode === 'check-in'
                   ? 'bg-green-600 text-white'
                   : isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
-              }`}
+                }`}
             >
               Check-In
             </button>
             <button
               onClick={() => setScanMode('check-out')}
-              className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
-                scanMode === 'check-out'
+              className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${scanMode === 'check-out'
                   ? 'bg-blue-600 text-white'
                   : isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
-              }`}
+                }`}
             >
               Check-Out
             </button>
@@ -543,8 +541,8 @@ export const GateAttendance: React.FC = () => {
           {showScanner ? (
             <div className="space-y-4">
               <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
-                <video 
-                  ref={videoRef} 
+                <video
+                  ref={videoRef}
                   className="w-full h-full object-cover"
                   playsInline
                   autoPlay
@@ -562,8 +560,8 @@ export const GateAttendance: React.FC = () => {
                   <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full text-sm font-medium" style={{
                     backgroundColor: faceDetected ? (matchConfidence ? '#10B981' : '#F59E0B') : '#6B7280'
                   }}>
-                    {faceDetected 
-                      ? (matchConfidence ? `Match: ${Math.round(matchConfidence * 100)}%` : 'Searching...') 
+                    {faceDetected
+                      ? (matchConfidence ? `Match: ${Math.round(matchConfidence * 100)}%` : 'Searching...')
                       : 'No face detected'}
                   </div>
                 )}
@@ -580,9 +578,9 @@ export const GateAttendance: React.FC = () => {
                 </Button>
               )}
               {settings?.enableFaceRecognition && (
-                <Button 
-                  variant="secondary" 
-                  onClick={() => startCamera('face')} 
+                <Button
+                  variant="secondary"
+                  onClick={() => startCamera('face')}
                   className="w-full"
                   disabled={faceEmbeddings.length === 0}
                 >
@@ -598,11 +596,10 @@ export const GateAttendance: React.FC = () => {
           )}
 
           {scanResult && (
-            <div className={`mt-4 p-4 rounded-lg ${
-              scanResult.success 
+            <div className={`mt-4 p-4 rounded-lg ${scanResult.success
                 ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200'
                 : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200'
-            }`}>
+              }`}>
               {lastScannedStudent && (
                 <div className="flex items-center gap-3 mb-2">
                   {lastScannedStudent.photoUrl ? (
@@ -667,13 +664,12 @@ export const GateAttendance: React.FC = () => {
                           </p>
                         </div>
                       </div>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ${
-                        status === 'present' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
-                        status === 'late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                        status === 'absent' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
-                        status === 'left_early' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400' :
-                        'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-                      }`}>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ${status === 'present' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                          status === 'late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                            status === 'absent' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+                              status === 'left_early' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400' :
+                                'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                        }`}>
                         {status === 'not_checked_in' ? 'Waiting' : status.replace('_', ' ').toUpperCase()}
                       </span>
                     </div>
@@ -685,14 +681,14 @@ export const GateAttendance: React.FC = () => {
                       </div>
                       <div>
                         {status === 'not_checked_in' ? (
-                          <button 
+                          <button
                             onClick={() => { setScanMode('check-in'); handleManualCheckIn(student.id); }}
                             className="min-h-[44px] px-5 py-3 bg-green-600 text-white text-sm font-medium rounded-lg active:bg-green-700"
                           >
                             Check In
                           </button>
                         ) : !record?.checkOutTime ? (
-                          <button 
+                          <button
                             onClick={() => { setScanMode('check-out'); handleManualCheckIn(student.id); }}
                             className={`min-h-[44px] px-5 py-3 text-sm font-medium rounded-lg border ${isDark ? 'border-gray-600 text-gray-300 active:bg-gray-700' : 'border-gray-300 text-gray-700 active:bg-gray-100'}`}
                           >
@@ -746,29 +742,28 @@ export const GateAttendance: React.FC = () => {
                         {record?.checkOutTime || '-'}
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          status === 'present' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
-                          status === 'late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                          status === 'absent' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
-                          status === 'left_early' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400' :
-                          'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-                        }`}>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${status === 'present' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                            status === 'late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                              status === 'absent' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+                                status === 'left_early' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400' :
+                                  'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                          }`}>
                           {status === 'not_checked_in' ? 'Not Checked In' : status.replace('_', ' ').toUpperCase()}
                         </span>
                       </td>
                       <td className="px-4 py-3">
                         {status === 'not_checked_in' ? (
-                          <Button 
-                            size="sm" 
-                            variant="success" 
+                          <Button
+                            size="sm"
+                            variant="success"
                             onClick={() => { setScanMode('check-in'); handleManualCheckIn(student.id); }}
                           >
                             Check In
                           </Button>
                         ) : !record?.checkOutTime ? (
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
+                          <Button
+                            size="sm"
+                            variant="outline"
                             onClick={() => { setScanMode('check-out'); handleManualCheckIn(student.id); }}
                           >
                             Check Out

@@ -14,7 +14,7 @@ export default function FaceEnrollment({ personId, personType, personName, onSuc
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  
+
   const [modelsLoaded, setModelsLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,13 +31,13 @@ export default function FaceEnrollment({ personId, personType, personName, onSuc
       }
 
       const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/model';
-      
+
       await Promise.all([
         faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
         faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
         faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
       ]);
-      
+
       setModelsLoaded(true);
       setLoading(false);
     } catch (err: any) {
@@ -91,18 +91,18 @@ export default function FaceEnrollment({ personId, personType, personName, onSuc
 
       try {
         const detection = await faceapi
-          .detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions())
+          .detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions({ inputSize: 512, scoreThreshold: 0.3 }))
           .withFaceLandmarks();
-        
+
         setFaceDetected(!!detection);
-        
+
         if (canvasRef.current && videoRef.current) {
           const ctx = canvasRef.current.getContext('2d');
           if (ctx) {
             canvasRef.current.width = videoRef.current.videoWidth;
             canvasRef.current.height = videoRef.current.videoHeight;
             ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-            
+
             if (detection) {
               const box = detection.detection.box;
               ctx.strokeStyle = '#10B981';
@@ -114,7 +114,7 @@ export default function FaceEnrollment({ personId, personType, personName, onSuc
       } catch (err) {
         console.error('Face detection error:', err);
       }
-      
+
       animationId = requestAnimationFrame(detectFace);
     };
 
@@ -128,7 +128,7 @@ export default function FaceEnrollment({ personId, personType, personName, onSuc
     setCapturing(true);
     try {
       const detection = await faceapi
-        .detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions())
+        .detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions({ inputSize: 512, scoreThreshold: 0.3 }))
         .withFaceLandmarks()
         .withFaceDescriptor();
 
@@ -231,11 +231,10 @@ export default function FaceEnrollment({ personId, personType, personName, onSuc
                   ref={canvasRef}
                   className="absolute inset-0 w-full h-full"
                 />
-                <div className={`absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full text-sm font-medium ${
-                  faceDetected 
-                    ? 'bg-green-500 text-white' 
-                    : 'bg-yellow-500 text-black'
-                }`}>
+                <div className={`absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full text-sm font-medium ${faceDetected
+                  ? 'bg-green-500 text-white'
+                  : 'bg-yellow-500 text-black'
+                  }`}>
                   {faceDetected ? 'Face detected - Ready to capture' : 'Position your face in frame'}
                 </div>
               </>
