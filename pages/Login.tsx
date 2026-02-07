@@ -20,7 +20,11 @@ export function Login() {
 
   useEffect(() => {
     if (user) {
-      navigate('/app');
+      if (user.activeSchoolRole === 'parent' || user.role === 'parent') {
+        navigate('/parent');
+      } else {
+        navigate('/app');
+      }
     }
   }, [user, navigate]);
 

@@ -10,7 +10,7 @@ export default function ParentStudentView() {
     const { data: info, isLoading, error } = useQuery({
         queryKey: ['parent-student', id],
         queryFn: async () => {
-            const res = await fetch(`/api/parent/student/${id}`);
+            const res = await fetch(`/api/parent/student/${id}`, { credentials: 'include' });
             if (!res.ok) throw new Error('Failed to fetch student details');
             return res.json();
         }

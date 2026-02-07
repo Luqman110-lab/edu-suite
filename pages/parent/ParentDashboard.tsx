@@ -6,7 +6,7 @@ export default function ParentDashboard() {
     const { data, isLoading, error } = useQuery({
         queryKey: ['parent-dashboard'],
         queryFn: async () => {
-            const res = await fetch('/api/parent/dashboard');
+            const res = await fetch('/api/parent/dashboard', { credentials: 'include' });
             if (!res.ok) throw new Error('Failed to fetch dashboard');
             return res.json();
         }

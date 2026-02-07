@@ -18,14 +18,14 @@ export default function ParentLayout() {
     const { data: user, isLoading } = useQuery<ParentUser>({
         queryKey: ['user'],
         queryFn: async () => {
-            const res = await fetch('/api/user');
+            const res = await fetch('/api/user', { credentials: 'include' });
             if (!res.ok) throw new Error("Not logged in");
             return res.json();
         }
     });
 
     const handleLogout = async () => {
-        await fetch('/api/logout', { method: 'POST' });
+        await fetch('/api/logout', { method: 'POST', credentials: 'include' });
         window.location.href = '/login';
     };
 
