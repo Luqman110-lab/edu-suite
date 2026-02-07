@@ -213,7 +213,21 @@ guardianRoutes.post("/:id/invite", requireAuth, requireAdmin, async (req, res) =
         }
 
         // 2. Generate Credentials
-        const finalUsername = username || (guardian.phone ? guardian.phone.replace(/\s/g, '') : `parent${guardianId}`);
+        let finalUsername = username;
+
+        if (!finalUsername) {
+            // Robust generation logic
+            if (guardian.phone && guardian.phone.trim().length > 0) {
+                // Remove spaces and special chars, keep only alphanumeric
+                finalUsername = guardian.phone.replace(/[^a-zA-Z0-9]/g, '');
+            }
+
+            // If phone processed to empty string or was missing, fallback to ID
+            if (!finalUsername || finalUsername.length < 3) {
+                finalUsername = `parent${guardianId}`;
+            }
+        }
+
         console.log(`[Inviting Guardian] Generating credentials for username: ${finalUsername}`);
 
         const rawPassword = crypto.randomBytes(4).toString('hex');
@@ -226,17 +240,27 @@ guardianRoutes.post("/:id/invite", requireAuth, requireAdmin, async (req, res) =
         });
 
         if (existingUser) {
-            console.log(`[Inviting Guardian] Username '${finalUsername}' already taken`);
-            return res.status(400).json({ message: `Username '${finalUsername}' already taken.` });
+            console.log(`[Inviting Guardian] Username '${finalUsername}' already taken (Check 1)`);
+            return res.status(409).json({ message: `Username '${finalUsername}' already taken.` }); // 409 Conflict
         }
 
         console.log('[Inviting Guardian] Creating user record...');
-        const [newUser] = await db.insert(users).values({
-            username: finalUsername,
-            password: hashedPassword,
-            name: guardian.name,
-            role: 'parent',
-        }).returning();
+        let newUser;
+        try {
+            [newUser] = await db.insert(users).values({
+                username: finalUsername,
+                password: hashedPassword,
+                name: guardian.name,
+                role: 'parent',
+            }).returning();
+        } catch (dbError: any) {
+            if (dbError.code === '23505') { // Postgres Unique Violation
+                console.log(`[Inviting Guardian] Username '${finalUsername}' collision during insert (Race condition)`);
+                return res.status(409).json({ message: `Username '${finalUsername}' already taken.` });
+            }
+            throw dbError; // Re-throw to main catch
+        }
+
         console.log(`[Inviting Guardian] User created with ID: ${newUser.id}`);
 
         // 3a. Link user to school
