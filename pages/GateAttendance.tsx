@@ -197,7 +197,7 @@ export const GateAttendance: React.FC = () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode: type === 'face' ? 'user' : 'environment',
+          facingMode: type === 'face' ? 'user' : { ideal: 'environment' },
           width: { ideal: 640 },
           height: { ideal: 480 }
         }
@@ -521,8 +521,8 @@ export const GateAttendance: React.FC = () => {
             <button
               onClick={() => setScanMode('check-in')}
               className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${scanMode === 'check-in'
-                  ? 'bg-green-600 text-white'
-                  : isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
+                ? 'bg-green-600 text-white'
+                : isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
                 }`}
             >
               Check-In
@@ -530,8 +530,8 @@ export const GateAttendance: React.FC = () => {
             <button
               onClick={() => setScanMode('check-out')}
               className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${scanMode === 'check-out'
-                  ? 'bg-blue-600 text-white'
-                  : isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
+                ? 'bg-blue-600 text-white'
+                : isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
                 }`}
             >
               Check-Out
@@ -597,8 +597,8 @@ export const GateAttendance: React.FC = () => {
 
           {scanResult && (
             <div className={`mt-4 p-4 rounded-lg ${scanResult.success
-                ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200'
-                : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200'
+              ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200'
+              : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200'
               }`}>
               {lastScannedStudent && (
                 <div className="flex items-center gap-3 mb-2">
@@ -665,10 +665,10 @@ export const GateAttendance: React.FC = () => {
                         </div>
                       </div>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ${status === 'present' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
-                          status === 'late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                            status === 'absent' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
-                              status === 'left_early' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400' :
-                                'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                        status === 'late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                          status === 'absent' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+                            status === 'left_early' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400' :
+                              'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
                         }`}>
                         {status === 'not_checked_in' ? 'Waiting' : status.replace('_', ' ').toUpperCase()}
                       </span>
@@ -743,10 +743,10 @@ export const GateAttendance: React.FC = () => {
                       </td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${status === 'present' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
-                            status === 'late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                              status === 'absent' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
-                                status === 'left_early' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400' :
-                                  'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                          status === 'late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                            status === 'absent' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+                              status === 'left_early' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400' :
+                                'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
                           }`}>
                           {status === 'not_checked_in' ? 'Not Checked In' : status.replace('_', ' ').toUpperCase()}
                         </span>
