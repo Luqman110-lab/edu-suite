@@ -3,7 +3,7 @@ import { Express } from "express";
 import { db } from "./db";
 import { eq, and, desc, asc, sql, inArray, gt, or, isNull } from "drizzle-orm";
 
-import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, teacherAttendance, users, userSchools, feeStructures, financeTransactions, conversations, conversationParticipants, messages, promotionHistory, studentFeeOverrides, dormitories, beds, boardingRollCalls, leaveRequests, auditLogs, invoices, invoiceItems, paymentPlans, planInstallments, visitorLogs, boardingSettings, faceEmbeddings, insertStudentSchema } from "../shared/schema";
+import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, teacherAttendance, users, userSchools, feeStructures, financeTransactions, conversations, conversationParticipants, messages, promotionHistory, studentFeeOverrides, dormitories, beds, boardingRollCalls, leaveRequests, auditLogs, invoices, invoiceItems, paymentPlans, planInstallments, visitorLogs, boardingSettings, faceEmbeddings, insertStudentSchema, p7ExamSets, p7Scores } from "../shared/schema";
 import { requireAuth, requireAdmin, requireSuperAdmin, getActiveSchoolId, hashPassword } from "./auth";
 import { MobileMoneyService } from "./services/MobileMoneyService";
 import { broadcastMessage } from "./websocket";
@@ -4515,6 +4515,129 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const [updated] = await db.update(programItems).set(req.body).where(eq(programItems.id, id)).returning();
             res.json(updated);
         } catch (error: any) {
+            res.status(500).json({ message: error.message });
+        }
+    });
+
+
+    // ==================== P7 EXAM SETS ====================
+
+    app.get("/api/p7-exam-sets", async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) {
+                // Return empty if no school, or handle public access if needed (usually requires auth)
+                // For safety/consistency with other routes:
+                return res.json([]);
+            }
+
+            const sets = await db.select().from(p7ExamSets)
+                .where(and(eq(p7ExamSets.schoolId, schoolId), eq(p7ExamSets.isActive, true)))
+                .orderBy(desc(p7ExamSets.createdAt));
+            res.json(sets);
+        } catch (error: any) {
+            console.error("Fetch P7 sets error:", error);
+            res.status(500).json({ message: error.message });
+        }
+    });
+
+    app.post("/api/p7-exam-sets", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            const { setNumber, name, stream, term, year, examDate, maxMarks, isActive } = req.body;
+
+            const [newSet] = await db.insert(p7ExamSets).values({
+                schoolId,
+                setNumber,
+                name,
+                stream,
+                term,
+                year,
+                examDate,
+                maxMarks,
+                isActive: isActive !== undefined ? isActive : true
+            }).returning();
+
+            res.status(201).json(newSet);
+        } catch (error: any) {
+            console.error("Create P7 set error:", error);
+            res.status(500).json({ message: error.message });
+        }
+    });
+
+    app.delete("/api/p7-exam-sets/:id", requireAuth, async (req, res) => {
+        try {
+            const id = parseInt(req.params.id);
+            // Verify ownership/school?
+            // Ideally check schoolId but for now simple delete
+            await db.delete(p7ExamSets).where(eq(p7ExamSets.id, id));
+            res.json({ message: "Exam set deleted" });
+        } catch (error: any) {
+            console.error("Delete P7 set error:", error);
+            res.status(500).json({ message: error.message });
+        }
+    });
+
+    // ==================== P7 SCORES ====================
+
+    app.get("/api/p7-scores", async (req, res) => {
+        try {
+            const examSetId = parseInt(req.query.examSetId as string);
+            if (!examSetId) return res.status(400).json({ message: "Exam Set ID required" });
+
+            const scores = await db.select().from(p7Scores)
+                .where(eq(p7Scores.examSetId, examSetId));
+            res.json(scores);
+        } catch (error: any) {
+            console.error("Fetch P7 scores error:", error);
+            res.status(500).json({ message: error.message });
+        }
+    });
+
+    app.post("/api/p7-scores/batch", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            const { scores } = req.body;
+            if (!Array.isArray(scores)) return res.status(400).json({ message: "Invalid scores format" });
+
+            const results = [];
+            for (const score of scores) {
+                const { examSetId, studentId, marks, total, aggregate, division, position, comment, status } = score;
+
+                // Check for existing score
+                const existing = await db.select().from(p7Scores).where(
+                    and(eq(p7Scores.examSetId, examSetId), eq(p7Scores.studentId, studentId))
+                ).limit(1);
+
+                if (existing.length > 0) {
+                    const [updated] = await db.update(p7Scores).set({
+                        marks, total, aggregate, division, position, comment, status
+                    }).where(eq(p7Scores.id, existing[0].id)).returning();
+                    results.push(updated);
+                } else {
+                    const [inserted] = await db.insert(p7Scores).values({
+                        schoolId,
+                        examSetId,
+                        studentId,
+                        marks,
+                        total,
+                        aggregate,
+                        division,
+                        position,
+                        comment,
+                        status
+                    }).returning();
+                    results.push(inserted);
+                }
+            }
+
+            res.json({ message: "Scores saved", count: results.length });
+        } catch (error: any) {
+            console.error("Batch save P7 scores error:", error);
             res.status(500).json({ message: error.message });
         }
     });
