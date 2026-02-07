@@ -185,39 +185,62 @@ guardianRoutes.get("/:id/students", requireAuth, requireAdmin, async (req, res) 
 // POST /api/guardians/:id/invite - Create/Link User Account
 guardianRoutes.post("/:id/invite", requireAuth, requireAdmin, async (req, res) => {
     try {
+        console.log(`[Inviting Guardian] Start invite for guardianId: ${req.params.id}`);
         const schoolId = getActiveSchoolId(req);
-        if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+        if (!schoolId) {
+            console.log('[Inviting Guardian] No active school selected');
+            return res.status(400).json({ message: "No active school selected" });
+        }
+
         const guardianId = parseInt(req.params.id);
-        const { username } = req.body; // allow admin to specify, or default to phone
+        const { username } = req.body;
+
+        console.log(`[Inviting Guardian] SchoolId: ${schoolId}, GuardianId: ${guardianId}`);
 
         // 1. Get Guardian
         const guardian = await db.query.guardians.findFirst({
-            where: and(eq(guardians.id, guardianId), eq(guardians.schoolId, schoolId as number))
+            where: and(eq(guardians.id, guardianId), eq(guardians.schoolId, schoolId))
         });
 
-        if (!guardian) return res.status(404).json({ message: "Guardian not found" });
-        if (guardian.userId) return res.status(400).json({ message: "Guardian already has a linked account" });
+        if (!guardian) {
+            console.log(`[Inviting Guardian] Guardian not found for ID ${guardianId} and School ${schoolId}`);
+            return res.status(404).json({ message: "Guardian not found" });
+        }
+
+        if (guardian.userId) {
+            console.log(`[Inviting Guardian] Guardian already has linked account: ${guardian.userId}`);
+            return res.status(400).json({ message: "Guardian already has a linked account" });
+        }
 
         // 2. Generate Credentials
         const finalUsername = username || (guardian.phone ? guardian.phone.replace(/\s/g, '') : `parent${guardianId}`);
-        const rawPassword = crypto.randomBytes(4).toString('hex'); // 8 char random hex
+        console.log(`[Inviting Guardian] Generating credentials for username: ${finalUsername}`);
+
+        const rawPassword = crypto.randomBytes(4).toString('hex');
         const hashedPassword = await hashPassword(rawPassword);
+        console.log('[Inviting Guardian] Password hashed');
 
         // 3. Create User
-        // Check if username exists
         const existingUser = await db.query.users.findFirst({
             where: eq(users.username, finalUsername)
         });
-        if (existingUser) return res.status(400).json({ message: `Username '${finalUsername}' already taken.` });
 
+        if (existingUser) {
+            console.log(`[Inviting Guardian] Username '${finalUsername}' already taken`);
+            return res.status(400).json({ message: `Username '${finalUsername}' already taken.` });
+        }
+
+        console.log('[Inviting Guardian] Creating user record...');
         const [newUser] = await db.insert(users).values({
             username: finalUsername,
             password: hashedPassword,
             name: guardian.name,
             role: 'parent',
         }).returning();
+        console.log(`[Inviting Guardian] User created with ID: ${newUser.id}`);
 
         // 3a. Link user to school
+        console.log('[Inviting Guardian] Linking user to school...');
         await db.insert(userSchools).values({
             userId: newUser.id,
             schoolId,
@@ -226,10 +249,12 @@ guardianRoutes.post("/:id/invite", requireAuth, requireAdmin, async (req, res) =
         });
 
         // 4. Link to Guardian
+        console.log('[Inviting Guardian] Updating guardian record...');
         await db.update(guardians)
             .set({ userId: newUser.id })
             .where(eq(guardians.id, guardianId));
 
+        console.log('[Inviting Guardian] Process complete');
         res.json({
             message: "Account created successfully",
             credentials: {
@@ -240,6 +265,10 @@ guardianRoutes.post("/:id/invite", requireAuth, requireAdmin, async (req, res) =
 
     } catch (error: any) {
         console.error("Invite guardian error:", error);
+        // Log full error object if possible
+        if (error instanceof Error) {
+            console.error("Stack:", error.stack);
+        }
         res.status(500).json({ message: "Failed to invite guardian: " + error.message });
     }
 });
