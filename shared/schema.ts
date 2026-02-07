@@ -17,7 +17,7 @@ export const schools = pgTable("schools", {
   primaryColor: text("primary_color").default("#7B1113"),
   secondaryColor: text("secondary_color").default("#1E3A5F"),
   currentTerm: integer("current_term").default(1),
-  currentYear: integer("current_year").default(2025),
+  currentYear: integer("current_year").default(2026),
   nextTermBeginBoarders: text("next_term_begin_boarders").default(""),
   nextTermBeginDay: text("next_term_begin_day").default(""),
   streams: json("streams").$type<{ [key: string]: string[] }>().default({
@@ -344,7 +344,7 @@ export const deprecatedSettings = pgTable("settings", {
   centreNumber: text("centre_number").default("670135"),
   logoBase64: text("logo_base64"),
   currentTerm: integer("current_term").default(1),
-  currentYear: integer("current_year").default(2025),
+  currentYear: integer("current_year").default(2026),
   nextTermBeginBoarders: text("next_term_begin_boarders").default(""),
   nextTermBeginDay: text("next_term_begin_day").default(""),
   streams: json("streams").$type<{ [key: string]: string[] }>().default({
@@ -602,9 +602,9 @@ export const selectSchoolSchema = createSelectSchema(schools);
 
 export const insertUserSchema = createInsertSchema(users, {
   username: z.string().min(3, "Username must be at least 3 characters"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
   name: z.string().min(1, "Name is required"),
-  role: z.enum(["admin", "teacher"]),
+  role: z.enum(["admin", "teacher", "parent"]),
 });
 
 export const selectUserSchema = createSelectSchema(users);

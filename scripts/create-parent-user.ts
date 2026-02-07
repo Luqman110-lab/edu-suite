@@ -1,6 +1,6 @@
 
 import { db } from "../server/db";
-import { users, guardians } from "../shared/schema";
+import { users, guardians, userSchools } from "../shared/schema";
 import { eq } from "drizzle-orm";
 import { hashPassword } from "../server/auth";
 
@@ -33,13 +33,19 @@ async function main() {
         password: hashedPassword,
         role: "parent",
         name: guardian.name,
-        schoolId: guardian.schoolId,
-        status: "active"
     }).returning();
 
     console.log(`Created User: ${newUser.username} (ID: ${newUser.id})`);
 
-    // 3. Link Guardian
+    // 3. Link user to school via userSchools
+    await db.insert(userSchools).values({
+        userId: newUser.id,
+        schoolId: guardian.schoolId,
+        role: "parent",
+        isPrimary: true,
+    });
+
+    // 4. Link Guardian
     await db.update(guardians)
         .set({ userId: newUser.id })
         .where(eq(guardians.id, guardian.id));

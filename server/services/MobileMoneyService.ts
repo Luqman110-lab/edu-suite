@@ -191,7 +191,7 @@ export class MobileMoneyService {
                 feeType: 'Tuition', // Broad assumption
                 notes: `MoMo: ${transaction.provider} - Ref: ${transaction.externalReference}`,
                 term: school.currentTerm || 1,
-                year: school.currentYear || 2025
+                year: school.currentYear || new Date().getFullYear()
             }).returning();
 
             // Create Finance Transaction (The Dashboard Source)
@@ -202,7 +202,7 @@ export class MobileMoneyService {
                 amount: transaction.amount,
                 description: description || `MoMo Payment (${transaction.provider})`,
                 term: school.currentTerm || 1,
-                year: school.currentYear || 2025,
+                year: school.currentYear || new Date().getFullYear(),
                 transactionDate: new Date().toISOString().split('T')[0],
             });
 

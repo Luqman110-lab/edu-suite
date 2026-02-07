@@ -58,6 +58,7 @@ academicRoutes.post("/test-sessions", requireAuth, async (req, res) => {
 academicRoutes.put("/test-sessions/:id", requireAuth, async (req, res) => {
     try {
         const schoolId = getActiveSchoolId(req);
+        if (!schoolId) return res.status(400).json({ message: "No active school selected" });
         const id = parseInt(req.params.id);
 
         // Verify ownership
@@ -67,8 +68,21 @@ academicRoutes.put("/test-sessions/:id", requireAuth, async (req, res) => {
 
         if (!existing.length) return res.status(404).json({ message: "Test session not found" });
 
+        // Only allow safe fields to be updated (prevent mass assignment)
+        const { name, testType, classLevel, stream, term, year, testDate, maxMarks, isActive } = req.body;
+        const safeUpdate: Record<string, any> = {};
+        if (name !== undefined) safeUpdate.name = name;
+        if (testType !== undefined) safeUpdate.testType = testType;
+        if (classLevel !== undefined) safeUpdate.classLevel = classLevel;
+        if (stream !== undefined) safeUpdate.stream = stream;
+        if (term !== undefined) safeUpdate.term = term;
+        if (year !== undefined) safeUpdate.year = year;
+        if (testDate !== undefined) safeUpdate.testDate = testDate;
+        if (maxMarks !== undefined) safeUpdate.maxMarks = maxMarks;
+        if (isActive !== undefined) safeUpdate.isActive = isActive;
+
         const [updated] = await db.update(testSessions)
-            .set(req.body) // Be careful with blindly setting body, but okay for trusted admin
+            .set(safeUpdate)
             .where(eq(testSessions.id, id))
             .returning();
 
@@ -83,6 +97,7 @@ academicRoutes.put("/test-sessions/:id", requireAuth, async (req, res) => {
 academicRoutes.delete("/test-sessions/:id", requireAuth, async (req, res) => {
     try {
         const schoolId = getActiveSchoolId(req);
+        if (!schoolId) return res.status(400).json({ message: "No active school selected" });
         const id = parseInt(req.params.id);
 
         const existing = await db.select().from(testSessions)
@@ -109,7 +124,16 @@ academicRoutes.delete("/test-sessions/:id", requireAuth, async (req, res) => {
 // GET /api/test-scores/:sessionId - Get scores for a session
 academicRoutes.get("/test-scores/:sessionId", requireAuth, async (req, res) => {
     try {
+        const schoolId = getActiveSchoolId(req);
+        if (!schoolId) return res.status(400).json({ message: "No active school selected" });
         const sessionId = parseInt(req.params.sessionId);
+
+        // Verify the session belongs to the active school
+        const session = await db.select().from(testSessions)
+            .where(and(eq(testSessions.id, sessionId), eq(testSessions.schoolId, schoolId)))
+            .limit(1);
+
+        if (!session.length) return res.status(404).json({ message: "Test session not found" });
 
         const scores = await db.select().from(testScores)
             .where(eq(testScores.testSessionId, sessionId));

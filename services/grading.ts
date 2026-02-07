@@ -1,5 +1,5 @@
 
-import { ClassLevel, MarkRecord, Student, Gender, GradingConfig } from "../types";
+import { ClassLevel, MarkRecord, Student, GradingConfig } from "../types";
 
 // Default configuration to use as fallback
 const DEFAULT_GRADING_CONFIG: GradingConfig = {
@@ -85,12 +85,12 @@ export const getComment = (subject: string, mark: number): string => {
     return "Consult teacher.";
 };
 
-const getPronouns = (gender: Gender) => {
+const getPronouns = (gender: string) => {
     return {
-        sub: gender === Gender.Female ? 'She' : 'He',
-        obj: gender === Gender.Female ? 'her' : 'him',
-        pos: gender === Gender.Female ? 'her' : 'his',
-        sub_lower: gender === Gender.Female ? 'she' : 'he'
+        sub: gender === 'F' ? 'She' : 'He',
+        obj: gender === 'F' ? 'her' : 'him',
+        pos: gender === 'F' ? 'her' : 'his',
+        sub_lower: gender === 'F' ? 'she' : 'he'
     };
 };
 
@@ -99,13 +99,13 @@ export const getClassTeacherComment = (division: string, student: Student): stri
     const name = student.name.split(' ')[0] || 'Learner'; // Use first name
 
     // 1. Check Special Cases first
-    if (student.specialCases.absenteeism) {
+    if (student.specialCases?.absenteeism) {
         return `${name} has underperformed due to absenteeism. ${p.sub} should try to be present throughout the term in order to perform better than this.`;
     }
-    if (student.specialCases.sickness) {
+    if (student.specialCases?.sickness) {
         return `${name} has been affected by sickness this term. ${p.sub} can perform better than this.`;
     }
-    if (student.specialCases.fees) {
+    if (student.specialCases?.fees) {
         return `${name} is often sent home for school fees and this makes ${p.obj} miss lessons. You should try to pay school fees in time to help ${p.obj} concentrate.`;
     }
 

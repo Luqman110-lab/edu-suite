@@ -482,8 +482,8 @@ export const P7ExamSets: React.FC = () => {
     doc.setTextColor(colors.muted[0], colors.muted[1], colors.muted[2]);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
-    if (settings.address) {
-      doc.text(settings.address, pageWidth / 2, currentY, { align: "center" });
+    if (settings.addressBox) {
+      doc.text(settings.addressBox, pageWidth / 2, currentY, { align: "center" });
       currentY += 3;
     }
 
@@ -752,8 +752,8 @@ export const P7ExamSets: React.FC = () => {
     doc.setTextColor(colors.muted[0], colors.muted[1], colors.muted[2]);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
-    if (settings.address) {
-      doc.text(settings.address, pageWidth / 2, currentY + 9, { align: "center" });
+    if (settings.addressBox) {
+      doc.text(settings.addressBox, pageWidth / 2, currentY + 9, { align: "center" });
     }
 
     doc.setTextColor(colors.darkBlue[0], colors.darkBlue[1], colors.darkBlue[2]);

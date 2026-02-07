@@ -14,6 +14,17 @@ import { z } from "zod";
 
 const loginAttempts = new Map<string, { count: number; lastAttempt: number; lockedUntil?: number }>();
 
+// Periodically clean up stale login attempt entries to prevent memory leak
+setInterval(() => {
+  const now = Date.now();
+  const staleThreshold = 30 * 60 * 1000; // 30 minutes
+  for (const [ip, attempt] of loginAttempts) {
+    if (now - attempt.lastAttempt > staleThreshold) {
+      loginAttempts.delete(ip);
+    }
+  }
+}, 10 * 60 * 1000); // Run every 10 minutes
+
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
 

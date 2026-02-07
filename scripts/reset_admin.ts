@@ -52,7 +52,6 @@ async function main() {
                         schoolId: school.id,
                         role: 'admin',
                         isPrimary: true,
-                        isActive: true
                     }).onConflictDoNothing();
                     console.log("Link created.");
                 } catch (err: any) {
@@ -99,7 +98,6 @@ async function main() {
                 schoolId: school.id,
                 role: 'admin',
                 isPrimary: true,
-                isActive: true
             });
             console.log("User linked to school.");
         }

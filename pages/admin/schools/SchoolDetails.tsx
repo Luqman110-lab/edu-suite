@@ -41,7 +41,7 @@ export const SchoolDetails: React.FC = () => {
         <div className="space-y-6">
             <div className="flex items-center gap-4">
                 <Link to="/app/admin/schools">
-                    <Button variant="ghost" size="icon">
+                    <Button variant="ghost" size="sm">
                         <ChevronLeft className="w-5 h-5" />
                     </Button>
                 </Link>

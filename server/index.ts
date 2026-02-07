@@ -89,45 +89,27 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   res.status(status).json({ message });
 });
 
-// Only start listening if this file is run directly (not imported)
-import { realpathSync } from 'fs';
+// Start the server
+if (isProduction) {
+  // In Docker, WORKDIR is /app. dist is at /app/dist.
+  const distPath = path.join(process.cwd(), "dist");
+  console.log(`Checking for dist at: ${distPath}`);
 
-const isMainModule = () => {
-  try {
-    const currentPath = fileURLToPath(import.meta.url);
-    // process.argv[1] is the file path executed by node
-    const executedPath = process.argv[1];
-    return currentPath === executedPath ||
-      currentPath === realpathSync(executedPath);
-  } catch (e) {
-    return false;
+  if (fs.existsSync(distPath)) {
+    console.log(`Serving static files from ${distPath}`);
+    app.use(express.static(distPath));
+    // Fallback for SPA
+    app.use((_req, res) => {
+      res.sendFile(path.join(distPath, "index.html"));
+    });
+  } else {
+    console.error(`Dist directory not found at ${distPath}. CWD: ${process.cwd()}`);
   }
-};
-
-// Simplified startup check
-if (true) { // Always run as we are invoking explicitly
-
-  if (isProduction) {
-    // In Docker, WORKDIR is /app. dist is at /app/dist.
-    const distPath = path.join(process.cwd(), "dist");
-    console.log(`Checking for dist at: ${distPath}`);
-
-    if (fs.existsSync(distPath)) {
-      console.log(`Serving static files from ${distPath}`);
-      app.use(express.static(distPath));
-      // Fallback for SPA
-      app.use((_req, res) => {
-        res.sendFile(path.join(distPath, "index.html"));
-      });
-    } else {
-      console.error(`Dist directory not found at ${distPath}. CWD: ${process.cwd()}`);
-    }
-  }
-
-  const port = process.env.PORT ? parseInt(process.env.PORT, 10) : (isProduction ? 5000 : 3001);
-  server.listen(port, "0.0.0.0", () => {
-    console.log(`Server running on port ${port}${isProduction ? " (production)" : ""}`);
-  });
 }
+
+const port = process.env.PORT ? parseInt(process.env.PORT, 10) : (isProduction ? 5000 : 3001);
+server.listen(port, "0.0.0.0", () => {
+  console.log(`Server running on port ${port}${isProduction ? " (production)" : ""}`);
+});
 
 export default app;

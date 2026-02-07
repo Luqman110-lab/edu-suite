@@ -133,13 +133,13 @@ interface StudentFormData {
     // Step 1: Basic Info
     name: string;
     dateOfBirth?: string;
-    gender: Gender;
+    gender: string;
     nationality?: string;
     religion?: string;
     photoBase64?: string;
 
     // Step 2: Academic
-    classLevel: ClassLevel;
+    classLevel: string;
     stream: string;
     indexNumber: string;
     paycode?: string;

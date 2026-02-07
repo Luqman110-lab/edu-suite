@@ -37,9 +37,11 @@ type RegisterData = {
   username: string;
   password: string;
   name: string;
-  role: "admin" | "teacher";
+  role: "admin" | "teacher" | "parent";
   email?: string;
   phone?: string;
+  setupKey?: string;
+  isSuperAdmin?: boolean;
 };
 
 type AuthContextType = {

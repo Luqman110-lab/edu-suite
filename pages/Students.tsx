@@ -543,24 +543,23 @@ export const Students: React.FC = () => {
           streams: { P1: [], P2: [], P3: [], P4: [], P5: [], P6: [], P7: [] },
           classAliases: {},
           gradingConfig: { grades: [], divisions: [], passingMark: 40 },
-          subjectsConfig: { lowerPrimary: [], upperPrimary: [] },
-          reportConfig: { conductOptions: [], commentTemplates: [] },
-          idCardConfig: { customTerms: [] },
-          securityConfig: {}
+          subjectConfig: { lowerPrimary: [], upperPrimary: [] },
+          reportConfig: { headteacherName: '', headteacherTitle: '', showClassTeacherSignature: false, showHeadteacherSignature: false, showParentSignature: false, commentTemplates: [] },
+          idCardConfig: { showBloodGroup: false, showDob: false, showEmergencyContact: false, customTerms: [], layout: 'single' as const },
         } as SchoolSettings;
       });
 
       const [data, s] = await Promise.all([studentsPromise, settingsPromise]);
       setStudents(data as any);
       setSettings(s);
+
+      if (s && s.streams['P1'] && s.streams['P1'].length > 0) {
+        setFormData(prev => ({ ...prev, stream: s.streams['P1'][0] }));
+      }
     } catch (err) {
       console.error("Error loading student directory:", err);
       // Ensure students is at least an empty array if everything blows up
       setStudents([]);
-    }
-
-    if (s && s.streams['P1'] && s.streams['P1'].length > 0) {
-      setFormData(prev => ({ ...prev, stream: s.streams['P1'][0] }));
     }
 
     try {

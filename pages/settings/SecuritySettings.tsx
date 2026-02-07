@@ -185,7 +185,7 @@ export const SecuritySettings: React.FC<SecuritySettingsProps> = ({ settings, on
                                 <div className="flex-1 min-w-0">
                                     <p className={`text-sm font-medium truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>{log.action.replace(/_/g, ' ')}</p>
                                     <p className={`text-xs truncate ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                                        {log.performedBy} - {new Date(log.createdAt).toLocaleString()}
+                                        {log.userName || 'System'} - {new Date(log.createdAt || '').toLocaleString()}
                                     </p>
                                 </div>
                             </div>

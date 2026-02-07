@@ -109,9 +109,7 @@ export default function FinancialReports() {
   const getStudentName = (studentId: number) => {
     const student = students.find(s => s.id === studentId);
     if (!student) return 'Unknown';
-    if (student.name) return student.name;
-    if (student.firstName && student.lastName) return `${student.firstName} ${student.lastName}`;
-    return student.firstName || student.lastName || 'Unknown';
+    return student.name || 'Unknown';
   };
 
   const getStudentClass = (studentId: number) => {
@@ -132,12 +130,11 @@ export default function FinancialReports() {
 
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    if (settings?.address) {
-      doc.text(settings.address, pageWidth / 2, yPos + 6, { align: 'center' });
+    if (settings?.addressBox) {
+      doc.text(settings.addressBox, pageWidth / 2, yPos + 6, { align: 'center' });
     }
-    if (settings?.phone || settings?.email) {
-      const contact = [settings?.phone, settings?.email].filter(Boolean).join(' | ');
-      doc.text(contact, pageWidth / 2, yPos + 11, { align: 'center' });
+    if (settings?.contactPhones) {
+      doc.text(settings.contactPhones, pageWidth / 2, yPos + 11, { align: 'center' });
     }
 
     doc.setFontSize(14);
@@ -500,8 +497,8 @@ export default function FinancialReports() {
 
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
-    if (settings?.address) {
-      doc.text(settings.address, pageWidth / 2, 21, { align: 'center' });
+    if (settings?.addressBox) {
+      doc.text(settings.addressBox, pageWidth / 2, 21, { align: 'center' });
     }
 
     doc.setFontSize(12);

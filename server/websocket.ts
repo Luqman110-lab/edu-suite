@@ -1,7 +1,7 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { Server } from "http";
 import { db } from "./db";
-import { conversationParticipants } from "../shared/schema";
+import { conversationParticipants, users } from "../shared/schema";
 import { eq } from "drizzle-orm";
 
 interface WsClient extends WebSocket {
@@ -28,8 +28,20 @@ export function setupWebSocket(server: Server) {
 
                 switch (message.type) {
                     case "auth":
-                        if (message.userId) {
+                        if (message.userId && message.sessionToken) {
                             const userId = parseInt(message.userId);
+
+                            // Verify the user actually exists in the database
+                            const [user] = await db.select({ id: users.id })
+                                .from(users)
+                                .where(eq(users.id, userId))
+                                .limit(1);
+
+                            if (!user) {
+                                ws.send(JSON.stringify({ type: 'auth_error', message: 'Invalid user' }));
+                                break;
+                            }
+
                             ws.userId = userId;
 
                             if (!clients.has(userId)) {
@@ -42,6 +54,8 @@ export function setupWebSocket(server: Server) {
                             // Send initial online list
                             const onlineUsers = Array.from(clients.keys());
                             ws.send(JSON.stringify({ type: 'online_users', userIds: onlineUsers }));
+                        } else {
+                            ws.send(JSON.stringify({ type: 'auth_error', message: 'userId and sessionToken required' }));
                         }
                         break;
 

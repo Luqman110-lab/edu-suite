@@ -82,9 +82,9 @@ export interface Student {
   id?: number;
   indexNumber: string;
   name: string;
-  classLevel: ClassLevel;
+  classLevel: string;
   stream: string;
-  gender: Gender;
+  gender: string;
   paycode?: string;
   parentName?: string;
   parentContact?: string;
@@ -95,11 +95,11 @@ export interface Student {
   admissionDate?: string;
   admissionNumber?: string;
   previousSchool?: string;
-  boardingStatus?: 'day' | 'boarding';
+  boardingStatus?: string;
   houseOrDormitory?: string;
   medicalInfo?: MedicalInfo;
   emergencyContacts?: EmergencyContact[];
-  specialCases: SpecialCases;
+  specialCases?: SpecialCases;
   isActive?: boolean;
   createdAt?: string;
   updatedAt?: string;
@@ -123,14 +123,14 @@ export interface Teacher {
   id?: number;
   employeeId?: string;
   name: string;
-  gender: Gender;
+  gender: string;
   phone: string;
   email: string;
-  roles: string[]; // 'Class Teacher' | 'Subject Teacher' | 'Headteacher' | 'DOS'
-  assignedClass?: ClassLevel;
-  assignedStream?: string; // Changed from enum to string
+  roles: string[];
+  assignedClass?: string;
+  assignedStream?: string;
   subjects: string[];
-  teachingClasses: string[]; // "Class-Stream" strings
+  teachingClasses: string[];
   qualifications?: string;
   dateJoined?: string;
   initials?: string;
@@ -152,7 +152,7 @@ export interface MarkRecord {
   studentId: number;
   term: number;
   year: number;
-  type: AssessmentType;
+  type: string;
   marks: SubjectMarks;
   aggregate: number;
   division: string;
@@ -218,17 +218,17 @@ export interface IDCardConfig {
 
 export interface SchoolSettings {
   id?: string;
-  schoolName: string;
-  addressBox: string;
-  contactPhones: string;
-  motto: string;
-  regNumber: string;
-  centreNumber: string;
+  schoolName?: string;
+  addressBox?: string;
+  contactPhones?: string;
+  motto?: string;
+  regNumber?: string;
+  centreNumber?: string;
   logoBase64?: string;
   currentTerm: number;
   currentYear: number;
-  nextTermBeginBoarders: string;
-  nextTermBeginDay: string;
+  nextTermBeginBoarders?: string;
+  nextTermBeginDay?: string;
   streams: { [key: string]: string[] };
   classAliases?: { [key: string]: string };
   gradingConfig?: GradingConfig;
@@ -238,6 +238,20 @@ export interface SchoolSettings {
   primaryColor?: string;
   secondaryColor?: string;
   idCardConfig?: IDCardConfig;
+}
+
+export interface ActivityLog {
+  id: number;
+  userId?: number;
+  userName?: string;
+  action: string;
+  entityType?: string;
+  entityId?: number;
+  entityName?: string;
+  details?: Record<string, any>;
+  ipAddress?: string;
+  userAgent?: string;
+  createdAt?: string;
 }
 
 export interface FeePayment {

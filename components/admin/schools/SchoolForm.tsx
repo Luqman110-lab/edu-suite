@@ -12,7 +12,7 @@ const schoolSchema = z.object({
     contactPhones: z.string().optional(),
     addressBox: z.string().optional(),
     motto: z.string().optional(),
-    isActive: z.boolean().default(true),
+    isActive: z.boolean(),
 });
 
 type SchoolFormData = z.infer<typeof schoolSchema>;

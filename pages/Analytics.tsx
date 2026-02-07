@@ -89,10 +89,9 @@ export const Analytics: React.FC = () => {
             streams: {},
             classAliases: {},
             gradingConfig: { grades: [], divisions: [], passingMark: 40 },
-            subjectsConfig: { lowerPrimary: [], upperPrimary: [] },
-            reportConfig: { conductOptions: [], commentTemplates: [] },
-            idCardConfig: { customTerms: [] },
-            securityConfig: {}
+            subjectConfig: { lowerPrimary: [], upperPrimary: [] },
+            reportConfig: { headteacherName: '', headteacherTitle: '', showClassTeacherSignature: false, showHeadteacherSignature: false, showParentSignature: false, commentTemplates: [] },
+            idCardConfig: { showBloodGroup: false, showDob: false, showEmergencyContact: false, customTerms: [], layout: 'single' as const },
           } as SchoolSettings;
         });
 

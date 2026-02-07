@@ -243,16 +243,6 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
 
             const { studentId, term, year, status, limit = '50', offset = '0' } = req.query;
 
-            let query = db.select({
-                invoice: invoices,
-                studentName: students.name,
-                studentClass: students.classLevel,
-                studentStream: students.stream,
-            }).from(invoices)
-                .leftJoin(students, eq(invoices.studentId, students.id))
-                .where(eq(invoices.schoolId, schoolId))
-                .orderBy(desc(invoices.createdAt));
-
             const conditions = [eq(invoices.schoolId, schoolId)];
             if (studentId) conditions.push(eq(invoices.studentId, parseInt(studentId as string)));
             if (term) conditions.push(eq(invoices.term, parseInt(term as string)));
@@ -576,8 +566,8 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             }).from(expenses)
                 .where(and(...expenseConditions));
 
-            // Get payment totals from feePayments
-            let paymentConditions = [eq(feePayments.schoolId, schoolId)];
+            // Get payment totals from feePayments (exclude soft-deleted)
+            let paymentConditions = [eq(feePayments.schoolId, schoolId), eq(feePayments.isDeleted, false)];
             if (term) paymentConditions.push(eq(feePayments.term, parseInt(term as string)));
             if (year) paymentConditions.push(eq(feePayments.year, parseInt(year as string)));
 
@@ -651,6 +641,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     app.post("/api/invoices/bulk-remind", requireAuth, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
             const { type = 'sms', minBalance = 0 } = req.body;
 
             const overdueInvoices = await db.select().from(invoices)
@@ -685,6 +676,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     app.get("/api/payment-plans", requireAuth, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
             const plans = await db.query.paymentPlans.findMany({
                 where: eq(paymentPlans.schoolId, schoolId),
                 with: {
@@ -704,6 +696,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     app.post("/api/payment-plans", requireAuth, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
             const { studentId, invoiceId, planName, totalAmount, downPayment, installmentCount, frequency, startDate } = req.body;
 
             const [newPlan] = await db.insert(paymentPlans).values({
@@ -1146,10 +1139,10 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const data = parseResult.data;
 
             const newStudent = await db.insert(students).values({
-                ...data,
+                ...(data as Record<string, unknown>),
                 schoolId,
                 isActive: true
-            }).returning();
+            } as typeof students.$inferInsert).returning();
 
             // AUDIT LOG
             await db.insert(auditLogs).values({

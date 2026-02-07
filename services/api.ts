@@ -75,7 +75,7 @@ export interface Student {
   parentName?: string;
   parentContact?: string;
   photoBase64?: string;
-  specialCases: {
+  specialCases?: {
     absenteeism: boolean;
     sickness: boolean;
     fees: boolean;

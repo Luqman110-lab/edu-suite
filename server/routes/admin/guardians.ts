@@ -8,7 +8,7 @@ import crypto from 'crypto';
 
 export const guardianRoutes = Router();
 
-// GET /api/admin/guardians - List all guardians
+// GET /api/guardians - List all guardians
 guardianRoutes.get("/", requireAuth, requireAdmin, async (req, res) => {
     try {
         const schoolId = getActiveSchoolId(req);
@@ -62,7 +62,7 @@ guardianRoutes.get("/", requireAuth, requireAdmin, async (req, res) => {
     }
 });
 
-// POST /api/admin/guardians - Create new guardian
+// POST /api/guardians - Create new guardian
 guardianRoutes.post("/", requireAuth, requireAdmin, async (req, res) => {
     try {
         const schoolId = getActiveSchoolId(req);
@@ -104,7 +104,7 @@ guardianRoutes.post("/", requireAuth, requireAdmin, async (req, res) => {
     }
 });
 
-// POST /api/admin/guardians/:id/students - Link guardian to student
+// POST /api/guardians/:id/students - Link guardian to student
 guardianRoutes.post("/:id/students", requireAuth, requireAdmin, async (req, res) => {
     try {
         const guardianId = parseInt(req.params.id);
@@ -138,7 +138,7 @@ guardianRoutes.post("/:id/students", requireAuth, requireAdmin, async (req, res)
     }
 });
 
-// DELETE /api/admin/guardians/:id/students/:studentId - Unlink guardian
+// DELETE /api/guardians/:id/students/:studentId - Unlink guardian
 guardianRoutes.delete("/:id/students/:studentId", requireAuth, requireAdmin, async (req, res) => {
     try {
         const guardianId = parseInt(req.params.id);
@@ -157,7 +157,7 @@ guardianRoutes.delete("/:id/students/:studentId", requireAuth, requireAdmin, asy
     }
 });
 
-// GET /api/admin/guardians/:id/students - Get linked students
+// GET /api/guardians/:id/students - Get linked students
 guardianRoutes.get("/:id/students", requireAuth, requireAdmin, async (req, res) => {
     try {
         const guardianId = parseInt(req.params.id);
@@ -182,10 +182,11 @@ guardianRoutes.get("/:id/students", requireAuth, requireAdmin, async (req, res) 
 });
 
 
-// POST /api/admin/guardians/:id/invite - Create/Link User Account
+// POST /api/guardians/:id/invite - Create/Link User Account
 guardianRoutes.post("/:id/invite", requireAuth, requireAdmin, async (req, res) => {
     try {
         const schoolId = getActiveSchoolId(req);
+        if (!schoolId) return res.status(400).json({ message: "No active school selected" });
         const guardianId = parseInt(req.params.id);
         const { username } = req.body; // allow admin to specify, or default to phone
 
@@ -243,10 +244,11 @@ guardianRoutes.post("/:id/invite", requireAuth, requireAdmin, async (req, res) =
     }
 });
 
-// POST /api/admin/guardians/:id/reset-password - Reset Password
+// POST /api/guardians/:id/reset-password - Reset Password
 guardianRoutes.post("/:id/reset-password", requireAuth, requireAdmin, async (req, res) => {
     try {
         const schoolId = getActiveSchoolId(req);
+        if (!schoolId) return res.status(400).json({ message: "No active school selected" });
         const guardianId = parseInt(req.params.id);
 
         const guardian = await db.query.guardians.findFirst({
