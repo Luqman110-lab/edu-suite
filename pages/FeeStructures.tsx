@@ -199,7 +199,7 @@ export default function FeeStructures() {
             onChange={(e) => setFilterYear(parseInt(e.target.value))}
             className={`px-3 py-2 rounded-lg border ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
           >
-            {[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
+            {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(y => <option key={y} value={y}>{y}</option>)}
           </select>
         </div>
         <div>

@@ -68,10 +68,10 @@ const fetchDemographics = async () => {
 };
 
 const fetchRecentPayments = async () => {
-  const res = await fetch(`/api/fee-payments?limit=5`);
+  const res = await fetch(`/api/fee-payments?limit=5`, { credentials: 'include' });
   if (!res.ok) throw new Error('Failed to fetch payments');
-  const data = await res.json();
-  return data.slice(0, 5);
+  const result = await res.json();
+  return result.data || [];
 };
 
 // --- Sub-components used locally ---

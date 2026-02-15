@@ -108,9 +108,9 @@ export default function FinancialHub() {
         setLoading(true);
         try {
             const [statsRes, invoicesRes, debtorsRes] = await Promise.all([
-                fetch(`/api/finance/hub-stats?term=${selectedTerm}&year=${selectedYear}`),
-                fetch(`/api/invoices?term=${selectedTerm}&year=${selectedYear}&limit=20`),
-                fetch(`/api/finance/debtors?term=${selectedTerm}&year=${selectedYear}`),
+                apiRequest('GET', `/api/finance/hub-stats?term=${selectedTerm}&year=${selectedYear}`),
+                apiRequest('GET', `/api/invoices?term=${selectedTerm}&year=${selectedYear}&limit=20`),
+                apiRequest('GET', `/api/finance/debtors?term=${selectedTerm}&year=${selectedYear}`),
             ]);
 
             if (statsRes.ok) {
@@ -130,6 +130,7 @@ export default function FinancialHub() {
             }
         } catch (error) {
             console.error('Error fetching financial data:', error);
+            toast({ title: "Error", description: "Failed to load financial data", variant: "destructive" });
         } finally {
             setLoading(false);
         }
@@ -413,15 +414,12 @@ export default function FinancialHub() {
                     <div className={`text-xs ${textSecondary} mt-1`}>Expenses: {formatCurrency(hubStats?.totalExpenses || 0)}</div>
                 </div>
 
-                <div className={`${bgCard} rounded-xl p-6 border ${borderColor} bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-900/10 dark:to-orange-900/10`}>
-                    <div className={`text-sm font-bold text-yellow-700 dark:text-yellow-500 flex items-center gap-2`}>
-                        📱 Mobile Money
-                        <span className="bg-yellow-200 text-yellow-800 text-[10px] px-1.5 rounded-full">BETA</span>
+                <div className={`${bgCard} rounded-xl p-6 border ${borderColor}`}>
+                    <div className={`text-sm font-medium ${textSecondary}`}>Collection Rate</div>
+                    <div className={`text-2xl font-bold mt-1 ${(hubStats?.collectionRate || 0) >= 80 ? 'text-green-500' : (hubStats?.collectionRate || 0) >= 50 ? 'text-yellow-500' : 'text-red-500'}`}>
+                        {hubStats?.collectionRate || 0}%
                     </div>
-                    <div className="text-2xl font-bold text-gray-800 dark:text-gray-100 mt-1">
-                        {formatCurrency(0)}
-                    </div>
-                    <div className="text-xs text-yellow-600/80 mt-1">Wallet Balance (Mock)</div>
+                    <div className={`text-xs ${textSecondary} mt-1`}>{hubStats?.invoiceCount || 0} invoices</div>
                 </div>
             </div>
 
@@ -716,7 +714,7 @@ export default function FinancialHub() {
                         onChange={(e) => setSelectedYear(parseInt(e.target.value))}
                         className={`px-3 py-2 rounded-lg border ${borderColor} ${bgCard} ${textPrimary}`}
                     >
-                        {[2024, 2025, 2026].map(y => (
+                        {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(y => (
                             <option key={y} value={y}>{y}</option>
                         ))}
                     </select>
@@ -818,7 +816,7 @@ export default function FinancialHub() {
                                         onChange={(e) => setGenerateConfig({ ...generateConfig, year: parseInt(e.target.value) })}
                                         className={`w-full px-3 py-2 rounded-lg border ${borderColor} ${bgCard} ${textPrimary}`}
                                     >
-                                        {[2024, 2025, 2026].map(y => (
+                                        {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(y => (
                                             <option key={y} value={y}>{y}</option>
                                         ))}
                                     </select>

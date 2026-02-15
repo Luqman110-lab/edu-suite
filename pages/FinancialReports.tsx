@@ -44,6 +44,7 @@ export default function FinancialReports() {
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [feeStructures, setFeeStructures] = useState<FeeStructure[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
 
   const [selectedReport, setSelectedReport] = useState<ReportType>('fee-collection');
@@ -74,8 +75,8 @@ export default function FinancialReports() {
       const [settingsRes, studentsRes, paymentsRes, expensesRes, categoriesRes, structuresRes] = await Promise.all([
         fetch('/api/settings', { credentials: 'include' }),
         fetch('/api/students', { credentials: 'include' }),
-        fetch('/api/fee-payments', { credentials: 'include' }),
-        fetch('/api/expenses', { credentials: 'include' }),
+        fetch('/api/fee-payments?limit=200', { credentials: 'include' }),
+        fetch('/api/expenses?limit=200', { credentials: 'include' }),
         fetch('/api/expense-categories', { credentials: 'include' }),
         fetch('/api/fee-structures', { credentials: 'include' })
       ]);
@@ -87,12 +88,19 @@ export default function FinancialReports() {
         setSelectedYear(s.currentYear || new Date().getFullYear());
       }
       if (studentsRes.ok) setStudents(await studentsRes.json());
-      if (paymentsRes.ok) setPayments(await paymentsRes.json());
-      if (expensesRes.ok) setExpenses(await expensesRes.json());
+      if (paymentsRes.ok) {
+        const result = await paymentsRes.json();
+        setPayments(result.data || []);
+      }
+      if (expensesRes.ok) {
+        const result = await expensesRes.json();
+        setExpenses(result.data || []);
+      }
       if (categoriesRes.ok) setCategories(await categoriesRes.json());
       if (structuresRes.ok) setFeeStructures(await structuresRes.json());
     } catch (err) {
       console.error('Failed to fetch data', err);
+      setFetchError('Failed to load report data. Please try again.');
     }
     setLoading(false);
   };
@@ -1099,6 +1107,12 @@ export default function FinancialReports() {
 
   return (
     <div className={`space-y-6 ${isDark ? 'text-white' : ''}`}>
+      {fetchError && (
+        <div className={`p-4 rounded-lg border ${isDark ? 'bg-red-900/20 border-red-800 text-red-300' : 'bg-red-50 border-red-200 text-red-700'}`}>
+          {fetchError}
+          <button onClick={() => { setFetchError(null); setLoading(true); fetchData(); }} className="ml-3 underline text-sm">Retry</button>
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Financial Reports</h1>

@@ -1287,7 +1287,7 @@ export const P7ExamSets: React.FC = () => {
           <div>
             <label className={`block text-xs font-semibold ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase mb-2`}>Year</label>
             <select className={inputClasses} value={selectedYear} onChange={e => setSelectedYear(Number(e.target.value))}>
-              {[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
+              {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(y => <option key={y} value={y}>{y}</option>)}
             </select>
           </div>
           <div>

@@ -4,7 +4,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { Card, Input, Spinner } from '../components/UIComponents';
 import { Button } from '../components/Button';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, Calendar, DollarSign, User, CheckCircle, Clock, AlertCircle, Phone } from 'lucide-react';
+import { Plus, Search, Calendar, DollarSign, User, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { StudentFilter } from '@/components/StudentFilter';
 
@@ -54,7 +54,8 @@ export default function PaymentPlans() {
         queryKey: ['payment-plans'],
         queryFn: async () => {
             const res = await apiRequest('GET', '/api/payment-plans');
-            return res.json();
+            const result = await res.json();
+            return result.data || [];
         }
     });
 
@@ -80,9 +81,7 @@ export default function PaymentPlans() {
         onError: () => toast({ title: "Failed", description: "Could not create payment plan", variant: "destructive" })
     });
 
-    // Payment Logic (including MoMo)
-    const [payMethod, setPayMethod] = useState<'cash' | 'momo'>('cash');
-    const [momoPhone, setMomoPhone] = useState('');
+    // Payment Logic (cash only)
     const [payAmount, setPayAmount] = useState('');
     const [processingPayment, setProcessingPayment] = useState(false);
 
@@ -90,41 +89,30 @@ export default function PaymentPlans() {
         e.preventDefault();
         if (!showPayModal) return;
 
+        const amount = Math.round(Number(payAmount));
+        if (isNaN(amount) || amount <= 0) {
+            toast({ title: "Invalid Amount", description: "Please enter a positive amount.", variant: "destructive" });
+            return;
+        }
+
+        // Prevent overpayment
+        const remaining = showPayModal.installment.amount - (showPayModal.installment.paidAmount || 0);
+        if (amount > remaining) {
+            toast({ title: "Amount Too High", description: `Maximum payable is ${Math.round(remaining).toLocaleString()} UGX`, variant: "destructive" });
+            return;
+        }
+
         setProcessingPayment(true);
         try {
-            const amount = parseFloat(payAmount);
-
-            if (payMethod === 'momo') {
-                // Mobile Money Flow
-                const res = await apiRequest('POST', '/api/finance/momo/pay', {
-                    phoneNumber: momoPhone,
-                    amount,
-                    provider: 'mtn', // Default to MTN for mock
-                    description: `Inst #${showPayModal.installment.installmentNumber} - ${showPayModal.plan.planName}`,
-                    entityType: 'plan_installment',
-                    entityId: showPayModal.installment.id
-                });
-                const data = await res.json();
-
-                if (data.success) {
-                    toast({
-                        title: "Request Sent",
-                        description: "Check your phone to approve the payment. (Mock: Auto-success in 5s)"
-                    });
-                }
-            } else {
-                // Cash Flow (Direct Record)
-                await apiRequest('POST', `/api/payment-plans/${showPayModal.plan.id}/pay`, {
-                    installmentId: showPayModal.installment.id,
-                    amount
-                });
-                toast({ title: "Payment Recorded", description: "Cash payment saved." });
-            }
+            await apiRequest('POST', `/api/payment-plans/${showPayModal.plan.id}/pay`, {
+                installmentId: showPayModal.installment.id,
+                amount
+            });
+            toast({ title: "Payment Recorded", description: "Cash payment saved successfully." });
 
             queryClient.invalidateQueries({ queryKey: ['payment-plans'] });
             setShowPayModal(null);
             setPayAmount('');
-            setMomoPhone('');
         } catch (error) {
             toast({ title: "Error", description: "Transaction failed", variant: "destructive" });
         } finally {
@@ -394,54 +382,22 @@ export default function PaymentPlans() {
                         </div>
 
                         <form onSubmit={handlePayment} className="space-y-4">
-                            <div className="flex gap-2 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg mb-4">
-                                <button
-                                    type="button"
-                                    onClick={() => setPayMethod('cash')}
-                                    className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${payMethod === 'cash' ? 'bg-white dark:bg-gray-700 shadow text-blue-600' : 'text-gray-500'}`}
-                                >
-                                    💵 Cash
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setPayMethod('momo')}
-                                    className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${payMethod === 'momo' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 border border-yellow-200' : 'text-gray-500'}`}
-                                >
-                                    📱 Mobile Money
-                                </button>
+                            <div className="text-sm text-gray-500 mb-2">
+                                Remaining: {Math.round(showPayModal.installment.amount - (showPayModal.installment.paidAmount || 0)).toLocaleString()} UGX
                             </div>
 
                             <Input
-                                label="Amount to Pay"
+                                label="Amount to Pay (Cash)"
                                 type="number"
                                 value={payAmount}
                                 onChange={e => setPayAmount(e.target.value)}
                                 required
                             />
 
-                            {payMethod === 'momo' && (
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">Phone Number</label>
-                                    <div className="relative">
-                                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                        <input
-                                            className="w-full pl-10 pr-4 py-2 border rounded-lg bg-background"
-                                            placeholder="256..."
-                                            value={momoPhone}
-                                            onChange={e => setMomoPhone(e.target.value)}
-                                            required={payMethod === 'momo'}
-                                        />
-                                    </div>
-                                    <p className="text-xs text-yellow-600 bg-yellow-50 p-2 rounded">
-                                        ℹ️ Mock Mode: This will simulate a transaction. No real money will be deducted.
-                                    </p>
-                                </div>
-                            )}
-
                             <div className="flex justify-end gap-2 mt-6">
                                 <Button type="button" variant="ghost" onClick={() => setShowPayModal(null)}>Cancel</Button>
-                                <Button type="submit" disabled={processingPayment} className={payMethod === 'momo' ? 'bg-yellow-500 hover:bg-yellow-600 text-black' : ''}>
-                                    {processingPayment ? <Spinner /> : (payMethod === 'momo' ? 'Push Request' : 'Record Payment')}
+                                <Button type="submit" disabled={processingPayment}>
+                                    {processingPayment ? <Spinner /> : 'Record Payment'}
                                 </Button>
                             </div>
                         </form>

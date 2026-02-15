@@ -4,7 +4,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { Card, Input, Spinner } from '../components/UIComponents';
 import { Button } from '../components/Button';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Loader2, ArrowLeft, ChevronDown } from 'lucide-react';
+import { Search, Loader2, ArrowLeft, ChevronDown, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { StudentLedger } from './components/StudentLedger';
 import { FeePaymentHistory } from '@/components/FeePaymentHistory';
@@ -108,23 +108,48 @@ export default function StudentFees() {
         // Actually, no need to clear filters if we hide the list when selectedStudent is true (which it does via logic below)
     };
 
+    const deleteOverrideMutation = useMutation({
+        mutationFn: async (id: number) => {
+            const res = await apiRequest('DELETE', `/api/student-fee-overrides/${id}`);
+            return res.json();
+        },
+        onSuccess: () => {
+            toast({ title: "Override Removed", description: "Custom fee override has been removed." });
+            queryClient.invalidateQueries({ queryKey: ['student-fee-overrides', selectedStudent?.id] });
+        },
+        onError: (error: Error) => {
+            toast({ title: "Failed to remove override", description: error.message, variant: "destructive" });
+        },
+    });
+
     const handleSave = (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedStudent) return;
 
-        if (!customAmount || parseInt(customAmount) < 0) {
-            toast({ title: "Invalid Amount", variant: "destructive" });
+        const amount = Math.round(Number(customAmount));
+        if (isNaN(amount) || amount < 0) {
+            toast({ title: "Invalid Amount", description: "Amount must be a non-negative number.", variant: "destructive" });
+            return;
+        }
+        const yearNum = parseInt(year);
+        if (yearNum < 2020 || yearNum > 2100) {
+            toast({ title: "Invalid Year", description: "Year must be between 2020 and 2100.", variant: "destructive" });
             return;
         }
 
         saveOverrideMutation.mutate({
             studentId: selectedStudent.id,
             feeType,
-            customAmount: parseInt(customAmount),
+            customAmount: amount,
             term: parseInt(term),
-            year: parseInt(year),
+            year: yearNum,
             reason
         });
+    };
+
+    const handleDeleteOverride = (id: number, feeType: string) => {
+        if (!confirm(`Remove the custom fee for "${feeType}"?`)) return;
+        deleteOverrideMutation.mutate(id);
     };
 
     // Helper for Select elements
@@ -223,6 +248,8 @@ export default function StudentFees() {
                                         type="number"
                                         value={year}
                                         onChange={e => setYear(e.target.value)}
+                                        min="2020"
+                                        max="2100"
                                         className="w-24 px-4 py-2.5 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
                                     />
                                 </div>
@@ -232,7 +259,10 @@ export default function StudentFees() {
                                 { value: "Tuition", label: "Tuition" },
                                 { value: "Transport", label: "Transport" },
                                 { value: "Uniform", label: "Uniform" },
-                                { value: "Meals", label: "Meals" }
+                                { value: "Meals", label: "Meals" },
+                                { value: "Development", label: "Development" },
+                                { value: "Registration", label: "Registration" },
+                                { value: "Other", label: "Other" }
                             ])}
 
                             <Input
@@ -267,12 +297,13 @@ export default function StudentFees() {
                         ) : overrides && overrides.length > 0 ? (
                             <div className="border rounded-md">
                                 <table className="w-full text-sm text-left">
-                                    <thead className="bg-gray-50 border-b">
+                                    <thead className="bg-gray-50 dark:bg-gray-800 border-b">
                                         <tr>
                                             <th className="p-3">Fee Type</th>
                                             <th className="p-3">Details</th>
                                             <th className="p-3">Custom Amount</th>
                                             <th className="p-3">Reason</th>
+                                            <th className="p-3 w-12"></th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y">
@@ -282,6 +313,15 @@ export default function StudentFees() {
                                                 <td className="p-3 text-gray-500">Term {ov.term} {ov.year}</td>
                                                 <td className="p-3 font-bold text-blue-600">{ov.customAmount.toLocaleString()} UGX</td>
                                                 <td className="p-3 text-gray-500">{ov.reason || '-'}</td>
+                                                <td className="p-3">
+                                                    <button
+                                                        onClick={() => handleDeleteOverride(ov.id, ov.feeType)}
+                                                        className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                                        title="Remove override"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>

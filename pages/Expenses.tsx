@@ -44,8 +44,12 @@ export default function Expenses() {
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [filterCategory, setFilterCategory] = useState('');
+  const [totalExpenses_count, setTotalExpensesCount] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const [form, setForm] = useState({
     categoryId: '',
@@ -70,15 +74,37 @@ export default function Expenses() {
   const fetchData = async () => {
     try {
       const [expRes, catRes] = await Promise.all([
-        fetch('/api/expenses', { credentials: 'include' }),
+        fetch('/api/expenses?limit=50', { credentials: 'include' }),
         fetch('/api/expense-categories', { credentials: 'include' })
       ]);
-      if (expRes.ok) setExpenses(await expRes.json());
+      if (expRes.ok) {
+        const result = await expRes.json();
+        setExpenses(result.data || []);
+        setTotalExpensesCount(result.total || 0);
+        setHasMore((result.data?.length || 0) < (result.total || 0));
+      }
       if (catRes.ok) setCategories(await catRes.json());
     } catch (err) {
       console.error('Failed to fetch data', err);
+      setFetchError('Failed to load expenses. Please try again.');
     }
     setLoading(false);
+  };
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const res = await fetch(`/api/expenses?limit=50&offset=${expenses.length}`, { credentials: 'include' });
+      if (res.ok) {
+        const result = await res.json();
+        const newData = result.data || [];
+        setExpenses(prev => [...prev, ...newData]);
+        setHasMore(expenses.length + newData.length < (result.total || 0));
+      }
+    } catch (err) {
+      console.error('Failed to load more expenses', err);
+    }
+    setLoadingMore(false);
   };
 
   const handleSubmit = async () => {
@@ -113,10 +139,15 @@ export default function Expenses() {
   const handleDelete = async (id: number) => {
     if (!confirm('Delete this expense?')) return;
     try {
-      await fetch(`/api/expenses/${id}`, { method: 'DELETE', credentials: 'include' });
+      const res = await fetch(`/api/expenses/${id}`, { method: 'DELETE', credentials: 'include' });
+      if (!res.ok) {
+        setFetchError('Failed to delete expense. Please try again.');
+        return;
+      }
       await fetchData();
     } catch (err) {
       console.error('Failed to delete', err);
+      setFetchError('Failed to delete expense. Network error.');
     }
   };
 
@@ -207,6 +238,12 @@ export default function Expenses() {
 
   return (
     <div className="space-y-6">
+      {fetchError && (
+        <div className={`p-4 rounded-lg border ${isDark ? 'bg-red-900/20 border-red-800 text-red-300' : 'bg-red-50 border-red-200 text-red-700'}`}>
+          {fetchError}
+          <button onClick={() => { setFetchError(null); fetchData(); }} className="ml-3 underline text-sm">Retry</button>
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Expense Tracking</h1>
@@ -297,6 +334,13 @@ export default function Expenses() {
         {filtered.length === 0 && (
           <p className={`px-6 py-8 text-center ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>No expenses recorded</p>
         )}
+        {hasMore && (
+          <div className="p-4 text-center border-t">
+            <Button variant="outline" onClick={loadMore} disabled={loadingMore}>
+              {loadingMore ? 'Loading...' : `Load More (${expenses.length} of ${totalExpenses_count})`}
+            </Button>
+          </div>
+        )}
       </div>
 
       {showModal && (
@@ -355,8 +399,7 @@ export default function Expenses() {
                     className={`w-full px-3 py-2 rounded-lg border ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
                   >
                     <option>Cash</option>
-                    <option>Bank Transfer</option>
-                    <option>Mobile Money</option>
+                    <option>Bank Deposit</option>
                     <option>Cheque</option>
                   </select>
                 </div>

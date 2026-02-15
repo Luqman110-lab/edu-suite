@@ -3,9 +3,10 @@ import { Express } from "express";
 import { db } from "./db";
 import { eq, and, desc, asc, sql, inArray, gt, or, isNull } from "drizzle-orm";
 
-import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, teacherAttendance, users, userSchools, feeStructures, financeTransactions, conversations, conversationParticipants, messages, promotionHistory, studentFeeOverrides, dormitories, beds, boardingRollCalls, leaveRequests, auditLogs, invoices, invoiceItems, paymentPlans, planInstallments, visitorLogs, boardingSettings, faceEmbeddings, insertStudentSchema, p7ExamSets, p7Scores } from "../shared/schema";
+import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, teacherAttendance, users, userSchools, feeStructures, financeTransactions, conversations, conversationParticipants, messages, promotionHistory, studentFeeOverrides, dormitories, beds, boardingRollCalls, leaveRequests, auditLogs, invoices, invoiceItems, paymentPlans, planInstallments, visitorLogs, boardingSettings, faceEmbeddings, insertStudentSchema, p7ExamSets, p7Scores, scholarships, studentScholarships } from "../shared/schema";
 import { requireAuth, requireAdmin, requireSuperAdmin, getActiveSchoolId, hashPassword } from "./auth";
-import { MobileMoneyService } from "./services/MobileMoneyService";
+// MobileMoneyService disabled - cash only for now
+// import { MobileMoneyService } from "./services/MobileMoneyService";
 import { broadcastMessage } from "./websocket";
 import fs from "fs";
 import path from "path";
@@ -216,16 +217,19 @@ export function registerExtendedRoutes(app: Express) {
     });
 
     // --- Expense Categories & Finance Transactions (Moved from top) ---
-    app.post("/api/expense-categories", requireAuth, async (req, res) => {
+    app.post("/api/expense-categories", requireAdmin, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
             const { name, color, description } = req.body;
+            if (!name || typeof name !== 'string' || name.trim().length === 0) {
+                return res.status(400).json({ message: "Category name is required" });
+            }
 
             const newCategory = await db.insert(expenseCategories).values({
                 schoolId,
-                name,
+                name: name.trim(),
                 color: color || '#6554C0',
                 description
             }).returning();
@@ -233,7 +237,7 @@ export function registerExtendedRoutes(app: Express) {
             res.json(newCategory[0]);
         } catch (error: any) {
             console.error("Create expense category error:", error);
-            res.status(500).json({ message: "Failed to create expense category: " + error.message });
+            res.status(500).json({ message: "Failed to create expense category" });
         }
     });
 
@@ -342,26 +346,26 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     });
 
     // Generate invoices for a term
-    app.post("/api/invoices/generate", requireAuth, async (req, res) => {
+    app.post("/api/invoices/generate", requireAdmin, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
             const { term, year, dueDate, classLevel } = req.body;
             if (!term || !year) return res.status(400).json({ message: "Term and year are required" });
-
-            console.log(`[InvoiceGen] Request: Term=${term}, Year=${year}, SchoolId=${schoolId}`);
+            const termNum = Number(term);
+            const yearNum = Number(year);
+            if (termNum < 1 || termNum > 3) return res.status(400).json({ message: "Term must be 1, 2, or 3" });
+            if (yearNum < 2020 || yearNum > 2100) return res.status(400).json({ message: "Year must be between 2020 and 2100" });
 
             // Get active fee structures for the term/year (or those applicable to all terms)
             const structures = await db.select().from(feeStructures)
                 .where(and(
                     eq(feeStructures.schoolId, schoolId),
-                    or(eq(feeStructures.term, term), isNull(feeStructures.term)),
-                    eq(feeStructures.year, year),
+                    or(eq(feeStructures.term, termNum), isNull(feeStructures.term)),
+                    eq(feeStructures.year, yearNum),
                     eq(feeStructures.isActive, true)
                 ));
-
-            console.log(`[InvoiceGen] Found ${structures.length} fee structures`);
 
             if (structures.length === 0) {
                 return res.status(400).json({ message: "No fee structures found for this term/year" });
@@ -374,85 +378,150 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const activeStudents = await db.select().from(students)
                 .where(and(...studentConditions));
 
-            console.log(`[InvoiceGen] Found ${activeStudents.length} active students`);
-
             if (activeStudents.length === 0) {
                 return res.status(400).json({ message: "No active students found" });
             }
 
-            let invoicesCreated = 0;
-            let invoicesSkipped = 0;
+            // Fetch all overrides for this school/year/term to apply custom amounts
+            const overrides = await db.select().from(studentFeeOverrides)
+                .where(and(
+                    eq(studentFeeOverrides.schoolId, schoolId),
+                    eq(studentFeeOverrides.year, yearNum),
+                    or(eq(studentFeeOverrides.term, termNum), isNull(studentFeeOverrides.term)),
+                    eq(studentFeeOverrides.isActive, true)
+                ));
 
-            for (const student of activeStudents) {
-                // Check if invoice already exists
-                const existing = await db.select().from(invoices)
-                    .where(and(
-                        eq(invoices.schoolId, schoolId),
-                        eq(invoices.studentId, student.id),
-                        eq(invoices.term, term),
-                        eq(invoices.year, year)
-                    )).limit(1);
-
-                if (existing.length > 0) {
-                    invoicesSkipped++;
-                    continue;
-                }
-
-                // Get applicable fee structures for this student
-                const applicableStructures = structures.filter(s =>
-                    s.classLevel === student.classLevel &&
-                    (!s.boardingStatus || s.boardingStatus === student.boardingStatus || s.boardingStatus === 'all')
-                );
-
-                // console.log(`[InvoiceGen] Student ${student.name} (${student.classLevel}): ${applicableStructures.length} fees`);
-
-                if (applicableStructures.length === 0) continue;
-
-                const totalAmount = applicableStructures.reduce((sum, s) => sum + s.amount, 0);
-                const invoiceNumber = `INV-${year}-T${term}-${student.id.toString().padStart(5, '0')}`;
-
-                // Create invoice
-                const [newInvoice] = await db.insert(invoices).values({
-                    schoolId,
-                    studentId: student.id,
-                    invoiceNumber,
-                    term,
-                    year,
-                    totalAmount,
-                    amountPaid: 0,
-                    balance: totalAmount,
-                    dueDate: dueDate ? new Date(dueDate).toISOString() : null,
-                    status: 'unpaid',
-                }).returning();
-
-                // Create invoice items
-                for (const structure of applicableStructures) {
-                    await db.insert(invoiceItems).values({
-                        invoiceId: newInvoice.id,
-                        feeType: structure.feeType,
-                        description: `${structure.feeType} - ${structure.classLevel}`,
-                        amount: structure.amount,
-                    });
-                }
-
-                invoicesCreated++;
+            // Build a lookup map: studentId-feeType -> customAmount
+            const overrideMap = new Map<string, number>();
+            for (const o of overrides) {
+                overrideMap.set(`${o.studentId}-${o.feeType}`, o.customAmount);
             }
 
-            console.log(`[InvoiceGen] Completed. Created: ${invoicesCreated}, Skipped: ${invoicesSkipped}`);
+            // Fetch active scholarships for this school and their student assignments
+            const activeScholarships = await db.select().from(scholarships)
+                .where(and(
+                    eq(scholarships.schoolId, schoolId),
+                    eq(scholarships.isActive, true)
+                ));
+
+            const scholarshipAssignments = await db.select().from(studentScholarships)
+                .where(and(
+                    eq(studentScholarships.schoolId, schoolId),
+                    eq(studentScholarships.year, yearNum),
+                    or(eq(studentScholarships.term, termNum), isNull(studentScholarships.term)),
+                    eq(studentScholarships.status, 'active')
+                ));
+
+            // Build a lookup: studentId -> list of active scholarship details
+            const scholarshipMap = new Map<number, Array<{ discountType: string; discountValue: number; feeTypes: string[] }>>();
+            for (const sa of scholarshipAssignments) {
+                const sch = activeScholarships.find(s => s.id === sa.scholarshipId);
+                if (!sch) continue;
+                const existing = scholarshipMap.get(sa.studentId) || [];
+                existing.push({
+                    discountType: sch.discountType,
+                    discountValue: sch.discountValue,
+                    feeTypes: (sch.feeTypes as string[]) || [],
+                });
+                scholarshipMap.set(sa.studentId, existing);
+            }
+
+            // Wrap entire generation in a transaction for atomicity
+            const result = await db.transaction(async (tx) => {
+                let invoicesCreated = 0;
+                let invoicesSkipped = 0;
+
+                for (const student of activeStudents) {
+                    // Check if invoice already exists
+                    const existing = await tx.select({ id: invoices.id }).from(invoices)
+                        .where(and(
+                            eq(invoices.schoolId, schoolId),
+                            eq(invoices.studentId, student.id),
+                            eq(invoices.term, termNum),
+                            eq(invoices.year, yearNum)
+                        )).limit(1);
+
+                    if (existing.length > 0) {
+                        invoicesSkipped++;
+                        continue;
+                    }
+
+                    // Get applicable fee structures for this student
+                    const applicableStructures = structures.filter(s =>
+                        s.classLevel === student.classLevel &&
+                        (!s.boardingStatus || s.boardingStatus === student.boardingStatus || s.boardingStatus === 'all')
+                    );
+
+                    if (applicableStructures.length === 0) continue;
+
+                    // Step 1: Apply fee overrides (custom amounts per student)
+                    const itemsWithAmounts = applicableStructures.map(s => {
+                        const overrideKey = `${student.id}-${s.feeType}`;
+                        const amount = overrideMap.get(overrideKey) ?? s.amount;
+                        return { feeType: s.feeType, classLevel: s.classLevel, amount };
+                    });
+
+                    // Step 2: Apply scholarship discounts
+                    const studentDiscounts = scholarshipMap.get(student.id) || [];
+                    for (const item of itemsWithAmounts) {
+                        for (const disc of studentDiscounts) {
+                            // Apply if scholarship targets all fee types (empty array) or this specific type
+                            if (disc.feeTypes.length === 0 || disc.feeTypes.includes(item.feeType)) {
+                                if (disc.discountType === 'percentage') {
+                                    item.amount = Math.round(item.amount * (1 - disc.discountValue / 100));
+                                } else if (disc.discountType === 'fixed') {
+                                    item.amount = Math.max(0, item.amount - disc.discountValue);
+                                }
+                            }
+                        }
+                    }
+
+                    const totalAmount = itemsWithAmounts.reduce((sum, item) => sum + item.amount, 0);
+                    const invoiceNumber = `INV-${yearNum}-T${termNum}-${schoolId}-${student.id.toString().padStart(5, '0')}`;
+
+                    // Create invoice
+                    const [newInvoice] = await tx.insert(invoices).values({
+                        schoolId,
+                        studentId: student.id,
+                        invoiceNumber,
+                        term: termNum,
+                        year: yearNum,
+                        totalAmount,
+                        amountPaid: 0,
+                        balance: totalAmount,
+                        dueDate: dueDate ? new Date(dueDate).toISOString() : null,
+                        status: 'unpaid',
+                    }).returning();
+
+                    // Create invoice items (with discounts already applied)
+                    for (const item of itemsWithAmounts) {
+                        await tx.insert(invoiceItems).values({
+                            invoiceId: newInvoice.id,
+                            feeType: item.feeType,
+                            description: `${item.feeType} - ${item.classLevel}`,
+                            amount: item.amount,
+                        });
+                    }
+
+                    invoicesCreated++;
+                }
+
+                return { invoicesCreated, invoicesSkipped };
+            });
 
             res.json({
-                message: `Generated ${invoicesCreated} invoices, skipped ${invoicesSkipped} existing`,
-                invoicesCreated,
-                invoicesSkipped,
+                message: `Generated ${result.invoicesCreated} invoices, skipped ${result.invoicesSkipped} existing`,
+                invoicesCreated: result.invoicesCreated,
+                invoicesSkipped: result.invoicesSkipped,
             });
         } catch (error: any) {
             console.error("Generate invoices error:", error);
-            res.status(500).json({ message: "Failed to generate invoices: " + error.message });
+            res.status(500).json({ message: "Failed to generate invoices" });
         }
     });
 
-    // Update invoice (mark as paid, update amount, etc)
-    app.put("/api/invoices/:id", requireAuth, async (req, res) => {
+    // Update invoice (notes, due date only - amounts are updated via payment recording)
+    app.put("/api/invoices/:id", requireAdmin, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
@@ -460,20 +529,11 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const invoiceId = parseInt(req.params.id);
             if (isNaN(invoiceId)) return res.status(400).json({ message: "Invalid invoice ID" });
 
-            const { amountPaid, status, notes, dueDate } = req.body;
+            const { notes, dueDate } = req.body;
 
+            // Only allow updating notes and dueDate. Status and amountPaid are
+            // computed from actual payments to prevent client-side manipulation.
             const updateData: Record<string, any> = { updatedAt: new Date() };
-            if (amountPaid !== undefined) {
-                updateData.amountPaid = amountPaid;
-                // Get current invoice to calculate new balance
-                const [current] = await db.select().from(invoices).where(eq(invoices.id, invoiceId));
-                if (current) {
-                    updateData.balance = current.totalAmount - amountPaid;
-                    if (amountPaid >= current.totalAmount) updateData.status = 'paid';
-                    else if (amountPaid > 0) updateData.status = 'partial';
-                }
-            }
-            if (status !== undefined) updateData.status = status;
             if (notes !== undefined) updateData.notes = notes;
             if (dueDate !== undefined) updateData.dueDate = dueDate;
 
@@ -487,7 +547,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             res.json(updated[0]);
         } catch (error: any) {
             console.error("Update invoice error:", error);
-            res.status(500).json({ message: "Failed to update invoice: " + error.message });
+            res.status(500).json({ message: "Failed to update invoice" });
         }
     });
 
@@ -518,11 +578,11 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                 .where(and(...conditions))
                 .orderBy(desc(invoices.balance));
 
-            // Calculate aging
+            // Calculate aging from due date (not creation date)
             const now = new Date();
             const debtors = debtorInvoices.map(d => {
-                const createdDate = new Date(d.invoice.createdAt || now);
-                const daysOverdue = Math.floor((now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
+                const dueDate = d.invoice.dueDate ? new Date(d.invoice.dueDate) : new Date(d.invoice.createdAt || now);
+                const daysOverdue = Math.max(0, Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)));
 
                 let agingCategory = 'current';
                 if (daysOverdue > 90) agingCategory = '90+';
@@ -546,7 +606,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                 ? debtors.filter(d => d.studentClass === classLevel)
                 : debtors;
 
-            // Summary stats
+            // Summary stats (computed over ALL filtered results)
             const summary = {
                 totalDebtors: filtered.length,
                 totalOutstanding: filtered.reduce((sum, d) => sum + d.balance, 0),
@@ -557,7 +617,12 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                 days90plus: filtered.filter(d => d.agingCategory === '90+').reduce((sum, d) => sum + d.balance, 0),
             };
 
-            res.json({ debtors: filtered, summary });
+            // Paginate the debtor list
+            const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 50, 1), 200);
+            const offset = Math.max(parseInt(req.query.offset as string) || 0, 0);
+            const paginatedDebtors = filtered.slice(offset, offset + limit);
+
+            res.json({ debtors: paginatedDebtors, summary, total: filtered.length, limit, offset });
         } catch (error: any) {
             console.error("Get debtors error:", error);
             res.status(500).json({ message: "Failed to fetch debtors: " + error.message });
@@ -633,13 +698,18 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     // --- Invoice Reminders ---
 
     // Send single invoice reminder
-    app.post("/api/invoices/:id/remind", requireAuth, async (req, res) => {
+    app.post("/api/invoices/:id/remind", requireAdmin, async (req, res) => {
         try {
-            const invoiceId = parseInt(req.params.id);
-            const { type = 'sms' } = req.body; // 'sms' or 'email'
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
+            const invoiceId = parseInt(req.params.id);
+            if (isNaN(invoiceId)) return res.status(400).json({ message: "Invalid invoice ID" });
+            const { type = 'sms' } = req.body;
+
+            // Scope by schoolId to prevent IDOR
             const invoice = await db.query.invoices.findFirst({
-                where: eq(invoices.id, invoiceId),
+                where: and(eq(invoices.id, invoiceId), eq(invoices.schoolId, schoolId)),
                 with: {
                     student: true,
                 }
@@ -648,7 +718,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             if (!invoice) return res.status(404).json({ message: "Invoice not found" });
 
             // TODO: Integrate actual SMS/Email provider here
-            console.log(`[Mock ${type.toUpperCase()}] Sending reminder to student ${invoice.student.name} for invoice ${invoice.invoiceNumber}. Amount: ${invoice.balance}`);
+            console.log(`[Mock ${type.toUpperCase()}] Sending reminder for invoice ${invoice.invoiceNumber}. Amount: ${invoice.balance}`);
 
             // Update reminder status
             await db.update(invoices)
@@ -657,7 +727,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                     reminderCount: (invoice.reminderCount || 0) + 1,
                     lastReminderType: type,
                 })
-                .where(eq(invoices.id, invoiceId));
+                .where(and(eq(invoices.id, invoiceId), eq(invoices.schoolId, schoolId)));
 
             res.json({ message: `${type.toUpperCase()} reminder sent successfully`, success: true });
         } catch (error: any) {
@@ -667,7 +737,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     });
 
     // Bulk send reminders for overdue invoices
-    app.post("/api/invoices/bulk-remind", requireAuth, async (req, res) => {
+    app.post("/api/invoices/bulk-remind", requireAdmin, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
@@ -706,6 +776,14 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 50, 1), 200);
+            const offset = Math.max(parseInt(req.query.offset as string) || 0, 0);
+
+            const [countResult] = await db.select({ count: sql<number>`count(*)` })
+                .from(paymentPlans)
+                .where(eq(paymentPlans.schoolId, schoolId));
+
             const plans = await db.query.paymentPlans.findMany({
                 where: eq(paymentPlans.schoolId, schoolId),
                 with: {
@@ -713,8 +791,10 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                     installments: true,
                 },
                 orderBy: [desc(paymentPlans.createdAt)],
+                limit,
+                offset,
             });
-            res.json(plans);
+            res.json({ data: plans, total: Number(countResult.count), limit, offset });
         } catch (error: any) {
             console.error("List plans error:", error);
             res.status(500).json({ message: "Failed to list plans" });
@@ -722,44 +802,65 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     });
 
     // Create payment plan
-    app.post("/api/payment-plans", requireAuth, async (req, res) => {
+    app.post("/api/payment-plans", requireAdmin, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
             const { studentId, invoiceId, planName, totalAmount, downPayment, installmentCount, frequency, startDate } = req.body;
 
-            const [newPlan] = await db.insert(paymentPlans).values({
-                schoolId,
-                studentId,
-                invoiceId,
-                planName,
-                totalAmount,
-                downPayment: downPayment || 0,
-                installmentCount,
-                frequency,
-                startDate: new Date(startDate),
-                status: 'active',
-            }).returning();
+            // Input validation
+            const total = Number(totalAmount);
+            const down = Number(downPayment) || 0;
+            const count = Number(installmentCount);
+            if (isNaN(total) || total <= 0) return res.status(400).json({ message: "totalAmount must be a positive number" });
+            if (down < 0 || down >= total) return res.status(400).json({ message: "downPayment must be between 0 and totalAmount" });
+            if (!count || count < 1 || count > 36) return res.status(400).json({ message: "installmentCount must be between 1 and 36" });
+            if (!startDate) return res.status(400).json({ message: "startDate is required" });
+            if (!['weekly', 'monthly'].includes(frequency)) return res.status(400).json({ message: "frequency must be 'weekly' or 'monthly'" });
 
-            const amountPerInstallment = (totalAmount - (downPayment || 0)) / installmentCount;
+            // Verify student belongs to school
+            const studentCheck = await db.select({ id: students.id }).from(students)
+                .where(and(eq(students.id, studentId), eq(students.schoolId, schoolId)))
+                .limit(1);
+            if (studentCheck.length === 0) return res.status(403).json({ message: "Student does not belong to the active school" });
+
+            const amountPerInstallment = Math.round((total - down) / count);
             const start = new Date(startDate);
 
-            for (let i = 1; i <= installmentCount; i++) {
-                const dueDate = new Date(start);
-                if (frequency === 'weekly') {
-                    dueDate.setDate(dueDate.getDate() + (i * 7));
-                } else {
-                    dueDate.setMonth(dueDate.getMonth() + i);
+            // Wrap plan + installments in a transaction
+            const newPlan = await db.transaction(async (tx) => {
+                const [plan] = await tx.insert(paymentPlans).values({
+                    schoolId,
+                    studentId,
+                    invoiceId,
+                    planName,
+                    totalAmount: total,
+                    downPayment: down,
+                    installmentCount: count,
+                    frequency,
+                    startDate: start,
+                    status: 'active',
+                }).returning();
+
+                for (let i = 1; i <= count; i++) {
+                    const dueDate = new Date(start);
+                    if (frequency === 'weekly') {
+                        dueDate.setDate(dueDate.getDate() + (i * 7));
+                    } else {
+                        dueDate.setMonth(dueDate.getMonth() + i);
+                    }
+
+                    await tx.insert(planInstallments).values({
+                        planId: plan.id,
+                        installmentNumber: i,
+                        dueDate,
+                        amount: amountPerInstallment,
+                        status: 'pending',
+                    });
                 }
 
-                await db.insert(planInstallments).values({
-                    planId: newPlan.id,
-                    installmentNumber: i,
-                    dueDate,
-                    amount: amountPerInstallment,
-                    status: 'pending',
-                });
-            }
+                return plan;
+            });
 
             res.json(newPlan);
         } catch (error: any) {
@@ -771,9 +872,14 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     // Get payment plan details
     app.get("/api/payment-plans/:id", requireAuth, async (req, res) => {
         try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
             const id = parseInt(req.params.id);
+            if (isNaN(id)) return res.status(400).json({ message: "Invalid plan ID" });
+
             const plan = await db.query.paymentPlans.findFirst({
-                where: eq(paymentPlans.id, id),
+                where: and(eq(paymentPlans.id, id), eq(paymentPlans.schoolId, schoolId)),
                 with: {
                     student: true,
                     installments: {
@@ -790,12 +896,21 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    // Record installment payment
-    app.post("/api/payment-plans/:id/pay", requireAuth, async (req, res) => {
+    // Record installment payment (cash only)
+    app.post("/api/payment-plans/:id/pay", requireAdmin, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
             const { installmentId, amount } = req.body;
             const planId = parseInt(req.params.id);
+
+            // Input validation
+            const payAmount = Number(amount);
+            if (isNaN(payAmount) || payAmount <= 0) {
+                return res.status(400).json({ message: "Amount must be a positive number" });
+            }
+            if (isNaN(planId)) return res.status(400).json({ message: "Invalid plan ID" });
 
             // 1. Get Installment & Plan Details
             const installment = await db.query.planInstallments.findFirst({
@@ -803,11 +918,15 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             });
             if (!installment) return res.status(404).json({ message: "Installment not found" });
 
+            // Prevent overpayment on installment
+            const remaining = installment.amount - (installment.paidAmount || 0);
+            if (payAmount > remaining) {
+                return res.status(400).json({ message: `Amount exceeds remaining balance of ${Math.round(remaining)}` });
+            }
+
             const plan = await db.query.paymentPlans.findFirst({
                 where: eq(paymentPlans.id, planId),
-                with: {
-                    invoice: true // Fetch invoice to get term/year
-                }
+                with: { invoice: true }
             });
             if (!plan) return res.status(404).json({ message: "Plan not found" });
 
@@ -816,71 +935,82 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                 return res.status(403).json({ message: "Access denied to payment plan from another school" });
             }
 
-            // 2. Update Installment
-            const newPaidAmount = (installment.paidAmount || 0) + amount;
-            const isFull = newPaidAmount >= installment.amount;
-
-            await db.update(planInstallments)
-                .set({
-                    paidAmount: newPaidAmount,
-                    paidAt: new Date(),
-                    status: isFull ? 'paid' : 'partial',
-                })
-                .where(eq(planInstallments.id, installmentId));
-
-            // 3. Record in Global Finance Ledger (fee_payments & finance_transactions)
             const today = new Date();
-            const termId = plan.invoice?.term || 1; // Fallback
+            const termId = plan.invoice?.term || 1;
             const yearId = plan.invoice?.year || new Date().getFullYear();
 
-            // Create fee_payment record
-            const [payment] = await db.insert(feePayments).values({
-                schoolId: plan.schoolId,
-                studentId: plan.studentId,
-                amountDue: Math.round(installment.amount), // Approximate
-                amountPaid: amount,
-                term: termId,
-                year: yearId,
-                paymentDate: today.toISOString(),
-                paymentMethod: 'Cash', // Default for this endpoint
-                feeType: 'Tuition', // Defaulting to Tuition for plan payments usually
-                notes: `Installment #${installment.installmentNumber} - ${plan.planName}`,
-            }).returning();
+            // Wrap all writes in a transaction
+            await db.transaction(async (tx) => {
+                // Generate sequential receipt number inside transaction
+                const lastReceipt = await tx.select({ receiptNumber: feePayments.receiptNumber })
+                    .from(feePayments)
+                    .where(and(
+                        eq(feePayments.schoolId, schoolId),
+                        sql`${feePayments.receiptNumber} LIKE ${'REC-' + yearId + '-%'}`
+                    ))
+                    .orderBy(desc(feePayments.id))
+                    .limit(1);
 
-            // Create finance_transaction record
-            await db.insert(financeTransactions).values({
-                schoolId: plan.schoolId,
-                studentId: plan.studentId,
-                transactionType: 'credit', // 'income' -> 'credit' (payment)
-                amount: amount,
-                term: termId,
-                year: yearId,
-                // referenceId removed (not in schema) 
-                // Schema check: financeTransactions has: id, schoolId, studentId, transactionType, amount, description, term, year, transactionDate.
-                // NO referenceId! Put in description.
-                description: `Payment Plan: ${plan.planName} (Inst #${installment.installmentNumber}) - Ref: ${payment.id}`,
-                transactionDate: today.toISOString().split('T')[0], // YYYY-MM-DD
-            });
+                let nextNum = 1;
+                if (lastReceipt[0]?.receiptNumber) {
+                    const parts = lastReceipt[0].receiptNumber.split('-');
+                    const lastNum = parseInt(parts[parts.length - 1]);
+                    if (!isNaN(lastNum)) nextNum = lastNum + 1;
+                }
+                const receiptNumber = `REC-${yearId}-${nextNum.toString().padStart(4, '0')}`;
+                // 2. Update Installment atomically
+                const newPaidAmount = (installment.paidAmount || 0) + payAmount;
+                const isFull = newPaidAmount >= installment.amount;
 
-            // 4. Update Main Invoice (if linked)
-            if (plan.invoiceId) {
-                const invoice = await db.query.invoices.findFirst({
-                    where: eq(invoices.id, plan.invoiceId),
+                await tx.update(planInstallments)
+                    .set({
+                        paidAmount: newPaidAmount,
+                        paidAt: today,
+                        status: isFull ? 'paid' : 'partial',
+                    })
+                    .where(eq(planInstallments.id, installmentId));
+
+                // 3. Create fee_payment record
+                const [payment] = await tx.insert(feePayments).values({
+                    schoolId: plan.schoolId,
+                    studentId: plan.studentId,
+                    amountDue: Math.round(installment.amount),
+                    amountPaid: Math.round(payAmount),
+                    balance: Math.max(0, Math.round(remaining - payAmount)),
+                    term: termId,
+                    year: yearId,
+                    paymentDate: today.toISOString().split('T')[0],
+                    paymentMethod: 'Cash',
+                    feeType: 'Tuition',
+                    receiptNumber,
+                    notes: `Installment #${installment.installmentNumber} - ${plan.planName}`,
+                    receivedBy: req.user?.id?.toString(),
+                }).returning();
+
+                // 4. Create finance_transaction record
+                await tx.insert(financeTransactions).values({
+                    schoolId: plan.schoolId,
+                    studentId: plan.studentId,
+                    transactionType: 'credit',
+                    amount: Math.round(payAmount),
+                    term: termId,
+                    year: yearId,
+                    description: `Payment Plan: ${plan.planName} (Inst #${installment.installmentNumber}) - ${receiptNumber}`,
+                    transactionDate: today.toISOString().split('T')[0],
                 });
-                if (invoice) {
-                    const invPaid = (invoice.amountPaid || 0) + amount;
-                    const invBal = Math.max(0, invoice.totalAmount - invPaid);
 
-                    await db.update(invoices)
+                // 5. Update Main Invoice atomically (if linked)
+                if (plan.invoiceId) {
+                    await tx.update(invoices)
                         .set({
-                            amountPaid: invPaid,
-                            balance: invBal,
-                            status: invBal === 0 ? 'paid' : 'partial',
+                            amountPaid: sql`${invoices.amountPaid} + ${Math.round(payAmount)}`,
+                            balance: sql`GREATEST(0, ${invoices.totalAmount} - (${invoices.amountPaid} + ${Math.round(payAmount)}))`,
+                            status: sql`CASE WHEN (${invoices.amountPaid} + ${Math.round(payAmount)}) >= ${invoices.totalAmount} THEN 'paid' ELSE 'partial' END`,
                             updatedAt: today
                         })
-                        .where(eq(invoices.id, plan.invoiceId));
+                        .where(and(eq(invoices.id, plan.invoiceId), eq(invoices.schoolId, schoolId)));
                 }
-            }
+            });
 
             res.json({ message: "Payment recorded and ledger updated", success: true });
         } catch (error: any) {
@@ -889,52 +1019,14 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    // --- Mobile Money Endpoints ---
+    // --- Mobile Money Endpoints (disabled - cash only for now) ---
 
-    // Initiate Payment
-    app.post("/api/finance/momo/pay", requireAuth, async (req, res) => {
-        try {
-            const schoolId = getActiveSchoolId(req);
-            const { phoneNumber, amount, provider, description, entityType, entityId } = req.body;
-
-            // Optional: Create a fee_payment record first if standard checking is required
-            // For now, we go straight to MoMo
-
-            const transaction = await MobileMoneyService.initiatePayment({
-                schoolId,
-                phoneNumber,
-                amount: parseFloat(amount),
-                provider,
-                reference: `INV-${entityId}`, // Simplified reference
-                description,
-                entityType,
-                entityId
-            });
-
-            res.json({
-                success: true,
-                message: "Payment initiated",
-                transactionId: transaction.id,
-                status: transaction.status
-            });
-
-        } catch (error: any) {
-            console.error("MoMo Pay error:", error);
-            res.status(500).json({ message: "Failed to initiate payment" });
-        }
+    app.post("/api/finance/momo/pay", requireAuth, async (_req, res) => {
+        res.status(503).json({ message: "Mobile Money payments are not available. Please use Cash, Bank Deposit, or Cheque." });
     });
 
-    // Check Transaction Status
-    app.get("/api/finance/momo/transaction/:id", requireAuth, async (req, res) => {
-        try {
-            const id = parseInt(req.params.id);
-            const transaction = await MobileMoneyService.checkStatus(id);
-            if (!transaction) return res.status(404).json({ message: "Transaction not found" });
-            res.json(transaction);
-        } catch (error: any) {
-            console.error("MoMo Status error:", error);
-            res.status(500).json({ message: "Failed to check status" });
-        }
+    app.get("/api/finance/momo/transaction/:id", requireAuth, async (_req, res) => {
+        res.status(503).json({ message: "Mobile Money is not available." });
     });
 
     // --- Dashboard Endpoints ---
@@ -986,38 +1078,53 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
+            // Fetch actual payments (revenue)
             const payments = await db.select({
                 date: feePayments.paymentDate,
                 amount: feePayments.amountPaid
             }).from(feePayments).where(and(eq(feePayments.schoolId, schoolId), eq(feePayments.isDeleted, false)));
 
-            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            const trends_map: Record<string, number> = {};
+            // Fetch actual expenses
+            const expenseRecords = await db.select({
+                date: expenses.expenseDate,
+                amount: expenses.amount
+            }).from(expenses).where(eq(expenses.schoolId, schoolId));
 
-            // Initialize all months with 0
-            months.forEach(m => trends_map[m] = 0);
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const revenueMap: Record<string, number> = {};
+            const expenseMap: Record<string, number> = {};
+
+            months.forEach(m => { revenueMap[m] = 0; expenseMap[m] = 0; });
 
             payments.forEach(p => {
                 if (p.date) {
                     const date = new Date(p.date);
-                    // Only include current year? Or last 12 months? Let's do current year for simplicity or specific logic
-                    // If date is valid
                     if (!isNaN(date.getTime())) {
-                        const month = date.toLocaleString('default', { month: 'short' });
-                        trends_map[month] = (trends_map[month] || 0) + Number(p.amount);
+                        const month = months[date.getMonth()];
+                        revenueMap[month] = (revenueMap[month] || 0) + Number(p.amount);
+                    }
+                }
+            });
+
+            expenseRecords.forEach(e => {
+                if (e.date) {
+                    const date = new Date(e.date);
+                    if (!isNaN(date.getTime())) {
+                        const month = months[date.getMonth()];
+                        expenseMap[month] = (expenseMap[month] || 0) + Number(e.amount);
                     }
                 }
             });
 
             const data = months.map(name => ({
                 name,
-                revenue: trends_map[name] || 0,
-                expenses: (trends_map[name] || 0) * 0.4 // Still estimating expenses for now as we don't have expense dates linked well yet
+                revenue: revenueMap[name] || 0,
+                expenses: expenseMap[name] || 0
             }));
 
             res.json(data);
         } catch (error: any) {
-            res.status(500).json({ message: error.message });
+            res.status(500).json({ message: "Failed to fetch revenue trends" });
         }
     });
 
@@ -2298,7 +2405,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const totalOutstanding = totalDue - totalRevenue;
 
             // Counts
-            const paymentsCountRes = await db.select({ count: sql<number>`count(*)` }).from(feePayments).where(eq(feePayments.schoolId, schoolId));
+            const paymentsCountRes = await db.select({ count: sql<number>`count(*)` }).from(feePayments).where(and(eq(feePayments.schoolId, schoolId), eq(feePayments.isDeleted, false)));
             const paymentCount = Number(paymentsCountRes[0].count);
 
             // Expenses
@@ -2326,22 +2433,77 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
+            const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 50, 1), 200);
+            const offset = Math.max(parseInt(req.query.offset as string) || 0, 0);
+
+            const conditions = [eq(feePayments.schoolId, schoolId), eq(feePayments.isDeleted, false)];
+
+            const [countResult] = await db.select({ count: sql<number>`count(*)` })
+                .from(feePayments)
+                .where(and(...conditions));
+
             const payments = await db.select().from(feePayments)
-                .where(eq(feePayments.schoolId, schoolId))
-                .orderBy(desc(feePayments.createdAt));
-            res.json(payments);
+                .where(and(...conditions))
+                .orderBy(desc(feePayments.createdAt))
+                .limit(limit)
+                .offset(offset);
+
+            res.json({ data: payments, total: Number(countResult.count), limit, offset });
         } catch (error: any) {
             console.error("Fee payments error:", error);
             res.status(500).json({ message: "Failed to fetch fee payments: " + error.message });
         }
     });
 
-    app.post("/api/fee-payments", requireAuth, async (req, res) => {
+    // Get fee payments for a specific student (used by FeePaymentHistory component)
+    app.get("/api/fee-payments/student/:studentId", requireAuth, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-            const { studentId, feeType, amountDue, amountPaid, term, year, paymentMethod, receiptNumber, notes } = req.body;
+            const studentId = parseInt(req.params.studentId);
+            if (isNaN(studentId)) return res.status(400).json({ message: "Invalid student ID" });
+
+            const payments = await db.select().from(feePayments)
+                .where(and(
+                    eq(feePayments.schoolId, schoolId),
+                    eq(feePayments.studentId, studentId),
+                    eq(feePayments.isDeleted, false)
+                ))
+                .orderBy(desc(feePayments.createdAt));
+            res.json(payments);
+        } catch (error: any) {
+            console.error("Student fee payments error:", error);
+            res.status(500).json({ message: "Failed to fetch student payments" });
+        }
+    });
+
+    app.post("/api/fee-payments", requireAdmin, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            const { studentId, feeType, amountPaid, term, year, paymentMethod, receiptNumber, notes } = req.body;
+
+            // Input validation
+            if (!studentId || !feeType || !term || !year) {
+                return res.status(400).json({ message: "studentId, feeType, term, and year are required" });
+            }
+            const paidAmount = Number(amountPaid);
+            if (isNaN(paidAmount) || paidAmount <= 0) {
+                return res.status(400).json({ message: "amountPaid must be a positive number" });
+            }
+            const termNum = Number(term);
+            const yearNum = Number(year);
+            if (termNum < 1 || termNum > 3) {
+                return res.status(400).json({ message: "Term must be 1, 2, or 3" });
+            }
+            if (yearNum < 2020 || yearNum > 2100) {
+                return res.status(400).json({ message: "Year must be between 2020 and 2100" });
+            }
+            // Validate payment method (cash-only for now)
+            const validMethods = ['Cash', 'Bank Deposit', 'Cheque'];
+            const method = validMethods.includes(paymentMethod) ? paymentMethod : 'Cash';
 
             // Security Check: Ensure student belongs to this school
             const studentCheck = await db.select({ id: students.id }).from(students)
@@ -2352,49 +2514,102 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                 return res.status(403).json({ message: "Student does not belong to the active school" });
             }
 
-            const balance = amountDue - (amountPaid || 0);
-            const status = balance <= 0 ? 'paid' : (amountPaid > 0 ? 'partial' : 'pending');
+            const today = new Date().toISOString().split('T')[0];
 
-            // Generate receipt number if missing to satisfy potential constraints
-            const finalReceiptNumber = receiptNumber || `REC-${Date.now()}`;
+            // Wrap all writes in a transaction for atomicity
+            const result = await db.transaction(async (tx) => {
+                // Generate sequential receipt number inside transaction for uniqueness
+                let finalReceiptNumber = receiptNumber;
+                if (!finalReceiptNumber) {
+                    const lastReceipt = await tx.select({ receiptNumber: feePayments.receiptNumber })
+                        .from(feePayments)
+                        .where(and(
+                            eq(feePayments.schoolId, schoolId),
+                            sql`${feePayments.receiptNumber} LIKE ${'REC-' + yearNum + '-%'}`
+                        ))
+                        .orderBy(desc(feePayments.id))
+                        .limit(1);
 
-            const newPayment = await db.insert(feePayments).values({
-                schoolId,
-                studentId,
-                feeType,
-                amountDue,
-                amountPaid: amountPaid || 0,
-                balance,
-                term,
-                year,
-                paymentDate: new Date().toISOString().split('T')[0],
-                paymentMethod,
-                receiptNumber: finalReceiptNumber,
-                status,
-                notes,
-                receivedBy: req.user?.id?.toString()
-            }).returning();
+                    let nextNum = 1;
+                    if (lastReceipt[0]?.receiptNumber) {
+                        const parts = lastReceipt[0].receiptNumber.split('-');
+                        const lastNum = parseInt(parts[parts.length - 1]);
+                        if (!isNaN(lastNum)) nextNum = lastNum + 1;
+                    }
+                    finalReceiptNumber = `REC-${yearNum}-${nextNum.toString().padStart(4, '0')}`;
+                }
+                // Look up the matching invoice to get the real amountDue
+                const matchingInvoice = await tx.select().from(invoices)
+                    .where(and(
+                        eq(invoices.schoolId, schoolId),
+                        eq(invoices.studentId, studentId),
+                        eq(invoices.term, termNum),
+                        eq(invoices.year, yearNum)
+                    )).limit(1);
 
-            // Record transaction in Ledger (Credit)
-            if (newPayment[0] && amountPaid > 0) {
-                await db.insert(financeTransactions).values({
+                const invoice = matchingInvoice[0];
+                const serverAmountDue = invoice ? invoice.balance : 0;
+
+                // Reject overpayment if an invoice exists and payment exceeds balance
+                if (invoice && paidAmount > invoice.balance && invoice.balance > 0) {
+                    throw new Error(`OVERPAYMENT: Amount (${paidAmount}) exceeds invoice balance (${invoice.balance})`);
+                }
+
+                const balance = Math.max(0, serverAmountDue - paidAmount);
+                const status = balance <= 0 ? 'paid' : 'partial';
+
+                // 1. Insert fee payment record
+                const [newPayment] = await tx.insert(feePayments).values({
+                    schoolId,
+                    studentId,
+                    feeType,
+                    amountDue: serverAmountDue,
+                    amountPaid: paidAmount,
+                    balance,
+                    term: termNum,
+                    year: yearNum,
+                    paymentDate: today,
+                    paymentMethod: method,
+                    receiptNumber: finalReceiptNumber,
+                    status,
+                    notes,
+                    receivedBy: req.user?.id?.toString()
+                }).returning();
+
+                // 2. Record transaction in Ledger (Credit)
+                await tx.insert(financeTransactions).values({
                     schoolId,
                     studentId,
                     transactionType: 'credit',
-                    amount: amountPaid,
-                    description: `Payment - ${feeType} (${term}/${year}) - ${finalReceiptNumber}`,
-                    term,
-                    year,
-                    transactionDate: new Date().toISOString().split('T')[0]
+                    amount: paidAmount,
+                    description: `Payment - ${feeType} (T${termNum}/${yearNum}) - ${finalReceiptNumber}`,
+                    term: termNum,
+                    year: yearNum,
+                    transactionDate: today
                 });
-            }
 
-            res.json(newPayment[0]);
+                // 3. Update the matching invoice balance atomically
+                if (invoice) {
+                    await tx.update(invoices)
+                        .set({
+                            amountPaid: sql`${invoices.amountPaid} + ${paidAmount}`,
+                            balance: sql`GREATEST(0, ${invoices.totalAmount} - (${invoices.amountPaid} + ${paidAmount}))`,
+                            status: sql`CASE WHEN (${invoices.amountPaid} + ${paidAmount}) >= ${invoices.totalAmount} THEN 'paid' ELSE 'partial' END`,
+                            updatedAt: new Date()
+                        })
+                        .where(eq(invoices.id, invoice.id));
+                }
+
+                return newPayment;
+            });
+
+            res.json(result);
         } catch (error: any) {
             console.error("Create fee payment error:", error);
-            // Include detail/code if available, safe fallbacks
-            const dbError = error.code ? ` (DB Code: ${error.code})` : '';
-            res.status(500).json({ message: "Failed to create fee payment: " + error.message + dbError });
+            if (error.message?.startsWith('OVERPAYMENT:')) {
+                return res.status(400).json({ message: error.message.replace('OVERPAYMENT: ', '') });
+            }
+            res.status(500).json({ message: "Failed to create fee payment" });
         }
     });
 
@@ -2403,38 +2618,64 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
+            const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 50, 1), 200);
+            const offset = Math.max(parseInt(req.query.offset as string) || 0, 0);
+
+            const conditions = [eq(expenses.schoolId, schoolId)];
+
+            const [countResult] = await db.select({ count: sql<number>`count(*)` })
+                .from(expenses)
+                .where(and(...conditions));
+
             const expenseRecords = await db.select().from(expenses)
-                .where(and(eq(expenses.schoolId, schoolId)))
-                .orderBy(desc(expenses.expenseDate));
-            res.json(expenseRecords);
+                .where(and(...conditions))
+                .orderBy(desc(expenses.expenseDate))
+                .limit(limit)
+                .offset(offset);
+
+            res.json({ data: expenseRecords, total: Number(countResult.count), limit, offset });
         } catch (error: any) {
             console.error("Expenses error:", error);
             res.status(500).json({ message: "Failed to fetch expenses: " + error.message });
         }
     });
 
-    app.post("/api/expenses", requireAuth, async (req, res) => {
+    app.post("/api/expenses", requireAdmin, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-            const { amount, description, categoryId, expenseDate, referenceNumber, vendor } = req.body;
+            const { amount, description, categoryId, expenseDate, referenceNumber, vendor, paymentMethod } = req.body;
+
+            // Input validation
+            const expAmount = Number(amount);
+            if (isNaN(expAmount) || expAmount <= 0) {
+                return res.status(400).json({ message: "Amount must be a positive number" });
+            }
+            if (!description || typeof description !== 'string' || description.trim().length === 0) {
+                return res.status(400).json({ message: "Description is required" });
+            }
+
+            // Validate payment method (cash-only for now)
+            const validMethods = ['Cash', 'Bank Deposit', 'Cheque'];
+            const method = validMethods.includes(paymentMethod) ? paymentMethod : 'Cash';
 
             const newExpense = await db.insert(expenses).values({
                 schoolId,
-                amount,
-                description,
-                categoryId,
+                amount: expAmount,
+                description: description.trim(),
+                categoryId: categoryId || null,
                 expenseDate: expenseDate || new Date().toISOString().split('T')[0],
                 referenceNumber,
                 vendor,
+                paymentMethod: method,
                 createdBy: req.user?.id
             }).returning();
 
             res.json(newExpense[0]);
         } catch (error: any) {
             console.error("Create expense error:", error);
-            res.status(500).json({ message: "Failed to create expense: " + error.message });
+            res.status(500).json({ message: "Failed to create expense" });
         }
     });
 
@@ -2452,16 +2693,19 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.post("/api/expense-categories", requireAuth, async (req, res) => {
+    app.post("/api/expense-categories", requireAdmin, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
             const { name, color, description } = req.body;
+            if (!name || typeof name !== 'string' || name.trim().length === 0) {
+                return res.status(400).json({ message: "Category name is required" });
+            }
 
             const newCategory = await db.insert(expenseCategories).values({
                 schoolId,
-                name,
+                name: name.trim(),
                 color: color || '#6554C0',
                 description
             }).returning();
@@ -2491,20 +2735,26 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.post("/api/fee-structures", requireAuth, async (req, res) => {
+    app.post("/api/fee-structures", requireAdmin, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
             const { classLevel, feeType, amount, term, year, boardingStatus, description } = req.body;
 
+            // Input validation
+            const feeAmount = Number(amount);
+            if (isNaN(feeAmount) || feeAmount < 0) return res.status(400).json({ message: "Amount must be a non-negative number" });
+            if (!classLevel || !feeType) return res.status(400).json({ message: "classLevel and feeType are required" });
+            if (!year || Number(year) < 2020) return res.status(400).json({ message: "Valid year is required" });
+
             const newFee = await db.insert(feeStructures).values({
                 schoolId,
                 classLevel,
                 feeType,
-                amount,
-                term,
-                year,
+                amount: feeAmount,
+                term: term || null,
+                year: Number(year),
                 boardingStatus: boardingStatus || 'all',
                 description,
                 isActive: true
@@ -2513,23 +2763,26 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             res.json(newFee[0]);
         } catch (error: any) {
             console.error("Create fee structure error:", error);
-            res.status(500).json({ message: "Failed to create fee structure: " + error.message });
+            res.status(500).json({ message: "Failed to create fee structure" });
         }
     });
 
-    app.delete("/api/fee-structures/:id", requireAuth, async (req, res) => {
+    app.delete("/api/fee-structures/:id", requireAdmin, async (req, res) => {
         try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
             const id = parseInt(req.params.id);
             if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
 
-            // Hard delete for now as it's configuration data, but check dependencies if needed
-            // OR soft delete
-            await db.update(feeStructures).set({ isActive: false }).where(eq(feeStructures.id, id));
+            // Soft delete, scoped to school
+            await db.update(feeStructures).set({ isActive: false })
+                .where(and(eq(feeStructures.id, id), eq(feeStructures.schoolId, schoolId)));
 
             res.json({ message: "Fee structure deleted" });
         } catch (error: any) {
             console.error("Delete fee structure error:", error);
-            res.status(500).json({ message: "Failed to delete fee structure: " + error.message });
+            res.status(500).json({ message: "Failed to delete fee structure" });
         }
     });
 
@@ -2622,11 +2875,17 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.post("/api/student-fee-overrides", requireAuth, async (req, res) => {
+    app.post("/api/student-fee-overrides", requireAdmin, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
             const { studentId, feeType, customAmount, term, year, reason } = req.body;
+
+            // Input validation
+            const amount = Number(customAmount);
+            if (isNaN(amount) || amount < 0) return res.status(400).json({ message: "customAmount must be a non-negative number" });
+            if (!feeType) return res.status(400).json({ message: "feeType is required" });
+            if (!year || Number(year) < 2020) return res.status(400).json({ message: "Valid year is required" });
 
             // Check for existing override
             const existing = await db.select().from(studentFeeOverrides)
@@ -2663,9 +2922,31 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
+    // Delete (deactivate) a student fee override
+    app.delete("/api/student-fee-overrides/:id", requireAdmin, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            const id = parseInt(req.params.id);
+            if (isNaN(id)) return res.status(400).json({ message: "Invalid override ID" });
+
+            const updated = await db.update(studentFeeOverrides)
+                .set({ isActive: false, updatedAt: new Date() })
+                .where(and(eq(studentFeeOverrides.id, id), eq(studentFeeOverrides.schoolId, schoolId)))
+                .returning();
+
+            if (updated.length === 0) return res.status(404).json({ message: "Override not found" });
+            res.json({ message: "Override removed" });
+        } catch (error: any) {
+            console.error("Delete override error:", error);
+            res.status(500).json({ message: "Failed to remove override" });
+        }
+    });
+
     // --- Invoice Generation (Debits) ---
 
-    // URL deprecated. Use /api/invoices/generate instead logic moved to invoices module 
+    // URL deprecated. Use /api/invoices/generate instead logic moved to invoices module
     // Legacy endpoint removed to prevent duplicate ledger entries.
 
     // --- Gate Attendance Module ---

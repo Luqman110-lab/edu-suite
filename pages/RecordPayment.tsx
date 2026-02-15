@@ -158,17 +158,29 @@ export default function RecordPayment() {
         e.preventDefault();
         if (!selectedStudent) return;
 
-        const amount = parseInt(amountPaid);
+        const amount = Math.round(Number(amountPaid));
         if (isNaN(amount) || amount <= 0) {
-            toast({ title: "Invalid Amount", variant: "destructive" });
+            toast({ title: "Invalid Amount", description: "Please enter a positive amount.", variant: "destructive" });
             return;
+        }
+
+        const yearNum = parseInt(year);
+        if (isNaN(yearNum) || yearNum < 2020 || yearNum > 2100) {
+            toast({ title: "Invalid Year", description: "Year must be between 2020 and 2100.", variant: "destructive" });
+            return;
+        }
+
+        // Warn if overpaying
+        const due = getAmountDue();
+        if (due > 0 && amount > due) {
+            if (!confirm(`Amount (${amount.toLocaleString()} UGX) exceeds balance due (${due.toLocaleString()} UGX). Continue?`)) {
+                return;
+            }
         }
 
         createPaymentMutation.mutate({
             studentId: selectedStudent.id,
-            feeType, // Still keep fee type for categorization, but mostly tracked against invoice now
-            invoiceId: activeInvoice?.id, // Link to invoice
-            amountDue: getAmountDue(),
+            feeType,
             amountPaid: amount,
             term: parseInt(term),
             year: parseInt(year),
@@ -302,6 +314,8 @@ export default function RecordPayment() {
                                     type="number"
                                     value={year}
                                     onChange={e => setYear(e.target.value)}
+                                    min={2020}
+                                    max={2100}
                                 />
                             </div>
 
@@ -338,7 +352,6 @@ export default function RecordPayment() {
                             {renderSelect("Payment Method", paymentMethod, setPaymentMethod, [
                                 { value: "Cash", label: "Cash" },
                                 { value: "Bank Deposit", label: "Bank Deposit" },
-                                { value: "Mobile Money", label: "Mobile Money" },
                                 { value: "Cheque", label: "Cheque" }
                             ])}
 

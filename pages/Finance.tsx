@@ -60,13 +60,19 @@ export default function Finance() {
     try {
       const [summaryRes, paymentsRes, expensesRes, categoriesRes] = await Promise.all([
         fetch('/api/financial-summary', { credentials: 'include' }),
-        fetch('/api/fee-payments', { credentials: 'include' }),
-        fetch('/api/expenses', { credentials: 'include' }),
+        fetch('/api/fee-payments?limit=200', { credentials: 'include' }),
+        fetch('/api/expenses?limit=200', { credentials: 'include' }),
         fetch('/api/expense-categories', { credentials: 'include' })
       ]);
       if (summaryRes.ok) setSummary(await summaryRes.json());
-      if (paymentsRes.ok) setPayments(await paymentsRes.json());
-      if (expensesRes.ok) setExpenses(await expensesRes.json());
+      if (paymentsRes.ok) {
+        const result = await paymentsRes.json();
+        setPayments(result.data || []);
+      }
+      if (expensesRes.ok) {
+        const result = await expensesRes.json();
+        setExpenses(result.data || []);
+      }
       if (categoriesRes.ok) setCategories(await categoriesRes.json());
     } catch (err) {
       console.error('Failed to fetch financial data', err);
