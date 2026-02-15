@@ -1,8 +1,8 @@
 import { WebSocketServer, WebSocket } from "ws";
-import { Server } from "http";
-import { db } from "./db";
+import { Server, IncomingMessage } from "http";
+import { db, pool } from "./db";
 import { conversationParticipants, users } from "../shared/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 interface WsClient extends WebSocket {
     userId?: number;
@@ -12,11 +12,59 @@ interface WsClient extends WebSocket {
 const clients = new Map<number, Set<WsClient>>();
 let wss: WebSocketServer;
 
+function parseSessionId(token: string): string {
+    if (token.startsWith('s:')) {
+        return token.slice(2, token.lastIndexOf('.'));
+    }
+    return token;
+}
+
+async function validateSession(sessionId: string): Promise<number | null> {
+    try {
+        const sid = parseSessionId(sessionId);
+        const result = await pool.query('SELECT sess FROM "session" WHERE sid = $1', [sid]);
+
+        if (result.rows.length === 0) return null;
+
+        const sess = result.rows[0].sess;
+        if (sess && sess.passport && sess.passport.user) {
+            return sess.passport.user;
+        }
+        return null;
+    } catch (err) {
+        console.error("Session validation error:", err);
+        return null;
+    }
+}
+
 export function setupWebSocket(server: Server) {
     wss = new WebSocketServer({ server, path: "/ws" });
 
-    wss.on("connection", (ws: WsClient) => {
+    wss.on("connection", async (ws: WsClient, req: IncomingMessage) => {
         ws.isAlive = true;
+
+        // Try to authenticate via cookie
+        if (req.headers.cookie) {
+            const cookies = req.headers.cookie.split(';').reduce((acc, cookie) => {
+                const [key, value] = cookie.trim().split('=');
+                acc[key] = value;
+                return acc;
+            }, {} as Record<string, string>);
+
+            const sessionCookie = cookies['connect.sid'];
+            if (sessionCookie) {
+                const userId = await validateSession(decodeURIComponent(sessionCookie));
+                if (userId) {
+                    ws.userId = userId;
+                    if (!clients.has(userId)) {
+                        clients.set(userId, new Set());
+                        broadcastPresence(userId, true);
+                    }
+                    clients.get(userId)?.add(ws);
+                    console.log(`[WS] User ${userId} connected via cookie`);
+                }
+            }
+        }
 
         ws.on("pong", () => {
             ws.isAlive = true;
@@ -28,39 +76,43 @@ export function setupWebSocket(server: Server) {
 
                 switch (message.type) {
                     case "auth":
-                        if (message.userId && message.sessionToken) {
-                            const userId = parseInt(message.userId);
-
-                            // Verify the user actually exists in the database
-                            const [user] = await db.select({ id: users.id })
-                                .from(users)
-                                .where(eq(users.id, userId))
-                                .limit(1);
-
-                            if (!user) {
-                                ws.send(JSON.stringify({ type: 'auth_error', message: 'Invalid user' }));
-                                break;
+                        // If already authenticated via cookie, just confirm or verify match
+                        if (ws.userId) {
+                            if (message.userId && parseInt(message.userId) !== ws.userId) {
+                                ws.send(JSON.stringify({ type: 'auth_error', message: 'Session mismatch' }));
+                                return;
                             }
-
-                            ws.userId = userId;
-
-                            if (!clients.has(userId)) {
-                                clients.set(userId, new Set());
-                                broadcastPresence(userId, true);
-                            }
-                            clients.get(userId)?.add(ws);
-                            console.log(`[WS] User ${userId} connected`);
-
-                            // Send initial online list
+                            // Re-send online users as acknowledgment
                             const onlineUsers = Array.from(clients.keys());
                             ws.send(JSON.stringify({ type: 'online_users', userIds: onlineUsers }));
+                            break;
+                        }
+
+                        if (message.userId && message.sessionToken) {
+                            const claimedUserId = parseInt(message.userId);
+                            const validatedUserId = await validateSession(message.sessionToken);
+
+                            if (validatedUserId && validatedUserId === claimedUserId) {
+                                ws.userId = validatedUserId;
+
+                                if (!clients.has(validatedUserId)) {
+                                    clients.set(validatedUserId, new Set());
+                                    broadcastPresence(validatedUserId, true);
+                                }
+                                clients.get(validatedUserId)?.add(ws);
+                                console.log(`[WS] User ${validatedUserId} connected via token`);
+
+                                const onlineUsers = Array.from(clients.keys());
+                                ws.send(JSON.stringify({ type: 'online_users', userIds: onlineUsers }));
+                            } else {
+                                ws.send(JSON.stringify({ type: 'auth_error', message: 'Invalid session or user' }));
+                            }
                         } else {
                             ws.send(JSON.stringify({ type: 'auth_error', message: 'userId and sessionToken required' }));
                         }
                         break;
 
                     case "typing":
-                        // { type: 'typing', conversationId: 123, isTyping: true }
                         if (ws.userId && message.conversationId) {
                             broadcastTyping(message.conversationId, ws.userId, message.isTyping);
                         }
@@ -105,7 +157,6 @@ export function setupWebSocket(server: Server) {
 
 export async function broadcastMessage(conversationId: number, message: any) {
     try {
-        // Get all participants of the conversation
         const participants = await db.select()
             .from(conversationParticipants)
             .where(eq(conversationParticipants.conversationId, conversationId));
@@ -132,13 +183,6 @@ export async function broadcastMessage(conversationId: number, message: any) {
 }
 
 export function broadcastTyping(conversationId: number, userId: number, isTyping: boolean) {
-    // We need to know who is in the conversation. 
-    // For efficiency, usually client sends "I am typing in room X", asking server to forward to X.
-    // Ideally, we cache participants or fetch them. 
-    // For now, simpler approach: The client should probably subscribe to a "room" in WS.
-    // But to adhere to the current REST-heavy architecture:
-    // We will fetch participants from DB. This is slightly heavy for "typing" but safe.
-
     db.select().from(conversationParticipants)
         .where(eq(conversationParticipants.conversationId, conversationId))
         .then(participants => {
@@ -150,7 +194,7 @@ export function broadcastTyping(conversationId: number, userId: number, isTyping
             });
 
             participants.forEach(p => {
-                if (p.userId === userId) return; // Don't send to self
+                if (p.userId === userId) return;
                 const userSockets = clients.get(p.userId);
                 if (userSockets) {
                     userSockets.forEach(ws => {
@@ -163,9 +207,6 @@ export function broadcastTyping(conversationId: number, userId: number, isTyping
 }
 
 function broadcastPresence(userId: number, isOnline: boolean) {
-    // Broadcast to EVERYONE connected? Or just friends?
-    // In a school system, "Online Status" is usually visible to all staff.
-    // Broadcast to all connected clients.
     const payload = JSON.stringify({
         type: "presence",
         userId,

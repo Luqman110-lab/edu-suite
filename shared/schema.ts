@@ -194,7 +194,7 @@ export const auditLogs = pgTable("audit_logs", {
 
 export const students = pgTable("students", {
   id: serial("id").primaryKey(),
-  schoolId: integer("school_id").references(() => schools.id, { onDelete: "cascade" }),
+  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
   indexNumber: text("index_number").notNull(),
   name: text("name").notNull(),
   classLevel: text("class_level").notNull(),
@@ -241,7 +241,7 @@ export const students = pgTable("students", {
 export const guardians = pgTable("guardians", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").unique().references(() => users.id, { onDelete: "set null" }),
-  schoolId: integer("school_id").references(() => schools.id, { onDelete: "cascade" }),
+  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   relationship: text("relationship").notNull(),
   phone: text("phone").notNull(),
@@ -271,7 +271,7 @@ export const studentGuardians = pgTable("student_guardians", {
 
 export const promotionHistory = pgTable("promotion_history", {
   id: serial("id").primaryKey(),
-  schoolId: integer("school_id").references(() => schools.id, { onDelete: "cascade" }),
+  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
   studentId: integer("student_id").notNull().references(() => students.id, { onDelete: "cascade" }),
   fromClass: text("from_class").notNull(),
   toClass: text("to_class").notNull(),
@@ -288,7 +288,7 @@ export const promotionHistory = pgTable("promotion_history", {
 
 export const teachers = pgTable("teachers", {
   id: serial("id").primaryKey(),
-  schoolId: integer("school_id").references(() => schools.id, { onDelete: "cascade" }),
+  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
   employeeId: text("employee_id"),
   name: text("name").notNull(),
   gender: text("gender").notNull(),
@@ -310,7 +310,7 @@ export const teachers = pgTable("teachers", {
 
 export const marks = pgTable("marks", {
   id: serial("id").primaryKey(),
-  schoolId: integer("school_id").references(() => schools.id, { onDelete: "cascade" }),
+  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
   studentId: integer("student_id").notNull().references(() => students.id, { onDelete: "cascade" }),
   term: integer("term").notNull(),
   year: integer("year").notNull(),
@@ -429,7 +429,7 @@ export const deprecatedSettings = pgTable("settings", {
 
 export const activityLogs = pgTable("activity_logs", {
   id: serial("id").primaryKey(),
-  schoolId: integer("school_id").references(() => schools.id, { onDelete: "cascade" }),
+  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
   userId: integer("user_id").references(() => users.id),
   userName: text("user_name").notNull(),
   action: text("action").notNull(),
@@ -443,7 +443,7 @@ export const activityLogs = pgTable("activity_logs", {
 
 export const testSessions = pgTable("test_sessions", {
   id: serial("id").primaryKey(),
-  schoolId: integer("school_id").references(() => schools.id, { onDelete: "cascade" }),
+  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   testType: text("test_type").notNull(),
   classLevel: text("class_level").notNull(),
@@ -467,7 +467,7 @@ export const testSessions = pgTable("test_sessions", {
 
 export const testScores = pgTable("test_scores", {
   id: serial("id").primaryKey(),
-  schoolId: integer("school_id").references(() => schools.id, { onDelete: "cascade" }),
+  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
   testSessionId: integer("test_session_id").notNull().references(() => testSessions.id, { onDelete: "cascade" }),
   studentId: integer("student_id").notNull().references(() => students.id, { onDelete: "cascade" }),
   rawMarks: json("raw_marks").$type<{
@@ -686,7 +686,7 @@ export const demoRequests = pgTable("demo_requests", {
 
 export const p7ExamSets = pgTable("p7_exam_sets", {
   id: serial("id").primaryKey(),
-  schoolId: integer("school_id").references(() => schools.id, { onDelete: "cascade" }),
+  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
   setNumber: integer("set_number").notNull(),
   name: text("name").notNull(),
   stream: text("stream"),
@@ -708,7 +708,7 @@ export const p7ExamSets = pgTable("p7_exam_sets", {
 
 export const p7Scores = pgTable("p7_scores", {
   id: serial("id").primaryKey(),
-  schoolId: integer("school_id").references(() => schools.id, { onDelete: "cascade" }),
+  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
   examSetId: integer("exam_set_id").notNull().references(() => p7ExamSets.id, { onDelete: "cascade" }),
   studentId: integer("student_id").notNull().references(() => students.id, { onDelete: "cascade" }),
   marks: json("marks").$type<{
@@ -755,7 +755,7 @@ export const p7ScoresRelations = relations(p7Scores, ({ one }) => ({
 
 export const feePayments = pgTable("fee_payments", {
   id: serial("id").primaryKey(),
-  schoolId: integer("school_id").references(() => schools.id, { onDelete: "cascade" }),
+  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
   studentId: integer("student_id").notNull().references(() => students.id, { onDelete: "cascade" }),
   term: integer("term").notNull(),
   year: integer("year").notNull(),
@@ -801,7 +801,7 @@ export type InsertFeePayment = typeof feePayments.$inferInsert;
 // Invoices for term-based billing
 export const invoices = pgTable("invoices", {
   id: serial("id").primaryKey(),
-  schoolId: integer("school_id").references(() => schools.id, { onDelete: "cascade" }),
+  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
   studentId: integer("student_id").notNull().references(() => students.id, { onDelete: "cascade" }),
   invoiceNumber: text("invoice_number").notNull(),
   term: integer("term").notNull(),
@@ -891,7 +891,7 @@ export type InsertP7Score = typeof p7Scores.$inferInsert;
 
 export const feeStructures = pgTable("fee_structures", {
   id: serial("id").primaryKey(),
-  schoolId: integer("school_id").references(() => schools.id, { onDelete: "cascade" }),
+  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
   classLevel: text("class_level").notNull(),
   feeType: text("fee_type").notNull(),
   amount: integer("amount").notNull(),
@@ -926,7 +926,7 @@ export type InsertFeeStructure = typeof feeStructures.$inferInsert;
 
 export const financeTransactions = pgTable("finance_transactions", {
   id: serial("id").primaryKey(),
-  schoolId: integer("school_id").references(() => schools.id, { onDelete: "cascade" }),
+  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
   studentId: integer("student_id").notNull().references(() => students.id, { onDelete: "cascade" }),
   // 'debit' = charge (increases balance), 'credit' = payment (decreases balance)
   transactionType: text("transaction_type").notNull(),
@@ -963,7 +963,7 @@ export type InsertFinanceTransaction = typeof financeTransactions.$inferInsert;
 
 export const expenseCategories = pgTable("expense_categories", {
   id: serial("id").primaryKey(),
-  schoolId: integer("school_id").references(() => schools.id, { onDelete: "cascade" }),
+  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   description: text("description"),
   color: text("color").default("#6B7280"),
@@ -991,7 +991,7 @@ export type InsertExpenseCategory = typeof expenseCategories.$inferInsert;
 
 export const expenses = pgTable("expenses", {
   id: serial("id").primaryKey(),
-  schoolId: integer("school_id").references(() => schools.id, { onDelete: "cascade" }),
+  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
   categoryId: integer("category_id").references(() => expenseCategories.id, { onDelete: "set null" }),
   amount: integer("amount").notNull(),
   description: text("description").notNull(),
@@ -1039,7 +1039,7 @@ export type InsertExpense = typeof expenses.$inferInsert;
 
 export const scholarships = pgTable("scholarships", {
   id: serial("id").primaryKey(),
-  schoolId: integer("school_id").references(() => schools.id, { onDelete: "cascade" }),
+  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   discountType: text("discount_type").notNull(),
   discountValue: integer("discount_value").notNull(),
@@ -1075,7 +1075,7 @@ export type InsertScholarship = typeof scholarships.$inferInsert;
 
 export const studentScholarships = pgTable("student_scholarships", {
   id: serial("id").primaryKey(),
-  schoolId: integer("school_id").references(() => schools.id, { onDelete: "cascade" }),
+  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
   studentId: integer("student_id").notNull().references(() => students.id, { onDelete: "cascade" }),
   scholarshipId: integer("scholarship_id").notNull().references(() => scholarships.id, { onDelete: "cascade" }),
   term: integer("term"),
@@ -1119,7 +1119,7 @@ export type InsertStudentScholarship = typeof studentScholarships.$inferInsert;
 // Student Fee Overrides - custom fees per student
 export const studentFeeOverrides = pgTable("student_fee_overrides", {
   id: serial("id").primaryKey(),
-  schoolId: integer("school_id").references(() => schools.id, { onDelete: "cascade" }),
+  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
   studentId: integer("student_id").notNull().references(() => students.id, { onDelete: "cascade" }),
   feeType: text("fee_type").notNull(),
   customAmount: integer("custom_amount").notNull(),

@@ -508,6 +508,17 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
+export function requireStaff(req: Request, res: Response, next: NextFunction) {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: "Authentication required" });
+  }
+  const role = req.user?.activeSchoolRole;
+  if (role !== "admin" && role !== "teacher" && !req.user?.isSuperAdmin) {
+    return res.status(403).json({ message: "Staff access required" });
+  }
+  next();
+}
+
 export function requireSuperAdmin(req: Request, res: Response, next: NextFunction) {
   if (!req.isAuthenticated()) {
     return res.status(401).json({ message: "Authentication required" });

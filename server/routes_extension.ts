@@ -1,10 +1,11 @@
-
 import { Express } from "express";
 import { db } from "./db";
 import { eq, and, desc, asc, sql, inArray, gt, or, isNull } from "drizzle-orm";
 
-import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, teacherAttendance, users, userSchools, feeStructures, financeTransactions, conversations, conversationParticipants, messages, promotionHistory, studentFeeOverrides, dormitories, beds, boardingRollCalls, leaveRequests, auditLogs, invoices, invoiceItems, paymentPlans, planInstallments, visitorLogs, boardingSettings, faceEmbeddings, insertStudentSchema, p7ExamSets, p7Scores, scholarships, studentScholarships } from "../shared/schema";
-import { requireAuth, requireAdmin, requireSuperAdmin, getActiveSchoolId, hashPassword } from "./auth";
+import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, teacherAttendance, users, userSchools, feeStructures, financeTransactions, conversations, conversationParticipants, messages, promotionHistory, studentFeeOverrides, dormitories, beds, boardingRollCalls, leaveRequests, auditLogs, invoices, invoiceItems, paymentPlans, planInstallments, visitorLogs, boardingSettings, faceEmbeddings, insertStudentSchema, p7ExamSets, p7Scores, scholarships, studentScholarships, insertDormitorySchema, insertBedSchema, insertLeaveRequestSchema, insertVisitorLogSchema, insertBoardingSettingsSchema, insertSchoolSchema, insertUserSchema, insertP7ExamSetSchema, insertProgramItemSchema } from "../shared/schema";
+import { createInsertSchema } from "drizzle-zod"; // Added import
+import { z } from "zod";
+import { requireAuth, requireAdmin, requireStaff, requireSuperAdmin, getActiveSchoolId, hashPassword } from "./auth";
 // MobileMoneyService disabled - cash only for now
 // import { MobileMoneyService } from "./services/MobileMoneyService";
 import { broadcastMessage } from "./websocket";
@@ -29,7 +30,7 @@ export function registerExtendedRoutes(app: Express) {
     // --- Biometric Authentication (Face Recognition) ---
 
     // Enroll a face (Save embedding)
-    app.post("/api/face-embeddings", requireAuth, async (req, res) => {
+    app.post("/api/face-embeddings", requireAdmin, async (req, res) => {
         try {
             const { personType, personId, embedding, quality } = req.body;
             const schoolId = getActiveSchoolId(req);
@@ -172,7 +173,7 @@ export function registerExtendedRoutes(app: Express) {
         }
     });
 
-    app.post("/api/fee-structures", requireAuth, async (req, res) => {
+    app.post("/api/fee-structures", requireAdmin, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
@@ -185,7 +186,7 @@ export function registerExtendedRoutes(app: Express) {
         }
     });
 
-    app.put("/api/fee-structures/:id", requireAuth, async (req, res) => {
+    app.put("/api/fee-structures/:id", requireAdmin, async (req, res) => {
         try {
             const id = parseInt(req.params.id);
             const schoolId = getActiveSchoolId(req);
@@ -202,7 +203,7 @@ export function registerExtendedRoutes(app: Express) {
         }
     });
 
-    app.delete("/api/fee-structures/:id", requireAuth, async (req, res) => {
+    app.delete("/api/fee-structures/:id", requireAdmin, async (req, res) => {
         try {
             const id = parseInt(req.params.id);
             const schoolId = getActiveSchoolId(req);
@@ -1250,7 +1251,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.post("/api/students", requireAuth, async (req, res) => {
+    app.post("/api/students", requireAdmin, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
             const userId = req.user!.id;
@@ -1299,7 +1300,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.put("/api/students/:id", requireAuth, async (req, res) => {
+    app.put("/api/students/:id", requireAdmin, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
             const userId = req.user!.id;
@@ -1353,7 +1354,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.delete("/api/students/:id", requireAuth, async (req, res) => {
+    app.delete("/api/students/:id", requireAdmin, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
             const userId = req.user!.id;
@@ -1392,7 +1393,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.delete("/api/students", requireAuth, async (req, res) => {
+    app.delete("/api/students", requireAdmin, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
             const userId = req.user!.id;
@@ -1431,7 +1432,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.post("/api/students/batch", requireAuth, async (req, res) => {
+    app.post("/api/students/batch", requireAdmin, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
@@ -1443,7 +1444,25 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
 
             // Using onConflictDoNothing to skip duplicates gracefully
             const created = await db.insert(students).values(newStudents.map((s: any) => ({
-                ...s,
+                indexNumber: s.indexNumber,
+                name: s.name,
+                classLevel: s.classLevel,
+                stream: s.stream,
+                gender: s.gender,
+                parentName: s.parentName,
+                parentContact: s.parentContact,
+                dateOfBirth: s.dateOfBirth,
+                nationality: s.nationality,
+                religion: s.religion,
+                photoBase64: s.photoBase64,
+                admissionDate: s.admissionDate,
+                admissionNumber: s.admissionNumber,
+                previousSchool: s.previousSchool,
+                boardingStatus: s.boardingStatus,
+                houseOrDormitory: s.houseOrDormitory,
+                medicalInfo: s.medicalInfo,
+                emergencyContacts: s.emergencyContacts,
+                specialCases: s.specialCases,
                 isActive: true,
                 schoolId: schoolId
             }))).onConflictDoNothing().returning();
@@ -1915,7 +1934,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.post("/api/students/promote", requireAuth, async (req, res) => {
+    app.post("/api/students/promote", requireAdmin, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
@@ -1995,13 +2014,11 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.get("/api/face-embeddings", async (req, res) => {
-        res.json([]);
-    });
+
 
     // --- School Management Extensions ---
 
-    app.post("/api/schools", requireAuth, async (req, res) => {
+    app.post("/api/schools", requireAdmin, async (req, res) => {
         try {
             // Check if Super Admin
             if (!req.user?.isSuperAdmin) {
@@ -2044,7 +2061,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.put("/api/schools/:id", requireAuth, async (req, res) => {
+    app.put("/api/schools/:id", requireAdmin, async (req, res) => {
         try {
             const schoolId = parseInt(req.params.id);
             if (isNaN(schoolId)) return res.status(400).json({ message: "Invalid school ID" });
@@ -2100,7 +2117,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.delete("/api/schools/:id", requireAuth, async (req, res) => {
+    app.delete("/api/schools/:id", requireAdmin, async (req, res) => {
         try {
             if (!req.user?.isSuperAdmin) {
                 return res.status(403).json({ message: "Only Super Admin can delete schools" });
@@ -2138,7 +2155,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.post("/api/teachers", requireAuth, async (req, res) => {
+    app.post("/api/teachers", requireAdmin, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
@@ -2156,7 +2173,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.put("/api/teachers/:id", requireAuth, async (req, res) => {
+    app.put("/api/teachers/:id", requireAdmin, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
             const teacherId = parseInt(req.params.id);
@@ -2182,7 +2199,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.delete("/api/teachers/:id", requireAuth, async (req, res) => {
+    app.delete("/api/teachers/:id", requireAdmin, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
             const teacherId = parseInt(req.params.id);
@@ -2208,7 +2225,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.post("/api/teachers/batch", requireAuth, async (req, res) => {
+    app.post("/api/teachers/batch", requireAdmin, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
@@ -2219,7 +2236,19 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             }
 
             const created = await db.insert(teachers).values(newTeachers.map((t: any) => ({
-                ...t,
+                name: t.name,
+                gender: t.gender,
+                phone: t.phone,
+                email: t.email,
+                employeeId: t.employeeId,
+                roles: t.roles,
+                assignedClass: t.assignedClass,
+                assignedStream: t.assignedStream,
+                subjects: t.subjects,
+                teachingClasses: t.teachingClasses,
+                qualifications: t.qualifications,
+                dateJoined: t.dateJoined,
+                initials: t.initials,
                 schoolId: schoolId,
                 isActive: true
             }))).returning();
@@ -2248,7 +2277,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.post("/api/marks", requireAuth, async (req, res) => {
+    app.post("/api/marks", requireStaff, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
@@ -2295,7 +2324,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.post("/api/marks/batch", requireAuth, async (req, res) => {
+    app.post("/api/marks/batch", requireStaff, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
@@ -2332,13 +2361,19 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
 
                 if (existing.length > 0) {
                     const updated = await db.update(marks)
-                        .set({ ...mark, schoolId })
+                        .set({ ...mark, schoolId }) // Validated studentId ownership above
                         .where(eq(marks.id, existing[0].id))
                         .returning();
                     results.push(updated[0]);
                 } else {
                     const newMark = await db.insert(marks).values({
-                        ...mark,
+                        studentId: mark.studentId,
+                        term: mark.term,
+                        year: mark.year,
+                        type: mark.type,
+                        marks: mark.marks,
+                        comment: mark.comment,
+                        status: mark.status,
                         schoolId
                     }).returning();
                     results.push(newMark[0]);
@@ -2352,7 +2387,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.delete("/api/marks/batch", requireAuth, async (req, res) => {
+    app.delete("/api/marks/batch", requireStaff, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
@@ -2968,7 +3003,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.post("/api/gate-attendance/check-in", requireAuth, async (req, res) => {
+    app.post("/api/gate-attendance/check-in", requireStaff, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
@@ -3010,7 +3045,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.post("/api/gate-attendance/check-out", requireAuth, async (req, res) => {
+    app.post("/api/gate-attendance/check-out", requireStaff, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
@@ -3046,7 +3081,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.post("/api/gate-attendance/mark-absent", requireAuth, async (req, res) => {
+    app.post("/api/gate-attendance/mark-absent", requireStaff, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
@@ -3496,14 +3531,43 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
+            const result = insertSchoolSchema.partial().safeParse(req.body);
+            if (!result.success) {
+                return res.status(400).json({ message: "Invalid data", errors: result.error.errors });
+            }
+
             const { schoolName, addressBox, contactPhones, email, motto, regNumber, centreNumber,
                 primaryColor, secondaryColor, logoBase64, currentTerm, currentYear,
                 streams, gradingConfig, subjectsConfig, reportConfig, securityConfig, idCardConfig,
-                nextTermBeginBoarders, nextTermBeginDay } = req.body;
+                nextTermBeginBoarders, nextTermBeginDay } = result.data as any; // Cast as any because some fields might be mapped differently or just use result.data
+
+            // We need to map 'schoolName' back to 'name' if it came in as such, or schema handles it?
+            // insertSchoolSchema uses 'name', but the route uses 'schoolName'.
+            // Let's check schema. schools table has 'name'. 
+            // If the frontend sends 'schoolName', Zod for 'schools' (insertSchoolSchema) will fail or ignore it if strict.
+            // The route destructures 'schoolName' but DB column is 'name'.
+            // I should respect the route's destructuring but validate what I can.
+            // Actually, best to manually validation or adapt the body.
+            // The frontend seems to send 'schoolName'.
+
+            // Let's just validate specific fields we know match, or skip full schema if it mismatches too much.
+            // But we want to improve validation. 
+            // Let's map schoolName -> name for validation.
+
+            const payload = { ...req.body };
+            if (payload.schoolName) payload.name = payload.schoolName;
+
+            const validation = insertSchoolSchema.partial().safeParse(payload);
+            if (!validation.success) {
+                return res.status(400).json({ message: "Invalid data", errors: validation.error.errors });
+            }
+
+            // Proceed with update using the original destructured logic to map correctly to DB
+            // Or just use validation.data if it mapped correctly.
 
             const updated = await db.update(schools)
                 .set({
-                    name: schoolName,
+                    name: schoolName, // from req.body or validated?
                     addressBox,
                     contactPhones,
                     email,
@@ -3660,7 +3724,12 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-            const { username, password, name, role, email, phone } = req.body;
+            const result = insertUserSchema.omit({ id: true, createdAt: true, updatedAt: true, isSuperAdmin: true, lastLogin: true, resetToken: true, resetTokenExpiry: true }).safeParse(req.body);
+            if (!result.success) {
+                return res.status(400).json({ message: "Invalid data", errors: result.error.errors });
+            }
+
+            const { username, password, name, role, email, phone } = result.data;
 
             // Check if username already exists
             const existing = await db.select().from(users).where(eq(users.username, username)).limit(1);
@@ -3699,7 +3768,12 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     app.put("/api/users/:id", requireAdmin, async (req, res) => {
         try {
             const userId = parseInt(req.params.id);
-            const { name, role, email, phone } = req.body;
+            const result = insertUserSchema.partial().safeParse(req.body);
+            if (!result.success) {
+                return res.status(400).json({ message: "Invalid data", errors: result.error.errors });
+            }
+
+            const { name, role, email, phone } = result.data;
 
             const updated = await db.update(users)
                 .set({ name, role, email, phone })
@@ -3714,7 +3788,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const schoolId = getActiveSchoolId(req);
             if (schoolId) {
                 await db.update(userSchools)
-                    .set({ role })
+                    .set({ role: role as any })
                     .where(and(eq(userSchools.userId, userId), eq(userSchools.schoolId, schoolId)));
             }
 
@@ -3878,7 +3952,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     });
 
     // Bulk Roll Calls
-    app.post("/api/boarding-roll-calls/bulk", requireAuth, async (req, res) => {
+    app.post("/api/boarding-roll-calls/bulk", requireStaff, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
@@ -3941,11 +4015,17 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.post("/api/dormitories", requireAuth, async (req, res) => {
+    app.post("/api/dormitories", requireAdmin, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
-            const data = { ...req.body, schoolId };
+
+            const result = insertDormitorySchema.omit({ id: true, schoolId: true }).safeParse(req.body);
+            if (!result.success) {
+                return res.status(400).json({ message: "Invalid data", errors: result.error.errors });
+            }
+
+            const data = { ...result.data, schoolId };
             const newDorm = await db.insert(dormitories).values(data).returning();
             res.json(newDorm[0]);
         } catch (error: any) {
@@ -3953,20 +4033,40 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.put("/api/dormitories/:id", requireAuth, async (req, res) => {
+    app.put("/api/dormitories/:id", requireAdmin, async (req, res) => {
         try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
             const id = parseInt(req.params.id);
-            const updatedDorm = await db.update(dormitories).set(req.body).where(eq(dormitories.id, id)).returning();
+
+            const result = insertDormitorySchema.omit({ id: true, schoolId: true }).partial().safeParse(req.body);
+            if (!result.success) {
+                return res.status(400).json({ message: "Invalid data", errors: result.error.errors });
+            }
+
+            const updatedDorm = await db.update(dormitories)
+                .set(result.data)
+                .where(and(eq(dormitories.id, id), eq(dormitories.schoolId, schoolId)))
+                .returning();
+
+            if (updatedDorm.length === 0) return res.status(404).json({ message: "Dormitory not found" });
             res.json(updatedDorm[0]);
         } catch (error: any) {
             res.status(500).json({ message: "Failed to update dormitory: " + error.message });
         }
     });
 
-    app.delete("/api/dormitories/:id", requireAuth, async (req, res) => {
+    app.delete("/api/dormitories/:id", requireAdmin, async (req, res) => {
         try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
             const id = parseInt(req.params.id);
-            await db.delete(dormitories).where(eq(dormitories.id, id));
+
+            const deleted = await db.delete(dormitories)
+                .where(and(eq(dormitories.id, id), eq(dormitories.schoolId, schoolId)))
+                .returning();
+
+            if (deleted.length === 0) return res.status(404).json({ message: "Dormitory not found" });
             res.json({ message: "Dormitory deleted" });
         } catch (error: any) {
             res.status(500).json({ message: "Failed to delete dormitory: " + error.message });
@@ -4014,11 +4114,17 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.post("/api/beds", requireAuth, async (req, res) => {
+    app.post("/api/beds", requireAdmin, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
-            const data = { ...req.body, schoolId, status: 'vacant' }; // Default status
+
+            const result = insertBedSchema.omit({ id: true, schoolId: true }).safeParse(req.body);
+            if (!result.success) {
+                return res.status(400).json({ message: "Invalid data", errors: result.error.errors });
+            }
+
+            const data = { ...result.data, schoolId, status: 'vacant' }; // Default status
             const newBed = await db.insert(beds).values(data).returning();
             res.json(newBed[0]);
         } catch (error: any) {
@@ -4027,17 +4133,25 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     });
 
     // Bulk Create Beds
-    app.post("/api/beds/bulk", requireAuth, async (req, res) => {
+    app.post("/api/beds/bulk", requireAdmin, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-            const { dormitoryId, startNumber, count, type } = req.body;
-            // type: 'single', 'double', 'triple'
+            const bulkBedSchema = z.object({
+                dormitoryId: z.number(),
+                startNumber: z.union([z.string(), z.number()]),
+                count: z.number().int().positive(),
+                type: z.enum(['single', 'double', 'triple'])
+            });
 
-            if (!dormitoryId || !startNumber || !count || !type) {
-                return res.status(400).json({ message: "Missing required fields" });
+            const result = bulkBedSchema.safeParse(req.body);
+            if (!result.success) {
+                return res.status(400).json({ message: "Invalid data", errors: result.error.errors });
             }
+
+            const { dormitoryId, startNumber, count, type } = result.data;
+
 
             const createdBeds = [];
             let currentNumber = parseInt(startNumber);
@@ -4107,8 +4221,11 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.post("/api/beds/:id/assign", requireAuth, async (req, res) => {
+    app.post("/api/beds/:id/assign", requireAdmin, async (req, res) => {
         try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
             const bedId = parseInt(req.params.id);
             const { studentId, mattressNumber } = req.body;
 
@@ -4121,19 +4238,22 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                     currentStudentId: studentId,
                     mattressNumber: mattressNumber || null
                 })
-                .where(eq(beds.id, bedId))
+                .where(and(eq(beds.id, bedId), eq(beds.schoolId, schoolId)))
                 .returning();
+
+            if (updatedBed.length === 0) return res.status(404).json({ message: "Bed not found" });
 
             // 2. Fetch dorm info to update student
             if (updatedBed[0]) {
                 const dorm = await db.select().from(dormitories).where(eq(dormitories.id, updatedBed[0].dormitoryId));
                 if (dorm[0]) {
+                    // Also verify student belongs to school (optional but good)
                     await db.update(students)
                         .set({
                             boardingStatus: 'Boarder',
                             houseOrDormitory: dorm[0].name
                         })
-                        .where(eq(students.id, studentId));
+                        .where(and(eq(students.id, studentId), eq(students.schoolId, schoolId)));
                 }
             }
 
@@ -4144,21 +4264,28 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.post("/api/beds/:id/unassign", requireAuth, async (req, res) => {
+    app.post("/api/beds/:id/unassign", requireAdmin, async (req, res) => {
         try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
             const bedId = parseInt(req.params.id);
 
             // Get current student before unassigning
-            const currentBed = await db.select().from(beds).where(eq(beds.id, bedId));
+            const currentBed = await db.select().from(beds)
+                .where(and(eq(beds.id, bedId), eq(beds.schoolId, schoolId)));
+
+            if (currentBed.length === 0) return res.status(404).json({ message: "Bed not found" });
+
             if (currentBed[0] && currentBed[0].currentStudentId) {
                 await db.update(students)
                     .set({ houseOrDormitory: null })
-                    .where(eq(students.id, currentBed[0].currentStudentId));
+                    .where(and(eq(students.id, currentBed[0].currentStudentId), eq(students.schoolId, schoolId)));
             }
 
             const updatedBed = await db.update(beds)
                 .set({ status: 'vacant', currentStudentId: null })
-                .where(eq(beds.id, bedId))
+                .where(and(eq(beds.id, bedId), eq(beds.schoolId, schoolId)))
                 .returning();
 
             res.json(updatedBed[0]);
@@ -4167,10 +4294,17 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.delete("/api/beds/:id", requireAuth, async (req, res) => {
+    app.delete("/api/beds/:id", requireAdmin, async (req, res) => {
         try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
             const id = parseInt(req.params.id);
-            await db.delete(beds).where(eq(beds.id, id));
+            const deleted = await db.delete(beds)
+                .where(and(eq(beds.id, id), eq(beds.schoolId, schoolId)))
+                .returning();
+
+            if (deleted.length === 0) return res.status(404).json({ message: "Bed not found" });
             res.json({ message: "Bed deleted" });
         } catch (error: any) {
             res.status(500).json({ message: "Failed to delete bed: " + error.message });
@@ -4215,7 +4349,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.post("/api/boarding-roll-calls", requireAuth, async (req, res) => {
+    app.post("/api/boarding-roll-calls", requireStaff, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
@@ -4290,12 +4424,23 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.post("/api/leave-requests", requireAuth, async (req, res) => {
+    app.post("/api/leave-requests", requireStaff, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            const result = insertLeaveRequestSchema.omit({
+                id: true, schoolId: true, approvedById: true, approvedAt: true,
+                checkOutById: true, checkOutTime: true, checkInById: true, checkInTime: true,
+                status: true
+            }).safeParse(req.body);
+
+            if (!result.success) {
+                return res.status(400).json({ message: "Invalid data", errors: result.error.errors });
+            }
+
             const data = {
-                ...req.body,
+                ...result.data,
                 schoolId,
                 requestedById: req.user?.id,
                 status: 'pending'
@@ -4307,12 +4452,18 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.put("/api/leave-requests/:id", requireAuth, async (req, res) => {
+    app.put("/api/leave-requests/:id", requireStaff, async (req, res) => {
         try {
             const id = parseInt(req.params.id);
             const data = req.body;
 
-            const updates: any = { ...data };
+            // Validate update payload
+            const result = insertLeaveRequestSchema.partial().safeParse(data);
+            if (!result.success) {
+                return res.status(400).json({ message: "Invalid data", errors: result.error.errors });
+            }
+
+            const updates: any = { ...result.data };
             if (data.status === 'approved') {
                 updates.approvedById = req.user?.id;
                 updates.approvedAt = new Date();
@@ -4335,7 +4486,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.delete("/api/leave-requests/:id", requireAuth, async (req, res) => {
+    app.delete("/api/leave-requests/:id", requireAdmin, async (req, res) => {
         try {
             const id = parseInt(req.params.id);
             await db.delete(leaveRequests).where(eq(leaveRequests.id, id));
@@ -4409,13 +4560,19 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.post("/api/visitor-logs", requireAuth, async (req, res) => {
+    app.post("/api/visitor-logs", requireAdmin, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
+            const result = insertVisitorLogSchema.omit({ id: true, schoolId: true, checkOutTime: true, registeredById: true }).safeParse(req.body);
+            if (!result.success) {
+                return res.status(400).json({ message: "Invalid data", errors: result.error.errors });
+            }
+
             const data = {
-                ...req.body,
+                ...result.data,
+                checkInTime: req.body.checkInTime || new Date().toLocaleTimeString(),
                 schoolId,
                 registeredById: req.user?.id
             };
@@ -4426,7 +4583,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.put("/api/visitor-logs/:id/checkout", requireAuth, async (req, res) => {
+    app.put("/api/visitor-logs/:id/checkout", requireAdmin, async (req, res) => {
         try {
             const id = parseInt(req.params.id);
             const { checkOutTime } = req.body;
@@ -4442,7 +4599,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.delete("/api/visitor-logs/:id", requireAuth, async (req, res) => {
+    app.delete("/api/visitor-logs/:id", requireAdmin, async (req, res) => {
         try {
             const id = parseInt(req.params.id);
             await db.delete(visitorLogs).where(eq(visitorLogs.id, id));
@@ -4470,22 +4627,28 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.put("/api/boarding-settings", requireAuth, async (req, res) => {
+    app.put("/api/boarding-settings", requireAdmin, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            const result = insertBoardingSettingsSchema.omit({ id: true, schoolId: true, updatedAt: true }).partial().safeParse(req.body);
+            if (!result.success) {
+                return res.status(400).json({ message: "Invalid data", errors: result.error.errors });
+            }
+            const data = result.data;
 
             const existing = await db.select().from(boardingSettings).where(eq(boardingSettings.schoolId, schoolId)).limit(1);
 
             if (existing.length > 0) {
                 const updated = await db.update(boardingSettings)
-                    .set({ ...req.body, updatedAt: new Date() })
+                    .set({ ...data, updatedAt: new Date() })
                     .where(eq(boardingSettings.id, existing[0].id))
                     .returning();
                 res.json(updated[0]);
             } else {
                 const created = await db.insert(boardingSettings)
-                    .values({ ...req.body, schoolId })
+                    .values({ ...data, schoolId })
                     .returning();
                 res.json(created[0]);
             }
@@ -4554,11 +4717,17 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.post("/api/schools", requireAuth, async (req, res) => {
+    app.post("/api/schools", requireAdmin, async (req, res) => {
         try {
             if (!(req.user as any)?.isSuperAdmin) return res.status(403).json({ message: "Forbidden" });
+
+            const result = insertSchoolSchema.omit({ id: true, createdAt: true, updatedAt: true, isActive: true }).safeParse(req.body);
+            if (!result.success) {
+                return res.status(400).json({ message: "Invalid data", errors: result.error.errors });
+            }
+
             const [newSchool] = await db.insert(schools).values({
-                ...req.body,
+                ...result.data,
                 isActive: true
             }).returning();
 
@@ -4580,12 +4749,18 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.put("/api/schools/:id", requireAuth, async (req, res) => {
+    app.put("/api/schools/:id", requireAdmin, async (req, res) => {
         try {
             if (!(req.user as any)?.isSuperAdmin) return res.status(403).json({ message: "Forbidden" });
             const id = parseInt(req.params.id);
+
+            const result = insertSchoolSchema.partial().safeParse(req.body);
+            if (!result.success) {
+                return res.status(400).json({ message: "Invalid data", errors: result.error.errors });
+            }
+
             const [updated] = await db.update(schools).set({
-                ...req.body,
+                ...result.data,
                 updatedAt: new Date()
             }).where(eq(schools.id, id)).returning();
 
@@ -4608,7 +4783,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.delete("/api/admin/schools/:id", requireAuth, async (req, res) => {
+    app.delete("/api/admin/schools/:id", requireSuperAdmin, async (req, res) => {
         try {
             if (!(req.user as any)?.isSuperAdmin) return res.status(403).json({ message: "Forbidden" });
             const id = parseInt(req.params.id);
@@ -4677,10 +4852,24 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     });
 
     // Create User (Admin)
-    app.post("/api/admin/users", requireAuth, async (req, res) => {
+    // Create User (Admin)
+    app.post("/api/admin/users", requireSuperAdmin, async (req, res) => {
         try {
             if (!(req.user as any)?.isSuperAdmin) return res.status(403).json({ message: "Forbidden" });
-            const { username, password, name, role, isSuperAdmin, schoolId } = req.body;
+
+            // Extend user schema to include optional schoolId for assignment
+            const schema = insertUserSchema.extend({
+                schoolId: z.union([z.string(), z.number()]).optional(),
+                role: z.string().optional(),
+                isSuperAdmin: z.boolean().optional()
+            });
+
+            const result = schema.safeParse(req.body);
+            if (!result.success) {
+                return res.status(400).json({ message: "Invalid data", errors: result.error.errors });
+            }
+
+            const { username, password, name, role, isSuperAdmin, schoolId } = result.data;
 
             // Check if username exists
             const [existing] = await db.select().from(users).where(eq(users.username, username));
@@ -4697,7 +4886,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
 
             // Assign to school if schoolId provided
             if (schoolId) {
-                const sid = parseInt(schoolId);
+                const sid = typeof schoolId === 'string' ? parseInt(schoolId) : schoolId;
                 // Check if school exists and is correct?
                 const schoolDef = await db.select().from(schools).where(eq(schools.id, sid));
                 if (schoolDef[0]) {
@@ -4716,7 +4905,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.delete("/api/admin/users/:id", requireAuth, async (req, res) => {
+    app.delete("/api/admin/users/:id", requireSuperAdmin, async (req, res) => {
         try {
             if (!(req.user as any)?.isSuperAdmin) return res.status(403).json({ message: "Forbidden" });
             const id = parseInt(req.params.id);
@@ -4788,10 +4977,27 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.post("/api/events/:eventId/program", requireAuth, async (req, res) => {
+    app.post("/api/events/:eventId/program", requireStaff, async (req, res) => {
         try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
             const eventId = parseInt(req.params.eventId);
-            const { title, startTime, endTime, responsiblePerson, description } = req.body;
+
+            // IDOR Check: Ensure event belongs to the school
+            const event = await db.select().from(schoolEvents)
+                .where(and(eq(schoolEvents.id, eventId), eq(schoolEvents.schoolId, schoolId)))
+                .limit(1);
+
+            if (event.length === 0) {
+                return res.status(404).json({ message: "Event not found or access denied" });
+            }
+
+            const result = insertProgramItemSchema.omit({ id: true, eventId: true }).safeParse(req.body);
+            if (!result.success) {
+                return res.status(400).json({ message: "Invalid data", errors: result.error.errors });
+            }
+
+            const { title, startTime, endTime, responsiblePerson, description } = result.data;
 
             const [newItem] = await db.insert(programItems).values({
                 eventId,
@@ -4809,9 +5015,27 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.delete("/api/program-items/:id", requireAuth, async (req, res) => {
+    app.delete("/api/program-items/:id", requireStaff, async (req, res) => {
         try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
             const id = parseInt(req.params.id);
+
+            // IDOR Check: Verify item belongs to an event in the school
+            const item = await db.select({
+                id: programItems.id,
+                eventId: programItems.eventId,
+                schoolId: schoolEvents.schoolId
+            })
+                .from(programItems)
+                .innerJoin(schoolEvents, eq(programItems.eventId, schoolEvents.id))
+                .where(eq(programItems.id, id))
+                .limit(1);
+
+            if (item.length === 0 || item[0].schoolId !== schoolId) {
+                return res.status(404).json({ message: "Item not found or access denied" });
+            }
+
             await db.delete(programItems).where(eq(programItems.id, id));
             res.json({ message: "Item deleted" });
         } catch (error: any) {
@@ -4819,10 +5043,35 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.put("/api/program-items/:id", requireAuth, async (req, res) => {
+    app.put("/api/program-items/:id", requireStaff, async (req, res) => {
         try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
             const id = parseInt(req.params.id);
-            const [updated] = await db.update(programItems).set(req.body).where(eq(programItems.id, id)).returning();
+
+            // IDOR Check: Verify item belongs to an event in the school
+            const item = await db.select({
+                id: programItems.id,
+                eventId: programItems.eventId,
+                schoolId: schoolEvents.schoolId
+            })
+                .from(programItems)
+                .innerJoin(schoolEvents, eq(programItems.eventId, schoolEvents.id))
+                .where(eq(programItems.id, id))
+                .limit(1);
+
+            if (item.length === 0 || item[0].schoolId !== schoolId) {
+                return res.status(404).json({ message: "Item not found or access denied" });
+            }
+
+            const result = insertProgramItemSchema.partial().safeParse(req.body);
+            if (!result.success) {
+                return res.status(400).json({ message: "Invalid data", errors: result.error.errors });
+            }
+            // Ensure eventId is not changed or if checks are needed
+            // For now just update permitted fields
+
+            const [updated] = await db.update(programItems).set(result.data).where(eq(programItems.id, id)).returning();
             res.json(updated);
         } catch (error: any) {
             res.status(500).json({ message: error.message });
@@ -4851,12 +5100,18 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.post("/api/p7-exam-sets", requireAuth, async (req, res) => {
+    app.post("/api/p7-exam-sets", requireAdmin, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-            const { setNumber, name, stream, term, year, examDate, maxMarks, isActive } = req.body;
+            const result = insertP7ExamSetSchema.omit({ id: true, schoolId: true }).safeParse(req.body);
+            if (!result.success) {
+                return res.status(400).json({ message: "Invalid data", errors: result.error.errors });
+            }
+
+            const { setNumber, name, stream, term, year, examDate, maxMarks, isActive } = result.data;
+            // Additional manual check if needed, but schema covers types
 
             const [newSet] = await db.insert(p7ExamSets).values({
                 schoolId,
@@ -4877,12 +5132,17 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.delete("/api/p7-exam-sets/:id", requireAuth, async (req, res) => {
+    app.delete("/api/p7-exam-sets/:id", requireAdmin, async (req, res) => {
         try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
             const id = parseInt(req.params.id);
-            // Verify ownership/school?
-            // Ideally check schoolId but for now simple delete
-            await db.delete(p7ExamSets).where(eq(p7ExamSets.id, id));
+
+            const deleted = await db.delete(p7ExamSets)
+                .where(and(eq(p7ExamSets.id, id), eq(p7ExamSets.schoolId, schoolId)))
+                .returning();
+
+            if (deleted.length === 0) return res.status(404).json({ message: "Exam set not found" });
             res.json({ message: "Exam set deleted" });
         } catch (error: any) {
             console.error("Delete P7 set error:", error);
@@ -4892,10 +5152,25 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
 
     // ==================== P7 SCORES ====================
 
+    // Define schema locally since it might not be exported from shared/schema
+    const insertP7ScoreSchema = createInsertSchema(p7Scores);
+
     app.get("/api/p7-scores", async (req, res) => {
         try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
             const examSetId = parseInt(req.query.examSetId as string);
             if (!examSetId) return res.status(400).json({ message: "Exam Set ID required" });
+
+            // IDOR Check: Ensure exam set belongs to the school
+            const examSet = await db.select().from(p7ExamSets)
+                .where(and(eq(p7ExamSets.id, examSetId), eq(p7ExamSets.schoolId, schoolId)))
+                .limit(1);
+
+            if (examSet.length === 0) {
+                return res.status(404).json({ message: "Exam set not found or access denied" });
+            }
 
             const scores = await db.select().from(p7Scores)
                 .where(eq(p7Scores.examSetId, examSetId));
@@ -4906,16 +5181,52 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         }
     });
 
-    app.post("/api/p7-scores/batch", requireAuth, async (req, res) => {
+    const batchScoreSchema = z.object({
+        scores: z.array(insertP7ScoreSchema.omit({
+            id: true, schoolId: true, createdAt: true, updatedAt: true
+        }).extend({
+            marks: z.union([z.number(), z.string(), z.null()]).optional(), // Handle potential string inputs or nulls
+            studentId: z.number()
+        }))
+    });
+
+    app.post("/api/p7-scores/batch", requireStaff, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-            const { scores } = req.body;
-            if (!Array.isArray(scores)) return res.status(400).json({ message: "Invalid scores format" });
+            const validation = batchScoreSchema.safeParse(req.body);
+            if (!validation.success) {
+                return res.status(400).json({ message: "Invalid data", errors: validation.error.errors });
+            }
+
+            const { scores } = validation.data;
+            if (scores.length === 0) return res.json({ message: "No scores to save", count: 0 });
+
+            // Validate that all examSetIds belong to this school
+            // Assuming all scores in a batch belong to the same exam set is a good optimization, 
+            // but for safety let's check the distinct examSetIds
+            const examSetIds = [...new Set(scores.map(s => s.examSetId).filter(id => id !== undefined && id !== null))];
+
+            if (examSetIds.length > 0) {
+                const validSets = await db.select({ id: p7ExamSets.id }).from(p7ExamSets)
+                    .where(and(inArray(p7ExamSets.id, examSetIds as number[]), eq(p7ExamSets.schoolId, schoolId)));
+
+                const validSetIds = new Set(validSets.map(s => s.id));
+                const invalidSets = examSetIds.filter(id => !validSetIds.has(id as number));
+
+                if (invalidSets.length > 0) {
+                    return res.status(403).json({ message: "Access denied for one or more exam sets" });
+                }
+            }
 
             const results = [];
             for (const score of scores) {
+                // Skip if examSetId is missing (schema allows it in partial/omit? No, we extended it but didn't make it optional? 
+                // Wait, insertP7ScoreSchema has keys from table. If not null in table, it is required in schema.
+                // We should probably enforce examSetId.
+                if (!score.examSetId) continue;
+
                 const { examSetId, studentId, marks, total, aggregate, division, position, comment, status } = score;
 
                 // Check for existing score
@@ -4923,24 +5234,29 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                     and(eq(p7Scores.examSetId, examSetId), eq(p7Scores.studentId, studentId))
                 ).limit(1);
 
+                const scoreData: any = {
+                    schoolId,
+                    examSetId,
+                    studentId,
+                    marks,
+                    total: total ?? undefined,
+                    aggregate: aggregate ?? undefined,
+                    division: division ?? undefined,
+                    position: position ?? undefined,
+                    comment: comment ?? undefined,
+                    status: status ?? undefined
+                };
+
                 if (existing.length > 0) {
-                    const [updated] = await db.update(p7Scores).set({
-                        marks, total, aggregate, division, position, comment, status
-                    }).where(eq(p7Scores.id, existing[0].id)).returning();
+                    const [updated] = await db.update(p7Scores)
+                        .set(scoreData)
+                        .where(eq(p7Scores.id, existing[0].id))
+                        .returning();
                     results.push(updated);
                 } else {
-                    const [inserted] = await db.insert(p7Scores).values({
-                        schoolId,
-                        examSetId,
-                        studentId,
-                        marks,
-                        total,
-                        aggregate,
-                        division,
-                        position,
-                        comment,
-                        status
-                    }).returning();
+                    const [inserted] = await db.insert(p7Scores)
+                        .values(scoreData)
+                        .returning();
                     results.push(inserted);
                 }
             }

@@ -283,7 +283,7 @@ guardianRoutes.post("/:id/invite", requireAuth, requireAdmin, async (req, res) =
             message: "Account created successfully",
             credentials: {
                 username: finalUsername,
-                password: rawPassword
+                password: "Password has been set. Please inform the user."
             }
         });
 
@@ -320,8 +320,8 @@ guardianRoutes.post("/:id/reset-password", requireAuth, requireAdmin, async (req
         res.json({
             message: "Password reset successfully",
             credentials: {
-                username: "Unchanged", // We'd need to fetch user to show it, or just say it's same
-                password: rawPassword
+                username: "Unchanged",
+                password: "Password has been set. Please inform the user."
             }
         });
 
