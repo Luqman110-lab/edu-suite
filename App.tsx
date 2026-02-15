@@ -1,7 +1,8 @@
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { QueryClientProvider } from '@tanstack/react-query';
-import { queryClient } from './lib/queryClient';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { queryClient, persister } from './lib/queryClient';
+import { OfflineIndicator } from './components/OfflineIndicator';
 import { AuthProvider, useAuth } from './hooks/use-auth';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ProtectedRoute } from './lib/protected-route';
@@ -89,10 +90,17 @@ function LoginWrapper() {
 
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{
+        persister,
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+      }}
+    >
       <ThemeProvider>
         <AuthProvider>
           <HashRouter>
+            <OfflineIndicator />
             <Routes>
               <Route path="/" element={<LandingWrapper />} />
               <Route path="/login" element={<LoginWrapper />} />
@@ -181,6 +189,6 @@ export default function App() {
           </HashRouter>
         </AuthProvider>
       </ThemeProvider>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   );
 }

@@ -7,7 +7,7 @@ async function throwIfResNotOk(res: Response) {
     try {
       const json = JSON.parse(text);
       message = json.message || text;
-    } catch {}
+    } catch { }
     throw new Error(message);
   }
 }
@@ -34,18 +34,18 @@ export const getQueryFn: <T>(options: {
   on401: UnauthorizedBehavior;
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
-  async ({ queryKey }) => {
-    const res = await fetch(queryKey[0] as string, {
-      credentials: "include",
-    });
+    async ({ queryKey }) => {
+      const res = await fetch(queryKey[0] as string, {
+        credentials: "include",
+      });
 
-    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-      return null;
-    }
+      if (unauthorizedBehavior === "returnNull" && res.status === 401) {
+        return null;
+      }
 
-    await throwIfResNotOk(res);
-    return await res.json();
-  };
+      await throwIfResNotOk(res);
+      return await res.json();
+    };
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -61,3 +61,20 @@ export const queryClient = new QueryClient({
     },
   },
 });
+
+import { get, set, del } from 'idb-keyval';
+import { PersistedClient, Persister } from '@tanstack/react-query-persist-client';
+
+export const createIDBPersister = (idbValidKey: IDBValidKey = 'reactQuery'): Persister => ({
+  persistClient: async (client: PersistedClient) => {
+    await set(idbValidKey, client);
+  },
+  restoreClient: async () => {
+    return await get<PersistedClient>(idbValidKey);
+  },
+  removeClient: async () => {
+    await del(idbValidKey);
+  },
+});
+
+export const persister = createIDBPersister();
