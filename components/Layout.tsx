@@ -361,8 +361,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     });
   };
 
-  type NavItem = { path: string; label: string; icon: React.FC<{ className?: string }> };
-  type NavGroup = { id: string; label: string; icon: React.FC<{ className?: string }>; items: NavItem[] };
+  type NavItem = { path: string; label: string; icon: React.FC<{ className?: string }>; allowedRoles?: string[] };
+  type NavGroup = { id: string; label: string; icon: React.FC<{ className?: string }>; items: NavItem[]; allowedRoles?: string[] };
   type NavEntry = NavItem | NavGroup;
 
   const navStructure: NavEntry[] = [
@@ -373,7 +373,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       icon: UserRound,
       items: [
         { path: '/app/students', label: 'Students', icon: Users },
-        { path: '/app/teachers', label: 'Teachers', icon: GraduationCap },
+        { path: '/app/teachers', label: 'Teachers', icon: GraduationCap, allowedRoles: ['admin'] },
       ]
     },
     {
@@ -397,7 +397,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         { path: '/app/gate-attendance', label: 'Gate Attendance', icon: CalendarCheck2 },
         { path: '/app/class-attendance', label: 'Class Attendance', icon: CalendarCheck2 },
         { path: '/app/teacher-attendance', label: 'Staff Attendance', icon: CalendarCheck2 },
-        { path: '/app/attendance-settings', label: 'Settings', icon: Settings },
+        { path: '/app/attendance-settings', label: 'Settings', icon: Settings, allowedRoles: ['admin'] },
       ]
     },
     {
@@ -418,20 +418,46 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       icon: Briefcase,
       items: [
         { path: '/app/planning', label: 'Planning', icon: Calendar },
-        { path: '/app/supervision', label: 'Supervision', icon: Eye },
+        { path: '/app/supervision', label: 'Supervision', icon: Eye, allowedRoles: ['admin'] },
         { path: '/app/messages', label: 'Messages', icon: MessageSquare },
-        { path: '/app/parents', label: 'Parent Access', icon: UserRound },
+        { path: '/app/parents', label: 'Parent Access', icon: UserRound, allowedRoles: ['admin'] },
       ]
     },
-    { path: '/app/finance-hub', label: 'Finance', icon: BadgeDollarSign },
-    { path: '/app/analytics', label: 'Analytics', icon: BarChart3 },
-    { path: '/app/settings', label: 'Settings', icon: Settings },
+    { path: '/app/finance-hub', label: 'Finance', icon: BadgeDollarSign, allowedRoles: ['admin'] },
+    { path: '/app/analytics', label: 'Analytics', icon: BarChart3, allowedRoles: ['admin'] },
+    { path: '/app/settings', label: 'Settings', icon: Settings, allowedRoles: ['admin'] },
     ...(isSuperAdmin ? [{ path: '/app/admin', label: 'Admin Console', icon: School2 }] : []),
   ];
 
+  const userRole = activeSchool?.role || 'teacher';
+
+  const filteredNavStructure = useMemo(() => {
+    return navStructure.map(entry => {
+      if ('items' in entry) {
+        // Filter group items
+        const filteredItems = entry.items.filter(item =>
+          !item.allowedRoles || item.allowedRoles.includes(userRole)
+        );
+
+        // If no items remain and group itself isn't restricted (or is), return null or empty group?
+        // Better to return null if no items, OR if group itself is restricted
+        if (entry.allowedRoles && !entry.allowedRoles.includes(userRole)) return null;
+
+        if (filteredItems.length === 0) return null;
+
+        return { ...entry, items: filteredItems };
+      } else {
+        // Single item
+        if (entry.allowedRoles && !entry.allowedRoles.includes(userRole)) return null;
+        return entry;
+      }
+    }).filter((entry): entry is NavEntry => entry !== null);
+  }, [navStructure, userRole]);
+
+
   const allNavItems = useMemo(() => {
     const items: NavItem[] = [];
-    navStructure.forEach(entry => {
+    filteredNavStructure.forEach(entry => {
       if ('items' in entry) {
         items.push(...entry.items);
       } else {
@@ -439,7 +465,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       }
     });
     return items;
-  }, []);
+  }, [filteredNavStructure]);
 
   const isGroupActive = (group: NavGroup) => {
     return group.items.some(item => location.pathname === item.path);
@@ -447,7 +473,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   useEffect(() => {
     const findActiveGroup = () => {
-      for (const entry of navStructure) {
+      for (const entry of filteredNavStructure) {
         if ('items' in entry) {
           if (entry.items.some(item => item.path === location.pathname)) {
             return entry.id;
@@ -518,7 +544,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               <span className="text-[11px] font-bold text-gray-400 dark:text-gray-600 uppercase tracking-widest">Menu</span>
             </div>
           )}
-          {navStructure.map((entry) => {
+          {filteredNavStructure.map((entry) => {
             if ('items' in entry) {
               const group = entry;
               const isExpanded = expandedGroups.has(group.id);
