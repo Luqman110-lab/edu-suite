@@ -990,13 +990,23 @@ export const Students: React.FC = () => {
 
             await dbService.saveSettings({ ...currentSettings, streams: updatedStreams });
             await dbService.saveSettings({ ...currentSettings, streams: updatedStreams });
-            await dbService.addStudents(newStudents);
+            const insertedStudents = await dbService.addStudents(newStudents);
             await queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
             await queryClient.invalidateQueries({ queryKey: ['demographics'] });
 
-            let msg = `Successfully imported ${addedCount} students.`;
-            if (duplicates > 0) msg += ` ${duplicates} duplicates skipped.`;
-            showToast(msg, 'success');
+            const insertedCount = insertedStudents ? insertedStudents.length : 0;
+            const skippedCount = newStudents.length - insertedCount;
+
+            let msg = `Successfully imported ${insertedCount} students.`;
+            if (skippedCount > 0 || duplicates > 0) {
+              msg += ` ${skippedCount + duplicates} duplicates skipped.`;
+            }
+
+            if (insertedCount > 0) {
+              showToast(msg, 'success');
+            } else {
+              showToast(msg, 'warning');
+            }
             loadData();
           } else {
             let msg = "No valid new students found.";
