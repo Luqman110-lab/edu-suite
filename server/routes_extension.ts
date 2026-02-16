@@ -1259,27 +1259,50 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
 
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-            // VALIDATION
-            // Omit internal fields that shouldn't be in the body
-            const validationSchema = insertStudentSchema.omit({
-                id: true,
-                schoolId: true,
-                createdAt: true,
-                updatedAt: true,
-                isActive: true
-            });
+            const body = req.body;
 
-            const parseResult = validationSchema.safeParse(req.body);
-            if (!parseResult.success) {
-                return res.status(400).json({ message: "Invalid student data: " + parseResult.error.message });
+            // Required fields
+            if (!body.indexNumber || !body.name || !body.classLevel || !body.stream || !body.gender) {
+                return res.status(400).json({ message: "Missing required fields: indexNumber, name, classLevel, stream, gender" });
             }
-            const data = parseResult.data;
 
-            const newStudent = await db.insert(students).values({
-                ...(data as Record<string, unknown>),
+            // Build insert record with only defined, non-empty values for optional fields
+            const record: Record<string, unknown> = {
+                indexNumber: body.indexNumber,
+                name: body.name,
+                classLevel: body.classLevel,
+                stream: body.stream,
+                gender: body.gender,
                 schoolId,
-                isActive: true
-            } as typeof students.$inferInsert).returning();
+                isActive: true,
+            };
+
+            // Optional text fields - only include if they have actual values
+            if (body.paycode) record.paycode = body.paycode;
+            if (body.parentName) record.parentName = body.parentName;
+            if (body.parentContact) record.parentContact = body.parentContact;
+            if (body.dateOfBirth) record.dateOfBirth = body.dateOfBirth;
+            if (body.nationality) record.nationality = body.nationality;
+            if (body.religion) record.religion = body.religion;
+            if (body.photoBase64) record.photoBase64 = body.photoBase64;
+            if (body.admissionDate) record.admissionDate = body.admissionDate;
+            if (body.admissionNumber) record.admissionNumber = body.admissionNumber;
+            if (body.previousSchool) record.previousSchool = body.previousSchool;
+            if (body.boardingStatus) record.boardingStatus = body.boardingStatus;
+            if (body.houseOrDormitory) record.houseOrDormitory = body.houseOrDormitory;
+
+            // JSON fields - only include if they have meaningful content
+            if (body.medicalInfo && Object.keys(body.medicalInfo).length > 0) {
+                record.medicalInfo = body.medicalInfo;
+            }
+            if (body.emergencyContacts && Array.isArray(body.emergencyContacts) && body.emergencyContacts.some((c: any) => c.name)) {
+                record.emergencyContacts = body.emergencyContacts;
+            }
+            if (body.specialCases) record.specialCases = body.specialCases;
+
+            const newStudent = await db.insert(students).values(
+                record as typeof students.$inferInsert
+            ).returning();
 
             // AUDIT LOG
             await db.insert(auditLogs).values({
@@ -1296,7 +1319,9 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             res.status(201).json(newStudent[0]);
         } catch (error: any) {
             console.error("Create student error:", error);
-            res.status(500).json({ message: "Failed to create student: " + error.message });
+            const pgMessage = error.cause?.message || error.detail || '';
+            const msg = pgMessage ? `Failed to create student: ${pgMessage}` : `Failed to create student: ${error.message}`;
+            res.status(500).json({ message: msg });
         }
     });
 
