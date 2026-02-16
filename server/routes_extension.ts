@@ -1262,8 +1262,8 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
 
             const body = req.body;
 
-            // Required fields
-            if (!body.indexNumber || !body.name || !body.classLevel || !body.stream || !body.gender) {
+            // Required fields (use == null to allow empty strings)
+            if (body.indexNumber == null || body.name == null || body.classLevel == null || body.stream == null || body.gender == null) {
                 return res.status(400).json({ message: "Missing required fields: indexNumber, name, classLevel, stream, gender" });
             }
 
