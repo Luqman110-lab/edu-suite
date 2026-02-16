@@ -63,7 +63,6 @@ export const MarksEntry: React.FC = () => {
     const query = searchQuery.toLowerCase();
     return students.filter(s =>
       s.name.toLowerCase().includes(query) ||
-      s.indexNumber?.toLowerCase().includes(query) ||
       s.stream?.toLowerCase().includes(query)
     );
   }, [students, searchQuery]);
@@ -753,7 +752,7 @@ export const MarksEntry: React.FC = () => {
 
     const isLower = ['P1', 'P2', 'P3'].includes(selectedClass);
 
-    let headers = ['Index Number', 'Name', 'Stream', 'English', 'Maths'];
+    let headers = ['Name', 'Stream', 'English', 'Maths'];
     if (isLower) {
       headers.push('Literacy 1', 'Literacy 2');
     } else {
@@ -768,7 +767,7 @@ export const MarksEntry: React.FC = () => {
       const name = `"${student.name}"`;
       const stream = student.stream || '';
       const emptyMarks = isLower ? ',,,,' : ',,,,';
-      csvRows.push(`${student.indexNumber},${name},${stream}${emptyMarks}`);
+      csvRows.push(`${name},${stream}${emptyMarks}`);
     });
 
     const csvContent = csvRows.join('\n');
@@ -1510,7 +1509,6 @@ export const MarksEntry: React.FC = () => {
                               status === 'sick' ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'
                           }`}></div>
                         <div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400">{student.indexNumber}</div>
                           {student.stream && (
                             <div className="text-xs text-primary-600 dark:text-primary-400">{student.stream}</div>
                           )}
@@ -1669,7 +1667,7 @@ export const MarksEntry: React.FC = () => {
                             }`}></div>
                           <div className="flex-1 min-w-0">
                             <div className="font-medium text-gray-900 dark:text-white truncate">{student.name}</div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">{student.indexNumber} {student.stream && `| ${student.stream}`}</div>
+                            {student.stream && <div className="text-xs text-gray-500 dark:text-gray-400">{student.stream}</div>}
                           </div>
                           <div className="text-xs text-gray-500 dark:text-gray-400">#{idx + 1}</div>
                         </button>
@@ -1751,15 +1749,9 @@ export const MarksEntry: React.FC = () => {
                         )}
                         <div className="min-w-0">
                           <div className="text-sm font-medium text-gray-900 dark:text-white truncate">{student.name}</div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400 flex gap-1.5">
-                            <span>{student.indexNumber}</span>
-                            {student.stream && (
-                              <>
-                                <span className="text-gray-300 dark:text-gray-600">|</span>
-                                <span className="text-primary-600 dark:text-primary-400">{student.stream}</span>
-                              </>
-                            )}
-                          </div>
+                          {student.stream && (
+                            <div className="text-xs text-primary-600 dark:text-primary-400">{student.stream}</div>
+                          )}
                         </div>
                       </div>
                     </td>

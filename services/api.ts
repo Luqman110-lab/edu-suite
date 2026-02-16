@@ -66,7 +66,7 @@ export const authService = {
 
 export interface Student {
   id?: number;
-  indexNumber: string;
+  indexNumber?: string;
   name: string;
   classLevel: string;
   stream: string;
@@ -333,19 +333,20 @@ export const apiService = {
 
     if (data.students && data.students.length > 0) {
       const existingStudents = await apiService.getStudents();
-      const existingByIndex = new Map(existingStudents.map(s => [s.indexNumber, s]));
+      // Match by name+classLevel since indexNumber is auto-generated
+      const existingByKey = new Map(existingStudents.map(s => [`${s.name.toUpperCase()}|${s.classLevel}`, s]));
 
       const studentsToAdd: Omit<Student, 'id'>[] = [];
       const studentsToUpdate: Student[] = [];
 
       for (const incoming of data.students) {
-        const existing = existingByIndex.get(incoming.indexNumber);
+        const key = `${(incoming.name || '').toUpperCase()}|${incoming.classLevel}`;
+        const existing = existingByKey.get(key);
 
         if (existing) {
           if (updateStudentNames) {
             studentsToUpdate.push({
               id: existing.id!,
-              indexNumber: existing.indexNumber,
               name: incoming.name || existing.name,
               parentName: incoming.parentName || existing.parentName,
               parentContact: incoming.parentContact || existing.parentContact,

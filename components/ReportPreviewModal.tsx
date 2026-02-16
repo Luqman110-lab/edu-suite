@@ -94,12 +94,6 @@ export function ReportPreviewModal({ isOpen, onClose, onGenerate, reportData }: 
                                 <p className={`font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>{reportData.student.name}</p>
                             </div>
                             <div>
-                                <p className={`text-xs uppercase ${isDark ? 'text-gray-500' : 'text-gray-600'}`}>Index Number</p>
-                                <p className={`font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                                    {reportData.student.indexNumber || '-'}
-                                </p>
-                            </div>
-                            <div>
                                 <p className={`text-xs uppercase ${isDark ? 'text-gray-500' : 'text-gray-600'}`}>Class</p>
                                 <p className={`font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
                                     {reportData.student.classLevel} {reportData.student.stream || ''}

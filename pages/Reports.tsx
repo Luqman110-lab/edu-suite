@@ -213,8 +213,7 @@ export const Reports: React.FC = () => {
     if (!searchQuery.trim()) return studentPreviews;
     const query = searchQuery.toLowerCase();
     return studentPreviews.filter(p =>
-      p.student.name.toLowerCase().includes(query) ||
-      p.student.indexNumber.toLowerCase().includes(query)
+      p.student.name.toLowerCase().includes(query)
     );
   }, [studentPreviews, searchQuery]);
 
@@ -532,17 +531,10 @@ export const Reports: React.FC = () => {
 
       doc.setFont("helvetica", "bold");
       doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
-      doc.text("INDEX NO:", col2X, cursorY);
+      doc.text("GENDER:", col2X, cursorY);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(0, 0, 0);
-      doc.text(student.indexNumber || '-', col2X + 20, cursorY);
-
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
-      doc.text("GENDER:", col3X, cursorY);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(0, 0, 0);
-      doc.text(student.gender === 'M' ? 'Male' : 'Female', col3X + 18, cursorY);
+      doc.text(student.gender === 'M' ? 'Male' : 'Female', col2X + 18, cursorY);
 
       // Row 2
       cursorY += 6;
@@ -919,7 +911,6 @@ export const Reports: React.FC = () => {
       const row: any = {
         '#': index + 1,
         'Student Name': student.name,
-        'Index Number': student.indexNumber || '-',
         'Gender': student.gender === 'M' ? 'Male' : 'Female',
         'Class': getDisplayName(student.classLevel),
         'Stream': student.stream || '-',
@@ -1003,7 +994,7 @@ export const Reports: React.FC = () => {
       : allMarks.filter(m => m.type === AssessmentType.EOT && m.term === selectedTerm && m.year === year);
 
     const headers = [
-      'Student Name', 'Index Number', 'Gender', 'Class', 'Stream',
+      'Student Name', 'Gender', 'Class', 'Stream',
       ...subjects.map(s => `${s}_Mark`),
       ...subjects.map(s => `${s}_Grade`),
       'Aggregate', 'Division', 'Position',
@@ -1026,7 +1017,7 @@ export const Reports: React.FC = () => {
       const htComment = getHeadTeacherComment(markRecord?.division || 'U', studentForComment);
 
       return [
-        student.name, student.indexNumber || '', student.gender, student.classLevel, student.stream || '',
+        student.name, student.gender, student.classLevel, student.stream || '',
         ...subjects.map(s => markRecord?.marks?.[s] ?? ''),
         ...subjects.map(s => {
           const mark = markRecord?.marks?.[s];
@@ -1334,7 +1325,6 @@ export const Reports: React.FC = () => {
                           </td>
                           <td className="px-4 py-3">
                             <div className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'} text-sm`}>{preview.student.name}</div>
-                            <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{preview.student.indexNumber}</div>
                           </td>
                           <td className={`px-4 py-3 text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{preview.student.stream || '-'}</td>
                           <td className="px-4 py-3 text-center">

@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 interface Student {
   id: number;
   name: string;
-  indexNumber: string;
+  indexNumber?: string;
   classLevel: string;
   gender: string;
   boardingStatus: string;
@@ -99,8 +99,7 @@ export const BoardingAttendance: React.FC = () => {
   };
 
   const filteredStudents = students.filter(s => {
-    const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          s.indexNumber.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesSearch;
   });
 
@@ -239,7 +238,7 @@ export const BoardingAttendance: React.FC = () => {
                     <td className="px-4 py-3">
                       <div>
                         <p className="font-medium text-gray-900 dark:text-white">{student.name}</p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">{student.indexNumber}</p>
+                        {student.indexNumber && <p className="text-sm text-gray-500 dark:text-gray-400">{student.indexNumber}</p>}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{student.classLevel}</td>

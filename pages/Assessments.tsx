@@ -197,7 +197,7 @@ export const Assessments: React.FC = () => {
 
   const downloadCSV = async () => {
     const data = await getFilteredData();
-    const header = ['Rank', 'Index', 'Name', 'Stream', 'Gender', ...subjects.map(s => subjectShortNames[s]), 'Total', 'Agg', 'Div'];
+    const header = ['Rank', 'Name', 'Stream', 'Gender', ...subjects.map(s => subjectShortNames[s]), 'Total', 'Agg', 'Div'];
 
     const sortedData = [...data].sort((a, b) => {
       if (a.aggregate === 0 && b.aggregate > 0) return 1;
@@ -208,7 +208,6 @@ export const Assessments: React.FC = () => {
 
     const rows = sortedData.map((row, idx) => [
       idx + 1,
-      row.student.indexNumber,
       row.student.name,
       row.student.stream,
       row.student.gender,
@@ -439,7 +438,6 @@ export const Assessments: React.FC = () => {
     const head = [
       [
         { content: 'POS', styles: { halign: 'center', fillColor: colors.primary, textColor: colors.white } },
-        { content: 'INDEX', styles: { halign: 'center', fillColor: colors.primary, textColor: colors.white } },
         { content: 'STUDENT NAME', styles: { halign: 'left', fillColor: colors.primary, textColor: colors.white } },
         { content: 'SEX', styles: { halign: 'center', fillColor: colors.primary, textColor: colors.white } },
         ...subjects.flatMap(sub => [
@@ -464,7 +462,6 @@ export const Assessments: React.FC = () => {
 
       const rowData: any[] = [
         row.totalMarks > 0 ? currentRank.toString() : '-',
-        row.student.indexNumber || '-',
         row.student.name.toUpperCase(),
         row.student.gender === 'Male' ? 'M' : row.student.gender === 'Female' ? 'F' : '-'
       ];
@@ -483,17 +480,16 @@ export const Assessments: React.FC = () => {
       return rowData;
     });
 
-    const baseColIdx = 4 + (subjects.length * 2);
+    const baseColIdx = 3 + (subjects.length * 2);
     const columnStyles: any = {
       0: { cellWidth: 12, halign: 'center', fontStyle: 'bold' },
-      1: { cellWidth: 18, halign: 'center', fontSize: 7 },
-      2: { cellWidth: 50, halign: 'left', fontStyle: 'bold' },
-      3: { cellWidth: 10, halign: 'center' },
+      1: { cellWidth: 50, halign: 'left', fontStyle: 'bold' },
+      2: { cellWidth: 10, halign: 'center' },
     };
 
     subjects.forEach((_, i) => {
-      columnStyles[4 + (i * 2)] = { cellWidth: subjectColWidth, halign: 'center' };
-      columnStyles[4 + (i * 2) + 1] = { cellWidth: gradeColWidth, halign: 'center', fontSize: 7, textColor: colors.muted };
+      columnStyles[3 + (i * 2)] = { cellWidth: subjectColWidth, halign: 'center' };
+      columnStyles[3 + (i * 2) + 1] = { cellWidth: gradeColWidth, halign: 'center', fontSize: 7, textColor: colors.muted };
     });
 
     columnStyles[baseColIdx] = { cellWidth: 14, halign: 'center', fontStyle: 'bold' };

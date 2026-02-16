@@ -336,7 +336,7 @@ export const ClassAttendance: React.FC = () => {
                       <div>
                         <p className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{student.name}</p>
                         <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                          {student.indexNumber || `#${student.id}`}
+                          {`#${student.id}`}
                         </p>
                       </div>
                     </div>

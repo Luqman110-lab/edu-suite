@@ -504,16 +504,14 @@ export const P7ExamSets: React.FC = () => {
     const labelX2 = pageWidth / 2 + 4;
 
     doc.text("Student Name:", labelX1, currentY + 6);
-    doc.text("Index Number:", labelX2, currentY + 6);
-    doc.text("Stream:", labelX1, currentY + 14);
-    doc.text("Gender:", labelX2, currentY + 14);
+    doc.text("Stream:", labelX2, currentY + 6);
+    doc.text("Gender:", labelX1, currentY + 14);
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
     doc.text(student.name, labelX1 + 28, currentY + 6);
-    doc.text(student.indexNumber || '-', labelX2 + 28, currentY + 6);
-    doc.text(student.stream || '-', labelX1 + 16, currentY + 14);
-    doc.text(student.gender === 'M' ? 'Male' : 'Female', labelX2 + 16, currentY + 14);
+    doc.text(student.stream || '-', labelX2 + 16, currentY + 6);
+    doc.text(student.gender === 'M' ? 'Male' : 'Female', labelX1 + 16, currentY + 14);
 
     currentY += 26;
 
@@ -768,7 +766,7 @@ export const P7ExamSets: React.FC = () => {
 
     currentY += 28;
 
-    const colWidths = { pos: 10, name: 50, index: 25, eng: 18, math: 18, sci: 18, sst: 18, total: 16, agg: 14, div: 14 };
+    const colWidths = { pos: 10, name: 75, eng: 18, math: 18, sci: 18, sst: 18, total: 16, agg: 14, div: 14 };
     const tableWidth = Object.values(colWidths).reduce((a, b) => a + b, 0);
     const startX = (pageWidth - tableWidth) / 2;
 
@@ -784,8 +782,6 @@ export const P7ExamSets: React.FC = () => {
     colX += colWidths.pos;
     doc.text("STUDENT NAME", colX + 2, currentY + 5.5);
     colX += colWidths.name;
-    doc.text("INDEX NO.", colX + colWidths.index / 2, currentY + 5.5, { align: "center" });
-    colX += colWidths.index;
     doc.text("ENG", colX + colWidths.eng / 2, currentY + 5.5, { align: "center" });
     colX += colWidths.eng;
     doc.text("MATH", colX + colWidths.math / 2, currentY + 5.5, { align: "center" });
@@ -828,8 +824,6 @@ export const P7ExamSets: React.FC = () => {
         hColX += colWidths.pos;
         doc.text("STUDENT NAME", hColX + 2, currentY + 5.5);
         hColX += colWidths.name;
-        doc.text("INDEX NO.", hColX + colWidths.index / 2, currentY + 5.5, { align: "center" });
-        hColX += colWidths.index;
         doc.text("ENG", hColX + colWidths.eng / 2, currentY + 5.5, { align: "center" });
         hColX += colWidths.eng;
         doc.text("MATH", hColX + colWidths.math / 2, currentY + 5.5, { align: "center" });
@@ -874,9 +868,6 @@ export const P7ExamSets: React.FC = () => {
       doc.setFont("helvetica", "normal");
       doc.text(student.name.substring(0, 28), rColX + 2, currentY + 4);
       rColX += colWidths.name;
-
-      doc.text(student.indexNumber || '-', rColX + colWidths.index / 2, currentY + 4, { align: "center" });
-      rColX += colWidths.index;
 
       doc.text(`${(marks as any).english || '-'} (${engGrade.grade})`, rColX + colWidths.eng / 2, currentY + 4, { align: "center" });
       rColX += colWidths.eng;
@@ -1742,7 +1733,6 @@ export const P7ExamSets: React.FC = () => {
                     </th>
                     <th className="px-3 py-2 text-left text-xs font-semibold uppercase">#</th>
                     <th className="px-3 py-2 text-left text-xs font-semibold uppercase">Name</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase">Index</th>
                     <th className="px-3 py-2 text-left text-xs font-semibold uppercase">Stream</th>
                     <th className="px-3 py-2 text-left text-xs font-semibold uppercase">Gender</th>
                     <th className="px-3 py-2 text-center text-xs font-semibold uppercase">Actions</th>
@@ -1774,7 +1764,6 @@ export const P7ExamSets: React.FC = () => {
                       <td className="px-3 py-2">
                         <div className={`font-medium text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>{student.name}</div>
                       </td>
-                      <td className={`px-3 py-2 text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{student.indexNumber || '-'}</td>
                       <td className={`px-3 py-2 text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{student.stream || '-'}</td>
                       <td className={`px-3 py-2 text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{student.gender === 'M' ? 'Male' : 'Female'}</td>
                       <td className="px-3 py-2 text-center">

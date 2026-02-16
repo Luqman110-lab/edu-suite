@@ -222,10 +222,6 @@ export const StudentIDCard: React.FC<StudentIDCardProps> = ({
                   <div class="info-section">
                     <div class="student-name">${student.name}</div>
                     <div class="info-row">
-                      <span class="info-label">ID No:</span>
-                      <span class="info-value">${student.indexNumber}</span>
-                    </div>
-                    <div class="info-row">
                       <span class="info-label">Class:</span>
                       <span class="info-value">${student.classLevel} - ${student.stream}</span>
                     </div>
@@ -253,7 +249,7 @@ export const StudentIDCard: React.FC<StudentIDCardProps> = ({
                 </div>
                 <div class="card-footer">
                   <span class="validity">Valid: ${validYear}</span>
-                  <span class="card-id">${student.paycode || student.indexNumber}</span>
+                  <span class="card-id">${student.paycode || ''}</span>
                 </div>
               </div>
             </div>
@@ -405,10 +401,6 @@ export const StudentIDCard: React.FC<StudentIDCardProps> = ({
                       {student.name}
                     </div>
                     <div className="text-[11px] flex gap-1">
-                      <span className="font-semibold opacity-90 w-[52px]">ID No:</span>
-                      <span>{student.indexNumber}</span>
-                    </div>
-                    <div className="text-[11px] flex gap-1">
                       <span className="font-semibold opacity-90 w-[52px]">Class:</span>
                       <span>{student.classLevel} - {student.stream}</span>
                     </div>
@@ -443,7 +435,7 @@ export const StudentIDCard: React.FC<StudentIDCardProps> = ({
                   style={{ background: 'rgba(0,0,0,0.2)' }}
                 >
                   <span style={{ color: accentColor, fontWeight: 'bold' }}>Valid: {settings?.currentYear || new Date().getFullYear()}</span>
-                  <span className="opacity-80">{student.paycode || student.indexNumber}</span>
+                  <span className="opacity-80">{student.paycode || ''}</span>
                 </div>
               </div>
             ) : (
@@ -544,7 +536,6 @@ export const BulkIDCardPrint: React.FC<BulkIDCardPrintProps> = ({
         if (student.id) {
           const qrData = JSON.stringify({
             id: student.id,
-            idx: student.indexNumber,
             name: student.name,
             class: `${student.classLevel} ${student.stream}`,
             school: settings?.schoolName || 'EduSuite School'
@@ -597,7 +588,6 @@ export const BulkIDCardPrint: React.FC<BulkIDCardPrintProps> = ({
                 </div>
                 <div class="info-section">
                   <div class="student-name">${student.name}</div>
-                  <div class="info-row"><span class="info-label">ID No:</span><span class="info-value">${student.indexNumber}</span></div>
                   <div class="info-row"><span class="info-label">Class:</span><span class="info-value">${student.classLevel} - ${student.stream}</span></div>
                   <div class="info-row"><span class="info-label">Gender:</span><span class="info-value">${student.gender === 'M' ? 'Male' : 'Female'}</span></div>
                   ${student.dateOfBirth ? `<div class="info-row"><span class="info-label">D.O.B:</span><span class="info-value">${student.dateOfBirth}</span></div>` : ''}
@@ -610,7 +600,7 @@ export const BulkIDCardPrint: React.FC<BulkIDCardPrintProps> = ({
               </div>
               <div class="card-footer">
                 <span class="validity">Valid: ${validYear}</span>
-                <span class="card-id">${student.paycode || student.indexNumber}</span>
+                <span class="card-id">${student.paycode || ''}</span>
               </div>
             </div>
           </div>

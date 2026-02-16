@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 interface Student {
   id: number;
   name: string;
-  indexNumber: string;
+  indexNumber?: string;
   classLevel: string;
 }
 
@@ -135,32 +135,31 @@ export const LeaveManagement: React.FC = () => {
     doc.text('Student Information', 20, 80);
     doc.setFontSize(12);
     doc.text(`Name: ${student.name}`, 25, 90);
-    doc.text(`Index Number: ${student.indexNumber}`, 25, 98);
-    doc.text(`Class: ${student.classLevel}`, 25, 106);
+    doc.text(`Class: ${student.classLevel}`, 25, 98);
     
     doc.setFontSize(14);
-    doc.text('Leave Details', 20, 126);
+    doc.text('Leave Details', 20, 118);
     doc.setFontSize(12);
-    doc.text(`Type: ${request.leaveType.charAt(0).toUpperCase() + request.leaveType.slice(1)}`, 25, 136);
-    doc.text(`From: ${new Date(request.startDate).toLocaleDateString()}`, 25, 144);
-    doc.text(`To: ${new Date(request.endDate).toLocaleDateString()}`, 25, 152);
-    doc.text(`Expected Return: ${request.expectedReturnTime}`, 25, 160);
-    doc.text(`Reason: ${request.reason}`, 25, 168);
-    doc.text(`Destination: ${request.destination || 'Not specified'}`, 25, 176);
-    
+    doc.text(`Type: ${request.leaveType.charAt(0).toUpperCase() + request.leaveType.slice(1)}`, 25, 128);
+    doc.text(`From: ${new Date(request.startDate).toLocaleDateString()}`, 25, 136);
+    doc.text(`To: ${new Date(request.endDate).toLocaleDateString()}`, 25, 144);
+    doc.text(`Expected Return: ${request.expectedReturnTime}`, 25, 152);
+    doc.text(`Reason: ${request.reason}`, 25, 160);
+    doc.text(`Destination: ${request.destination || 'Not specified'}`, 25, 168);
+
     doc.setFontSize(14);
-    doc.text('Guardian Information', 20, 196);
+    doc.text('Guardian Information', 20, 188);
     doc.setFontSize(12);
-    doc.text(`Name: ${request.guardianName}`, 25, 206);
-    doc.text(`Phone: ${request.guardianPhone}`, 25, 214);
-    doc.text(`Relationship: ${request.guardianRelationship || 'Parent/Guardian'}`, 25, 222);
-    doc.text(`Transport: ${request.transportMode || 'To be picked up'}`, 25, 230);
-    
-    doc.line(20, 260, 80, 260);
-    doc.text('Authorized Signature', 20, 268);
-    
-    doc.line(120, 260, 180, 260);
-    doc.text('Date', 120, 268);
+    doc.text(`Name: ${request.guardianName}`, 25, 198);
+    doc.text(`Phone: ${request.guardianPhone}`, 25, 206);
+    doc.text(`Relationship: ${request.guardianRelationship || 'Parent/Guardian'}`, 25, 214);
+    doc.text(`Transport: ${request.transportMode || 'To be picked up'}`, 25, 222);
+
+    doc.line(20, 252, 80, 252);
+    doc.text('Authorized Signature', 20, 260);
+
+    doc.line(120, 252, 180, 252);
+    doc.text('Date', 120, 260);
     
     doc.save(`exeat_${student.name.replace(/\s+/g, '_')}_${request.id}.pdf`);
   };

@@ -293,7 +293,7 @@ export interface Notification {
 export interface StudentDetail {
     id: number;
     name: string;
-    indexNumber: string;
+    indexNumber?: string;
     classLevel: string;
     stream: string;
     gender: string;

@@ -141,7 +141,6 @@ interface StudentFormData {
     // Step 2: Academic
     classLevel: string;
     stream: string;
-    indexNumber: string;
     paycode?: string;
     admissionDate?: string;
     previousSchool?: string;
@@ -195,7 +194,6 @@ export const StudentFormWizard: React.FC<StudentFormWizardProps> = ({
 }) => {
     const [currentStep, setCurrentStep] = useState(1);
     const [showWebcam, setShowWebcam] = useState(false);
-    const [autoGenerateIndex, setAutoGenerateIndex] = useState(!initialData?.id);
     const [submitting, setSubmitting] = useState(false);
     const [errors, setErrors] = useState<{ [key: string]: string }>({});
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -210,7 +208,6 @@ export const StudentFormWizard: React.FC<StudentFormWizardProps> = ({
         photoBase64: initialData?.photoBase64 || '',
         classLevel: initialData?.classLevel || ClassLevel.P1,
         stream: initialData?.stream || '',
-        indexNumber: initialData?.indexNumber || '',
         paycode: initialData?.paycode || '',
         admissionDate: initialData?.admissionDate || new Date().toISOString().split('T')[0],
         previousSchool: initialData?.previousSchool || '',
@@ -222,28 +219,6 @@ export const StudentFormWizard: React.FC<StudentFormWizardProps> = ({
         specialCases: initialData?.specialCases || { absenteeism: false, sickness: false, fees: false },
         id: initialData?.id,
     }));
-
-    // Auto-generate index number when class changes or on mount
-    useEffect(() => {
-        if (autoGenerateIndex && !initialData?.id) {
-            const centreNumber = settings?.centreNumber || '670135';
-            const year = new Date().getFullYear();
-
-            // Find highest index for this class
-            const classStudents = students.filter(s => s.classLevel === formData.classLevel);
-            const maxIndex = classStudents.reduce((max, s) => {
-                const match = s.indexNumber.match(/\/(\d+)$/);
-                const num = match ? parseInt(match[1], 10) : 0;
-                return Math.max(max, num);
-            }, 0);
-
-            const nextSeq = String(maxIndex + 1).padStart(3, '0');
-            setFormData(prev => ({
-                ...prev,
-                indexNumber: `${centreNumber}/${nextSeq}`
-            }));
-        }
-    }, [formData.classLevel, autoGenerateIndex, settings, students, initialData]);
 
     // Update stream when class changes
     useEffect(() => {
@@ -271,12 +246,7 @@ export const StudentFormWizard: React.FC<StudentFormWizardProps> = ({
                 if (!formData.name.trim()) newErrors.name = 'Name is required';
                 break;
             case 2:
-                if (!formData.indexNumber.trim()) newErrors.indexNumber = 'Index number is required';
-                // Check for duplicate index
-                const duplicate = students.find(s =>
-                    s.indexNumber === formData.indexNumber && s.id !== formData.id
-                );
-                if (duplicate) newErrors.indexNumber = 'This index number already exists';
+                // No client-side validation needed - indexNumber auto-generated server-side
                 break;
             case 3:
                 // Optional step
@@ -479,32 +449,6 @@ export const StudentFormWizard: React.FC<StudentFormWizardProps> = ({
                                     {currentStreams.map((s: string) => <option key={s} value={s} />)}
                                 </datalist>
                             </div>
-                        </div>
-
-                        <div>
-                            <label className={labelClasses}>Index Number *</label>
-                            <div className="flex gap-2 items-center">
-                                <input
-                                    type="text"
-                                    className={`${inputClasses} flex-1 ${errors.indexNumber ? 'border-red-500' : ''}`}
-                                    value={formData.indexNumber}
-                                    onChange={e => setFormData(prev => ({ ...prev, indexNumber: e.target.value }))}
-                                    disabled={autoGenerateIndex && !initialData?.id}
-                                    placeholder="000000/000"
-                                />
-                                {!initialData?.id && (
-                                    <label className="flex items-center gap-2 cursor-pointer whitespace-nowrap">
-                                        <input
-                                            type="checkbox"
-                                            checked={autoGenerateIndex}
-                                            onChange={e => setAutoGenerateIndex(e.target.checked)}
-                                            className="w-4 h-4 rounded text-primary-600"
-                                        />
-                                        <span className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Auto</span>
-                                    </label>
-                                )}
-                            </div>
-                            {errors.indexNumber && <p className="text-red-500 text-xs mt-1">{errors.indexNumber}</p>}
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
@@ -775,7 +719,6 @@ export const StudentFormWizard: React.FC<StudentFormWizardProps> = ({
                                     <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                                         {getDisplayName(formData.classLevel)} {formData.stream && `• ${formData.stream}`} • {formData.gender === 'M' ? 'Male' : 'Female'}
                                     </p>
-                                    <p className={`text-sm font-mono ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{formData.indexNumber}</p>
                                 </div>
                             </div>
 

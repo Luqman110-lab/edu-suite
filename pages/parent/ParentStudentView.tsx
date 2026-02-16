@@ -85,7 +85,7 @@ export default function ParentStudentView() {
                 </div>
                 <div className="text-center md:text-left flex-1">
                     <h1 className="text-2xl font-bold text-gray-900">{student.name}</h1>
-                    <p className="text-gray-500">{student.indexNumber}</p>
+                    <p className="text-gray-500">{student.classLevel}{student.stream ? ` - ${student.stream}` : ''}</p>
                     <div className="flex flex-wrap gap-2 justify-center md:justify-start mt-3">
                         <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm font-medium">
                             {student.classLevel} {student.stream}

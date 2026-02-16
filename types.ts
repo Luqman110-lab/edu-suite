@@ -80,7 +80,7 @@ export interface EmergencyContact {
 
 export interface Student {
   id?: number;
-  indexNumber: string;
+  indexNumber?: string;
   name: string;
   classLevel: string;
   stream: string;

@@ -67,11 +67,6 @@ const ProfileHeader = ({ student, onEdit, onBack, onPrintID, onEnrollFace, hasFa
               <h1 className={`text-4xl md:text-5xl font-black tracking-tight mb-3 ${isDark ? 'text-white' : 'text-gray-900 drop-shadow-sm'}`}>{student.name}</h1>
 
               <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
-                <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border ${isDark ? 'bg-gray-800/80 border-gray-700 text-gray-300' : 'bg-white border-gray-200 text-gray-600 shadow-sm'}`}>
-                  <Hash size={14} className="opacity-70" />
-                  <span className="font-mono tracking-tight">{student.indexNumber}</span>
-                </div>
-
                 <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border ${isDark ? 'bg-blue-900/30 border-blue-800 text-blue-300' : 'bg-blue-50 border-blue-100 text-blue-700'}`}>
                   <School size={14} />
                   <span>{getDisplayName(student.classLevel)} {student.stream}</span>
@@ -488,7 +483,7 @@ export const Students: React.FC = () => {
   const [filterStream, setFilterStream] = useState<string>('All');
   const [filterGender, setFilterGender] = useState<string>('All');
   const [filterStatus, setFilterStatus] = useState<string>('All');
-  const [sortOption, setSortOption] = useState<'name' | 'index' | 'class'>('class');
+  const [sortOption, setSortOption] = useState<'name' | 'class'>('class');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [importing, setImporting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -517,7 +512,6 @@ export const Students: React.FC = () => {
 
   const [formData, setFormData] = useState<Partial<Student>>({
     name: '',
-    indexNumber: '',
     classLevel: ClassLevel.P1,
     stream: '',
     gender: Gender.Male,
@@ -661,19 +655,9 @@ export const Students: React.FC = () => {
     }
   };
 
-  const checkDuplicateIndex = (indexNumber: string, excludeId?: number): boolean => {
-    return students.some(s => s.indexNumber === indexNumber && s.id !== excludeId);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.name && formData.indexNumber) {
-
-      if (checkDuplicateIndex(formData.indexNumber, formData.id)) {
-        showToast(`A student with index number "${formData.indexNumber}" already exists!`, 'warning');
-        return;
-      }
-
+    if (formData.name) {
       const cls = formData.classLevel as string;
       const str = formData.stream || '';
 
@@ -705,7 +689,6 @@ export const Students: React.FC = () => {
       setIsModalOpen(false);
       setFormData({
         name: '',
-        indexNumber: '',
         classLevel: formData.classLevel,
         stream: formData.stream,
         gender: Gender.Male,
@@ -850,12 +833,11 @@ export const Students: React.FC = () => {
   };
 
   const exportStudentsCSV = () => {
-    const headers = ['Index Number', 'Name', 'Gender', 'Class', 'Stream', 'Pay Code', 'Parent Name', 'Parent Contact'];
+    const headers = ['Name', 'Gender', 'Class', 'Stream', 'Pay Code', 'Parent Name', 'Parent Contact'];
 
-    const sortedStudents = [...filteredStudents].sort((a, b) => a.indexNumber.localeCompare(b.indexNumber));
+    const sortedStudents = [...filteredStudents].sort((a, b) => a.name.localeCompare(b.name));
 
     const rows = sortedStudents.map(s => [
-      `"${s.indexNumber}"`,
       `"${s.name}"`,
       s.gender,
       s.classLevel,
@@ -879,12 +861,11 @@ export const Students: React.FC = () => {
   };
 
   const downloadImportTemplate = () => {
-    const headers = ['Index Number', 'Name', 'Gender', 'Class', 'Stream', 'Pay Code', 'Parent Name', 'Parent Contact'];
-    const CENTRE_NUMBER = settings?.centreNumber || "670135";
+    const headers = ['Name', 'Gender', 'Class', 'Stream', 'Pay Code', 'Parent Name', 'Parent Contact'];
 
     const sampleRows = [
-      `"${CENTRE_NUMBER}/001","SAMPLE STUDENT NAME",M,P4,"Red","1004452753","",""`,
-      `"${CENTRE_NUMBER}/002","ANOTHER STUDENT",F,P5,"Blue","1004452754","Parent Name","0700123456"`,
+      `"SAMPLE STUDENT NAME",M,P4,"Red","1004452753","",""`,
+      `"ANOTHER STUDENT",F,P5,"Blue","1004452754","Parent Name","0700123456"`,
     ];
 
     const csvContent = [headers.join(','), ...sampleRows].join('\n');
@@ -913,20 +894,11 @@ export const Students: React.FC = () => {
         try {
           const newStudents: Student[] = [];
           const rows = results.data as any[];
-          const CENTRE_NUMBER = settings?.centreNumber || "670135";
 
           let duplicates = 0;
           let addedCount = 0;
           const detectedStreams: { [key: string]: Set<string> } = {};
 
-          // Find the highest existing index number suffix to avoid duplicates for auto-generated IDs
-          const existingIndexSuffixes = students
-            .map(s => {
-              const match = s.indexNumber.match(/\/(\d+)$/);
-              return match ? parseInt(match[1], 10) : 0;
-            })
-            .filter(n => !isNaN(n));
-          let nextIndexSuffix = existingIndexSuffixes.length > 0 ? Math.max(...existingIndexSuffixes) + 1 : 1;
           for (const row of rows) {
             const name = row.name || row.fullname || `${row.firstname || ''} ${row.lastname || ''}`.trim();
 
@@ -934,17 +906,14 @@ export const Students: React.FC = () => {
               continue;
             }
 
-            let indexNumber = row.indexnumber || row.index || '';
-            if (!indexNumber) {
-              const indexSuffix = String(nextIndexSuffix).padStart(3, '0');
-              indexNumber = `${CENTRE_NUMBER}/${indexSuffix}`;
-              nextIndexSuffix++;
-            }
+            const classRaw = row.class || row.classlevel || row.grade || '';
+            const classLevel = normalizeClassInput(classRaw);
 
-            // Check for duplicates by index number only (names can be shared)
+            // Check for duplicates by name + class (since index numbers are auto-generated)
+            const nameUpper = name.toUpperCase();
             const isDuplicate = students.some(s =>
-              s.indexNumber === indexNumber
-            ) || newStudents.some(s => s.indexNumber === indexNumber);
+              s.name.toUpperCase() === nameUpper && s.classLevel === classLevel
+            ) || newStudents.some(s => s.name.toUpperCase() === nameUpper && s.classLevel === classLevel);
 
             if (isDuplicate) {
               duplicates++;
@@ -955,9 +924,6 @@ export const Students: React.FC = () => {
             const genderRaw = (row.gender || row.sex || '').toUpperCase();
             if (genderRaw === 'F' || genderRaw === 'FEMALE') gender = Gender.Female;
 
-            const classRaw = row.class || row.classlevel || row.grade || '';
-            const classLevel = normalizeClassInput(classRaw);
-
             const stream = (row.stream || row.section || '').toUpperCase().trim() || 'Blue';
 
             if (classLevel && stream) {
@@ -966,7 +932,6 @@ export const Students: React.FC = () => {
             }
 
             const student: Student = {
-              indexNumber,
               name: name.toUpperCase(),
               gender,
               classLevel,
@@ -1047,7 +1012,6 @@ export const Students: React.FC = () => {
 
   let filteredStudents = students.filter(s =>
   ((s.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (s.indexNumber || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
     (s.paycode && s.paycode.toLowerCase().includes(searchQuery.toLowerCase())))
   );
 
@@ -1080,7 +1044,6 @@ export const Students: React.FC = () => {
       if (classCompare !== 0) return classCompare;
       return a.name.localeCompare(b.name);
     }
-    if (sortOption === 'index') return a.indexNumber.localeCompare(b.indexNumber);
     return 0;
   });
 
@@ -1356,7 +1319,7 @@ export const Students: React.FC = () => {
             const defaultClass = ClassLevel.P1;
             const defaultStream = settings?.streams[defaultClass]?.[0] || '';
             setFormData({
-              name: '', indexNumber: '', classLevel: defaultClass, stream: defaultStream, gender: Gender.Male, paycode: '', parentName: '', parentContact: '',
+              name: '', classLevel: defaultClass, stream: defaultStream, gender: Gender.Male, paycode: '', parentName: '', parentContact: '',
               specialCases: { absenteeism: false, sickness: false, fees: false }
             });
             setIsModalOpen(true);
@@ -1576,9 +1539,6 @@ export const Students: React.FC = () => {
                                   <HighlightText text={student.name} query={searchQuery} />
                                 </div>
                               )}
-                              <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                                <HighlightText text={student.indexNumber} query={searchQuery} />
-                              </div>
                             </div>
                           </div>
                         </td>
@@ -1702,10 +1662,6 @@ export const Students: React.FC = () => {
                         <div className={`font-bold text-lg truncate pr-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
                           <HighlightText text={student.name} query={searchQuery} />
                         </div>
-                        <div className={`flex items-center gap-2 mt-0.5 text-xs font-mono opacity-80 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                          <Hash size={12} />
-                          <HighlightText text={student.indexNumber} query={searchQuery} />
-                        </div>
                       </div>
                       <input
                         type="checkbox"
@@ -1777,7 +1733,6 @@ export const Students: React.FC = () => {
 
                 <div className="text-center mb-4">
                   <h3 className={`font-bold text-lg truncate px-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>{student.name}</h3>
-                  <p className={`text-sm font-mono ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{student.indexNumber}</p>
                 </div>
 
                 <div className="flex items-center justify-center gap-2 mb-4">
@@ -2021,17 +1976,6 @@ const StudentModal = ({ isOpen, onClose, onSubmit, formData, setFormData, isEdit
                   onChange={e => setFormData({ ...formData, name: e.target.value.toUpperCase() })}
                   required
                   placeholder="e.g. MUKASA JOHN"
-                />
-              </div>
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Index Number</label>
-                <input
-                  type="text"
-                  className={inputClasses}
-                  value={formData.indexNumber}
-                  onChange={e => setFormData({ ...formData, indexNumber: e.target.value })}
-                  placeholder="000/000"
-                  required
                 />
               </div>
               <div>

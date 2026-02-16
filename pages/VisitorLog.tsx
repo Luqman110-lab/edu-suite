@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 interface Student {
   id: number;
   name: string;
-  indexNumber: string;
+  indexNumber?: string;
   classLevel: string;
 }
 

@@ -444,7 +444,6 @@ export const GateAttendance: React.FC = () => {
 
   const filteredStudents = students.filter(s =>
     s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.indexNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     s.classLevel.toLowerCase().includes(searchQuery.toLowerCase())
   );
 

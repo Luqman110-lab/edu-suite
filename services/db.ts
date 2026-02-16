@@ -389,13 +389,14 @@ export const dbService = {
 
       if (data.students && data.students.length > 0) {
         const existingStudents = await db.getAll('students');
-        const existingByIndex = new Map(existingStudents.map(s => [s.indexNumber, s]));
+        const existingByNameClass = new Map(existingStudents.map(s => [`${s.name.toUpperCase()}|${s.classLevel}`, s]));
         const existingById = new Map(existingStudents.map(s => [s.id, s]));
 
         for (const incoming of data.students) {
-          const existingByIdx = existingByIndex.get(incoming.indexNumber);
+          const nameClassKey = `${(incoming.name || '').toUpperCase()}|${incoming.classLevel || ''}`;
+          const existingByNameClassMatch = existingByNameClass.get(nameClassKey);
           const existingByIdMatch = incoming.id ? existingById.get(incoming.id) : null;
-          const existing = existingByIdx || existingByIdMatch;
+          const existing = existingByNameClassMatch || existingByIdMatch;
 
           if (existing) {
             if (updateStudentNames) {

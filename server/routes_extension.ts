@@ -1262,14 +1262,17 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
 
             const body = req.body;
 
-            // Required fields (use == null to allow empty strings)
-            if (body.indexNumber == null || body.name == null || body.classLevel == null || body.stream == null || body.gender == null) {
-                return res.status(400).json({ message: "Missing required fields: indexNumber, name, classLevel, stream, gender" });
+            // Required fields
+            if (body.name == null || body.classLevel == null || body.stream == null || body.gender == null) {
+                return res.status(400).json({ message: "Missing required fields: name, classLevel, stream, gender" });
             }
+
+            // Auto-generate indexNumber server-side
+            const autoIndex = `STU-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
             // Build insert record with only defined, non-empty values for optional fields
             const record: Record<string, unknown> = {
-                indexNumber: body.indexNumber,
+                indexNumber: autoIndex,
                 name: body.name,
                 classLevel: body.classLevel,
                 stream: body.stream,
@@ -1471,8 +1474,10 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             // Using onConflictDoNothing to skip duplicates gracefully
             // Only include defined fields to let DB defaults apply for missing optional fields
             const created = await db.insert(students).values(newStudents.map((s: any) => {
+                // Auto-generate indexNumber server-side for each student
+                const autoIndex = `STU-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
                 const record: Record<string, unknown> = {
-                    indexNumber: s.indexNumber,
+                    indexNumber: s.indexNumber || autoIndex,
                     name: s.name,
                     classLevel: s.classLevel,
                     stream: s.stream,

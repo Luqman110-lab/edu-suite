@@ -28,7 +28,7 @@ interface Bed {
 interface Student {
   id: number;
   name: string;
-  indexNumber: string;
+  indexNumber?: string;
   classLevel: string;
   gender: string;
   boardingStatus: string;

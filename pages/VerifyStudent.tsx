@@ -12,7 +12,7 @@ interface VerificationData {
         stream: string;
         schoolName: string;
         status: 'Active' | 'Inactive';
-        indexNumber: string;
+        indexNumber?: string;
         // Extended
         medicalInfo?: {
             bloodGroup?: string;
@@ -152,7 +152,7 @@ export function VerifyStudent() {
                                             )}
                                         </div>
                                         <h3 className="text-xl font-bold text-gray-900">{student.name}</h3>
-                                        <p className="text-gray-500">{student.indexNumber}</p>
+                                        {student.indexNumber && <p className="text-gray-500">{student.indexNumber}</p>}
                                         <span className={`inline-block mt-2 px-3 py-1 rounded-full text-sm font-medium ${student.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                                             {student.status}
                                         </span>

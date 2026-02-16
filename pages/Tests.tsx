@@ -384,8 +384,7 @@ export const Tests: React.FC = () => {
     if (!searchQuery.trim()) return students;
     const query = searchQuery.toLowerCase();
     return students.filter(s =>
-      s.name.toLowerCase().includes(query) ||
-      s.indexNumber?.toLowerCase().includes(query)
+      s.name.toLowerCase().includes(query)
     );
   }, [students, searchQuery]);
 
@@ -603,7 +602,6 @@ export const Tests: React.FC = () => {
 
       const head = [[
         { content: 'POS', styles: { halign: 'center', fillColor: colors.primary, textColor: colors.white } },
-        { content: 'INDEX', styles: { halign: 'center', fillColor: colors.primary, textColor: colors.white } },
         { content: 'STUDENT NAME', styles: { halign: 'left', fillColor: colors.primary, textColor: colors.white } },
         { content: 'SEX', styles: { halign: 'center', fillColor: colors.primary, textColor: colors.white } },
         ...sessionSubjects.flatMap(sub => [
@@ -626,7 +624,6 @@ export const Tests: React.FC = () => {
 
         const rowData: any[] = [
           row.totalMarks > 0 ? currentRank.toString() : '-',
-          row.student.indexNumber || '-',
           row.student.name.toUpperCase(),
           row.student.gender === 'Male' ? 'M' : row.student.gender === 'Female' ? 'F' : '-'
         ];
@@ -903,14 +900,9 @@ export const Tests: React.FC = () => {
       doc.text(student.name.toUpperCase(), col1X + doc.getTextWidth("Student: "), infoY1);
 
       doc.setFont("helvetica", "bold");
-      doc.text("Index: ", col2X, infoY1);
+      doc.text("Term: ", col2X, infoY1);
       doc.setFont("helvetica", "normal");
-      doc.text(student.indexNumber || '-', col2X + doc.getTextWidth("Index: "), infoY1);
-
-      doc.setFont("helvetica", "bold");
-      doc.text("Term: ", col3X, infoY1);
-      doc.setFont("helvetica", "normal");
-      doc.text(`Term ${selectedSession.term}, ${selectedSession.year}`, col3X + doc.getTextWidth("Term: "), infoY1);
+      doc.text(`Term ${selectedSession.term}, ${selectedSession.year}`, col2X + doc.getTextWidth("Term: "), infoY1);
 
       doc.setFont("helvetica", "bold");
       doc.text("Class: ", col1X, infoY2);
@@ -1512,7 +1504,7 @@ export const Tests: React.FC = () => {
                         <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{idx + 1}</td>
                         <td className="px-4 py-3">
                           <div className="font-medium text-gray-900 dark:text-white text-sm">{student.name}</div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400">{student.indexNumber}</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">{student.classLevel}{student.stream ? ` - ${student.stream}` : ''}</div>
                         </td>
                         {subjects.map(sub => {
                           const rawMark = (score.rawMarks as any)?.[sub];
