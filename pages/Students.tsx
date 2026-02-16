@@ -529,9 +529,10 @@ export const Students: React.FC = () => {
 
   const loadData = async () => {
     try {
-      // Robust data fetching
+      let studentLoadError = '';
       const studentsPromise = dbService.getStudents().catch(err => {
         console.error("Failed to fetch students:", err);
+        studentLoadError = err.message || 'Unknown error loading students';
         return [];
       });
 
@@ -553,12 +554,16 @@ export const Students: React.FC = () => {
       setStudents(data as any);
       setSettings(s);
 
+      if (studentLoadError) {
+        showToast(`Failed to load students: ${studentLoadError}`, 'error');
+      }
+
       if (s && s.streams['P1'] && s.streams['P1'].length > 0) {
         setFormData(prev => ({ ...prev, stream: s.streams['P1'][0] }));
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error loading student directory:", err);
-      // Ensure students is at least an empty array if everything blows up
+      showToast(`Error loading student directory: ${err.message}`, 'error');
       setStudents([]);
     }
 
