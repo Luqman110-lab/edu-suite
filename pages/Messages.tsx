@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';

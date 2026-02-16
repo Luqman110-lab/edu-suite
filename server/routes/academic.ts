@@ -59,7 +59,7 @@ academicRoutes.put("/test-sessions/:id", requireAuth, async (req, res) => {
     try {
         const schoolId = getActiveSchoolId(req);
         if (!schoolId) return res.status(400).json({ message: "No active school selected" });
-        const id = parseInt(req.params.id);
+        const id = parseInt(req.params.id as string);
 
         // Verify ownership
         const existing = await db.select().from(testSessions)
@@ -98,7 +98,7 @@ academicRoutes.delete("/test-sessions/:id", requireAuth, async (req, res) => {
     try {
         const schoolId = getActiveSchoolId(req);
         if (!schoolId) return res.status(400).json({ message: "No active school selected" });
-        const id = parseInt(req.params.id);
+        const id = parseInt(req.params.id as string);
 
         const existing = await db.select().from(testSessions)
             .where(and(eq(testSessions.id, id), eq(testSessions.schoolId, schoolId)))
@@ -126,7 +126,7 @@ academicRoutes.get("/test-scores/:sessionId", requireAuth, async (req, res) => {
     try {
         const schoolId = getActiveSchoolId(req);
         if (!schoolId) return res.status(400).json({ message: "No active school selected" });
-        const sessionId = parseInt(req.params.sessionId);
+        const sessionId = parseInt(req.params.sessionId as string);
 
         // Verify the session belongs to the active school
         const session = await db.select().from(testSessions)

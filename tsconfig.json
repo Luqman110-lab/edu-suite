@@ -24,9 +24,18 @@
       ]
     },
     "allowImportingTsExtensions": true,
-    "noEmit": true
+    "noEmit": true,
+    "types": ["vite/client"]
   },
   "include": [
     "**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "scripts/**",
+    "check_guardian.ts",
+    "simulate_invite.ts"
   ]
 }

@@ -391,7 +391,7 @@ parentRoutes.get("/dashboard-stats", requireAuth, requireParent, async (req: any
 // GET /api/parent/student/:id - Get detailed student info
 parentRoutes.get("/student/:id", requireAuth, requireParent, async (req: any, res) => {
     try {
-        const studentId = parseInt(req.params.id);
+        const studentId = parseInt(req.params.id as string);
         const guardianId = req.guardian.id;
 
         // Verify access
@@ -457,7 +457,7 @@ parentRoutes.get("/student/:id", requireAuth, requireParent, async (req: any, re
 // GET /api/parent/student/:id/fees - Student fee data
 parentRoutes.get("/student/:id/fees", requireAuth, requireParent, async (req: any, res) => {
     try {
-        const studentId = parseInt(req.params.id);
+        const studentId = parseInt(req.params.id as string);
         const guardianId = req.guardian.id;
 
         const hasAccess = await verifyStudentAccess(guardianId, studentId);
@@ -504,7 +504,7 @@ parentRoutes.get("/student/:id/fees", requireAuth, requireParent, async (req: an
 // GET /api/parent/student/:id/attendance?month=YYYY-MM - Student attendance
 parentRoutes.get("/student/:id/attendance", requireAuth, requireParent, async (req: any, res) => {
     try {
-        const studentId = parseInt(req.params.id);
+        const studentId = parseInt(req.params.id as string);
         const guardianId = req.guardian.id;
 
         const hasAccess = await verifyStudentAccess(guardianId, studentId);
@@ -686,7 +686,7 @@ parentRoutes.put("/profile", requireAuth, requireParent, async (req: any, res) =
         const validation = profileUpdateSchema.safeParse(req.body);
         if (!validation.success) {
             return res.status(400).json({
-                message: validation.error.errors[0]?.message || "Invalid input"
+                message: validation.error.issues[0]?.message || "Invalid input"
             });
         }
 
@@ -725,7 +725,7 @@ parentRoutes.put("/change-password", requireAuth, requireParent, async (req: any
         const validation = passwordChangeSchema.safeParse(req.body);
         if (!validation.success) {
             return res.status(400).json({
-                message: validation.error.errors[0]?.message || "Invalid input"
+                message: validation.error.issues[0]?.message || "Invalid input"
             });
         }
 
@@ -882,7 +882,7 @@ parentRoutes.post("/conversations", requireAuth, requireParent, async (req: any,
 parentRoutes.get("/conversations/:id/messages", requireAuth, requireParent, async (req: any, res) => {
     try {
         const userId = req.user.id;
-        const conversationId = parseInt(req.params.id);
+        const conversationId = parseInt(req.params.id as string);
 
         // Verify participation
         const participation = await db.query.conversationParticipants.findFirst({
@@ -922,7 +922,7 @@ parentRoutes.get("/conversations/:id/messages", requireAuth, requireParent, asyn
 parentRoutes.post("/conversations/:id/messages", requireAuth, requireParent, async (req: any, res) => {
     try {
         const userId = req.user.id;
-        const conversationId = parseInt(req.params.id);
+        const conversationId = parseInt(req.params.id as string);
         const { content } = req.body;
 
         if (!content) return res.status(400).json({ message: "Message content is required" });
@@ -966,7 +966,7 @@ parentRoutes.post("/conversations/:id/messages", requireAuth, requireParent, asy
 parentRoutes.post("/conversations/:id/read", requireAuth, requireParent, async (req: any, res) => {
     try {
         const userId = req.user.id;
-        const conversationId = parseInt(req.params.id);
+        const conversationId = parseInt(req.params.id as string);
 
         await db.update(conversationParticipants)
             .set({ lastReadAt: new Date() })

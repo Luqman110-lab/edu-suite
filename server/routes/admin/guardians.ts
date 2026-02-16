@@ -107,7 +107,7 @@ guardianRoutes.post("/", requireAuth, requireAdmin, async (req, res) => {
 // POST /api/guardians/:id/students - Link guardian to student
 guardianRoutes.post("/:id/students", requireAuth, requireAdmin, async (req, res) => {
     try {
-        const guardianId = parseInt(req.params.id);
+        const guardianId = parseInt(req.params.id as string);
         const { studentId, relationship } = req.body;
 
         if (!studentId || !relationship) {
@@ -141,8 +141,8 @@ guardianRoutes.post("/:id/students", requireAuth, requireAdmin, async (req, res)
 // DELETE /api/guardians/:id/students/:studentId - Unlink guardian
 guardianRoutes.delete("/:id/students/:studentId", requireAuth, requireAdmin, async (req, res) => {
     try {
-        const guardianId = parseInt(req.params.id);
-        const studentId = parseInt(req.params.studentId);
+        const guardianId = parseInt(req.params.id as string);
+        const studentId = parseInt(req.params.studentId as string);
 
         await db.delete(studentGuardians)
             .where(and(
@@ -160,7 +160,7 @@ guardianRoutes.delete("/:id/students/:studentId", requireAuth, requireAdmin, asy
 // GET /api/guardians/:id/students - Get linked students
 guardianRoutes.get("/:id/students", requireAuth, requireAdmin, async (req, res) => {
     try {
-        const guardianId = parseInt(req.params.id);
+        const guardianId = parseInt(req.params.id as string);
 
         const linkedStudents = await db.select({
             id: students.id,
@@ -192,7 +192,7 @@ guardianRoutes.post("/:id/invite", requireAuth, requireAdmin, async (req, res) =
             return res.status(400).json({ message: "No active school selected" });
         }
 
-        const guardianId = parseInt(req.params.id);
+        const guardianId = parseInt(req.params.id as string);
         const { username } = req.body;
 
         console.log(`[Inviting Guardian] SchoolId: ${schoolId}, GuardianId: ${guardianId}`);
@@ -302,7 +302,7 @@ guardianRoutes.post("/:id/reset-password", requireAuth, requireAdmin, async (req
     try {
         const schoolId = getActiveSchoolId(req);
         if (!schoolId) return res.status(400).json({ message: "No active school selected" });
-        const guardianId = parseInt(req.params.id);
+        const guardianId = parseInt(req.params.id as string);
 
         const guardian = await db.query.guardians.findFirst({
             where: and(eq(guardians.id, guardianId), eq(guardians.schoolId, schoolId as number))

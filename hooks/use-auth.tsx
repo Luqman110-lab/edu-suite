@@ -18,7 +18,7 @@ export type User = {
   id: number;
   username: string;
   name: string;
-  role: "admin" | "teacher";
+  role: "admin" | "teacher" | "parent";
   email: string | null;
   phone: string | null;
   isSuperAdmin?: boolean;

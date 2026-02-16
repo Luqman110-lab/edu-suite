@@ -1,8 +1,21 @@
-import { Express } from "express";
+import { Express, Request } from "express";
 import { db } from "./db";
 import { eq, and, desc, asc, sql, inArray, gt, or, isNull } from "drizzle-orm";
 
-import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, teacherAttendance, users, userSchools, feeStructures, financeTransactions, conversations, conversationParticipants, messages, promotionHistory, studentFeeOverrides, dormitories, beds, boardingRollCalls, leaveRequests, auditLogs, invoices, invoiceItems, paymentPlans, planInstallments, visitorLogs, boardingSettings, faceEmbeddings, insertStudentSchema, p7ExamSets, p7Scores, scholarships, studentScholarships, insertDormitorySchema, insertBedSchema, insertLeaveRequestSchema, insertVisitorLogSchema, insertBoardingSettingsSchema, insertSchoolSchema, insertUserSchema, insertP7ExamSetSchema, insertProgramItemSchema } from "../shared/schema";
+/** Safely extract a string param from Express req.params (which may be string | string[] in Express 5) */
+function param(req: Request, key: string): string {
+    const val = req.params[key];
+    return Array.isArray(val) ? val[0] : val;
+}
+
+/** Safely extract a string query param from Express req.query */
+function queryStr(req: Request, key: string): string {
+    const val = req.query[key];
+    if (Array.isArray(val)) return String(val[0]);
+    return val ? String(val) : '';
+}
+
+import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, teacherAttendance, users, userSchools, feeStructures, financeTransactions, conversations, conversationParticipants, messages, promotionHistory, studentFeeOverrides, dormitories, beds, boardingRollCalls, leaveRequests, auditLogs, invoices, invoiceItems, paymentPlans, planInstallments, visitorLogs, boardingSettings, faceEmbeddings, insertStudentSchema, p7ExamSets, p7Scores, scholarships, studentScholarships, insertDormitorySchema, insertBedSchema, insertLeaveRequestSchema, insertVisitorLogSchema, insertBoardingSettingsSchema, insertSchoolSchema, insertUserSchema, insertP7ExamSetSchema, insertProgramItemSchema, schoolEvents } from "../shared/schema";
 import { createInsertSchema } from "drizzle-zod"; // Added import
 import { z } from "zod";
 import { requireAuth, requireAdmin, requireStaff, requireSuperAdmin, getActiveSchoolId, hashPassword } from "./auth";
@@ -188,7 +201,7 @@ export function registerExtendedRoutes(app: Express) {
 
     app.put("/api/fee-structures/:id", requireAdmin, async (req, res) => {
         try {
-            const id = parseInt(req.params.id);
+            const id = parseInt(param(req, 'id'));
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
@@ -205,7 +218,7 @@ export function registerExtendedRoutes(app: Express) {
 
     app.delete("/api/fee-structures/:id", requireAdmin, async (req, res) => {
         try {
-            const id = parseInt(req.params.id);
+            const id = parseInt(param(req, 'id'));
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
@@ -247,7 +260,7 @@ export function registerExtendedRoutes(app: Express) {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-            const studentId = parseInt(req.params.studentId);
+            const studentId = parseInt(param(req, 'studentId'));
             if (isNaN(studentId)) return res.status(400).json({ message: "Invalid key" });
 
             const transactionsAsc = await db.execute(sql`
@@ -316,7 +329,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-            const invoiceId = parseInt(req.params.id);
+            const invoiceId = parseInt(param(req, 'id'));
             if (isNaN(invoiceId)) return res.status(400).json({ message: "Invalid invoice ID" });
 
             const [invoice] = await db.select({
@@ -527,7 +540,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-            const invoiceId = parseInt(req.params.id);
+            const invoiceId = parseInt(param(req, 'id'));
             if (isNaN(invoiceId)) return res.status(400).json({ message: "Invalid invoice ID" });
 
             const { notes, dueDate } = req.body;
@@ -704,7 +717,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-            const invoiceId = parseInt(req.params.id);
+            const invoiceId = parseInt(param(req, 'id'));
             if (isNaN(invoiceId)) return res.status(400).json({ message: "Invalid invoice ID" });
             const { type = 'sms' } = req.body;
 
@@ -876,7 +889,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-            const id = parseInt(req.params.id);
+            const id = parseInt(param(req, 'id'));
             if (isNaN(id)) return res.status(400).json({ message: "Invalid plan ID" });
 
             const plan = await db.query.paymentPlans.findFirst({
@@ -904,7 +917,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
             const { installmentId, amount } = req.body;
-            const planId = parseInt(req.params.id);
+            const planId = parseInt(param(req, 'id'));
 
             // Input validation
             const payAmount = Number(amount);
@@ -1334,7 +1347,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const schoolId = getActiveSchoolId(req);
             const userId = req.user!.id;
             const userName = req.user!.name;
-            const studentId = parseInt(req.params.id);
+            const studentId = parseInt(param(req, 'id'));
 
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
             if (isNaN(studentId)) return res.status(400).json({ message: "Invalid student ID" });
@@ -1346,7 +1359,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             if (existing.length === 0) return res.status(404).json({ message: "Student not found" });
 
             // Update Validation (Partial)
-            const validationSchema = insertStudentSchema.omit({
+            const validationSchema = (insertStudentSchema as any).omit({
                 id: true,
                 schoolId: true,
                 createdAt: true,
@@ -1388,7 +1401,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const schoolId = getActiveSchoolId(req);
             const userId = req.user!.id;
             const userName = req.user!.name;
-            const studentId = parseInt(req.params.id);
+            const studentId = parseInt(param(req, 'id'));
 
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
             if (isNaN(studentId)) return res.status(400).json({ message: "Invalid student ID" });
@@ -1540,8 +1553,8 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     // Toggle Reaction
     app.post("/api/conversations/:id/messages/:msgId/react", requireAuth, async (req, res) => {
         try {
-            const convId = parseInt(req.params.id);
-            const msgId = parseInt(req.params.msgId);
+            const convId = parseInt(param(req, 'id'));
+            const msgId = parseInt(param(req, 'msgId'));
             const { emoji } = req.body; // If emoji matches existing, remove it (toggle)
 
             const [msg] = await db.select().from(messages).where(eq(messages.id, msgId));
@@ -1575,8 +1588,8 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     // Delete Message (Soft delete)
     app.delete("/api/conversations/:id/messages/:msgId", requireAuth, async (req, res) => {
         try {
-            const convId = parseInt(req.params.id);
-            const msgId = parseInt(req.params.msgId);
+            const convId = parseInt(param(req, 'id'));
+            const msgId = parseInt(param(req, 'msgId'));
             const userId = req.user!.id;
 
             const [msg] = await db.select().from(messages).where(eq(messages.id, msgId));
@@ -1602,8 +1615,8 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     // Edit Message
     app.put("/api/conversations/:id/messages/:msgId", requireAuth, async (req, res) => {
         try {
-            const convId = parseInt(req.params.id);
-            const msgId = parseInt(req.params.msgId);
+            const convId = parseInt(param(req, 'id'));
+            const msgId = parseInt(param(req, 'msgId'));
             const userId = req.user!.id;
             const { content } = req.body;
 
@@ -1632,7 +1645,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     // Update Group Info (Existing)
     app.put("/api/conversations/:id", requireAuth, async (req, res) => {
         try {
-            const convId = parseInt(req.params.id);
+            const convId = parseInt(param(req, 'id'));
             const { groupName, groupAvatar, addParticipants } = req.body;
 
             // Check if user is admin or creator (simplification: anyone in group can update for now, or check creators)
@@ -1831,7 +1844,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     // Get single conversation
     app.get("/api/conversations/:id", requireAuth, async (req, res) => {
         try {
-            const convId = parseInt(req.params.id);
+            const convId = parseInt(param(req, 'id'));
             if (isNaN(convId)) return res.status(400).json({ message: "Invalid ID" });
 
             // Verify access
@@ -1864,7 +1877,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     // Get messages for conversation
     app.get("/api/conversations/:id/messages", requireAuth, async (req, res) => {
         try {
-            const convId = parseInt(req.params.id);
+            const convId = parseInt(param(req, 'id'));
             if (isNaN(convId)) return res.status(400).json({ message: "Invalid ID" });
 
             // Verify access
@@ -1906,7 +1919,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     // Send message
     app.post("/api/conversations/:id/messages", requireAuth, async (req, res) => {
         try {
-            const convId = parseInt(req.params.id);
+            const convId = parseInt(param(req, 'id'));
             if (isNaN(convId)) return res.status(400).json({ message: "Invalid ID" });
             const { content, attachments, replyToId } = req.body;
             // content optional if attachments exist
@@ -1954,7 +1967,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     // Mark as read
     app.post("/api/conversations/:id/read", requireAuth, async (req, res) => {
         try {
-            const convId = parseInt(req.params.id);
+            const convId = parseInt(param(req, 'id'));
             if (isNaN(convId)) return res.status(400).json({ message: "Invalid ID" });
 
             await db.update(conversationParticipants)
@@ -2100,7 +2113,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
 
     app.put("/api/schools/:id", requireAdmin, async (req, res) => {
         try {
-            const schoolId = parseInt(req.params.id);
+            const schoolId = parseInt(param(req, 'id'));
             if (isNaN(schoolId)) return res.status(400).json({ message: "Invalid school ID" });
 
             if (!req.user?.isSuperAdmin && req.user?.activeSchoolId !== schoolId) {
@@ -2160,7 +2173,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                 return res.status(403).json({ message: "Only Super Admin can delete schools" });
             }
 
-            const schoolId = parseInt(req.params.id);
+            const schoolId = parseInt(param(req, 'id'));
             if (isNaN(schoolId)) return res.status(400).json({ message: "Invalid school ID" });
 
             // Soft delete
@@ -2213,7 +2226,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     app.put("/api/teachers/:id", requireAdmin, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
-            const teacherId = parseInt(req.params.id);
+            const teacherId = parseInt(param(req, 'id'));
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
             if (isNaN(teacherId)) return res.status(400).json({ message: "Invalid teacher ID" });
 
@@ -2239,7 +2252,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     app.delete("/api/teachers/:id", requireAdmin, async (req, res) => {
         try {
             const schoolId = getActiveSchoolId(req);
-            const teacherId = parseInt(req.params.id);
+            const teacherId = parseInt(param(req, 'id'));
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
             if (isNaN(teacherId)) return res.status(400).json({ message: "Invalid teacher ID" });
 
@@ -2533,7 +2546,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-            const studentId = parseInt(req.params.studentId);
+            const studentId = parseInt(param(req, 'studentId'));
             if (isNaN(studentId)) return res.status(400).json({ message: "Invalid student ID" });
 
             const payments = await db.select().from(feePayments)
@@ -2844,7 +2857,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-            const id = parseInt(req.params.id);
+            const id = parseInt(param(req, 'id'));
             if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
 
             // Soft delete, scoped to school
@@ -2933,7 +2946,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
-            const studentId = parseInt(req.params.studentId);
+            const studentId = parseInt(param(req, 'studentId'));
 
             const overrides = await db.select().from(studentFeeOverrides)
                 .where(and(
@@ -3000,7 +3013,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-            const id = parseInt(req.params.id);
+            const id = parseInt(param(req, 'id'));
             if (isNaN(id)) return res.status(400).json({ message: "Invalid override ID" });
 
             const updated = await db.update(studentFeeOverrides)
@@ -3277,7 +3290,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     // Update user (super admin only)
     app.put("/api/admin/users/:id", requireSuperAdmin, async (req, res) => {
         try {
-            const userId = parseInt(req.params.id);
+            const userId = parseInt(param(req, 'id'));
             if (isNaN(userId)) return res.status(400).json({ message: "Invalid user ID" });
 
             const { name, email, phone, role, isSuperAdmin } = req.body;
@@ -3321,7 +3334,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     // Reset user password (super admin only)
     app.post("/api/admin/users/:id/reset-password", requireSuperAdmin, async (req, res) => {
         try {
-            const userId = parseInt(req.params.id);
+            const userId = parseInt(param(req, 'id'));
             if (isNaN(userId)) return res.status(400).json({ message: "Invalid user ID" });
 
             const { newPassword } = req.body;
@@ -3360,7 +3373,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     // Delete user (super admin only)
     app.delete("/api/admin/users/:id", requireSuperAdmin, async (req, res) => {
         try {
-            const userId = parseInt(req.params.id);
+            const userId = parseInt(param(req, 'id'));
             if (isNaN(userId)) return res.status(400).json({ message: "Invalid user ID" });
 
             // Don't allow deleting yourself
@@ -3568,9 +3581,9 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-            const result = insertSchoolSchema.partial().safeParse(req.body);
+            const result = (insertSchoolSchema as any).partial().safeParse(req.body);
             if (!result.success) {
-                return res.status(400).json({ message: "Invalid data", errors: result.error.errors });
+                return res.status(400).json({ message: "Invalid data", errors: result.error.issues });
             }
 
             const { schoolName, addressBox, contactPhones, email, motto, regNumber, centreNumber,
@@ -3594,9 +3607,9 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const payload = { ...req.body };
             if (payload.schoolName) payload.name = payload.schoolName;
 
-            const validation = insertSchoolSchema.partial().safeParse(payload);
+            const validation = (insertSchoolSchema as any).partial().safeParse(payload);
             if (!validation.success) {
-                return res.status(400).json({ message: "Invalid data", errors: validation.error.errors });
+                return res.status(400).json({ message: "Invalid data", errors: validation.error.issues });
             }
 
             // Proceed with update using the original destructured logic to map correctly to DB
@@ -3672,7 +3685,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     // Get user's school assignments (super admin)
     app.get("/api/users/:id/schools", requireSuperAdmin, async (req, res) => {
         try {
-            const userId = parseInt(req.params.id);
+            const userId = parseInt(param(req, 'id'));
 
             const assignments = await db.select({
                 schoolId: userSchools.schoolId,
@@ -3695,7 +3708,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     // Assign user to a school (super admin)
     app.post("/api/users/:id/schools", requireSuperAdmin, async (req, res) => {
         try {
-            const userId = parseInt(req.params.id);
+            const userId = parseInt(param(req, 'id'));
             const { schoolId, role, isPrimary } = req.body;
 
             // Check if assignment already exists
@@ -3728,8 +3741,8 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     // Remove user from school (super admin)
     app.delete("/api/users/:id/schools/:schoolId", requireSuperAdmin, async (req, res) => {
         try {
-            const userId = parseInt(req.params.id);
-            const schoolId = parseInt(req.params.schoolId);
+            const userId = parseInt(param(req, 'id'));
+            const schoolId = parseInt(param(req, 'schoolId'));
 
             await db.delete(userSchools)
                 .where(and(eq(userSchools.userId, userId), eq(userSchools.schoolId, schoolId)));
@@ -3761,9 +3774,9 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-            const result = insertUserSchema.omit({ id: true, createdAt: true, updatedAt: true, isSuperAdmin: true, lastLogin: true, resetToken: true, resetTokenExpiry: true }).safeParse(req.body);
+            const result = (insertUserSchema as any).omit({ id: true, createdAt: true, updatedAt: true, isSuperAdmin: true, lastLogin: true, resetToken: true, resetTokenExpiry: true }).safeParse(req.body);
             if (!result.success) {
-                return res.status(400).json({ message: "Invalid data", errors: result.error.errors });
+                return res.status(400).json({ message: "Invalid data", errors: result.error.issues });
             }
 
             const { username, password, name, role, email, phone } = result.data;
@@ -3804,10 +3817,10 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     // Update user (admin)
     app.put("/api/users/:id", requireAdmin, async (req, res) => {
         try {
-            const userId = parseInt(req.params.id);
+            const userId = parseInt(param(req, 'id'));
             const result = insertUserSchema.partial().safeParse(req.body);
             if (!result.success) {
-                return res.status(400).json({ message: "Invalid data", errors: result.error.errors });
+                return res.status(400).json({ message: "Invalid data", errors: result.error.issues });
             }
 
             const { name, role, email, phone } = result.data;
@@ -3839,7 +3852,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     // Delete user (admin)
     app.delete("/api/users/:id", requireAdmin, async (req, res) => {
         try {
-            const userId = parseInt(req.params.id);
+            const userId = parseInt(param(req, 'id'));
 
             // Remove all school assignments first
             await db.delete(userSchools).where(eq(userSchools.userId, userId));
@@ -3857,7 +3870,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     // Reset user password (admin)
     app.post("/api/users/:id/reset-password", requireAdmin, async (req, res) => {
         try {
-            const userId = parseInt(req.params.id);
+            const userId = parseInt(param(req, 'id'));
             const { newPassword } = req.body;
 
             if (!newPassword || newPassword.length < 6) {
@@ -3879,7 +3892,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     // Delete school (super admin only - hard delete)
     app.delete("/api/admin/schools/:id", requireSuperAdmin, async (req, res) => {
         try {
-            const schoolId = parseInt(req.params.id);
+            const schoolId = parseInt(param(req, 'id'));
 
             // Verify school exists
             const school = await db.select().from(schools).where(eq(schools.id, schoolId)).limit(1);
@@ -4057,9 +4070,9 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-            const result = insertDormitorySchema.omit({ id: true, schoolId: true }).safeParse(req.body);
+            const result = (insertDormitorySchema as any).omit({ id: true, schoolId: true }).safeParse(req.body);
             if (!result.success) {
-                return res.status(400).json({ message: "Invalid data", errors: result.error.errors });
+                return res.status(400).json({ message: "Invalid data", errors: result.error.issues });
             }
 
             const data = { ...result.data, schoolId };
@@ -4074,11 +4087,11 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
-            const id = parseInt(req.params.id);
+            const id = parseInt(param(req, 'id'));
 
-            const result = insertDormitorySchema.omit({ id: true, schoolId: true }).partial().safeParse(req.body);
+            const result = (insertDormitorySchema as any).omit({ id: true, schoolId: true }).partial().safeParse(req.body);
             if (!result.success) {
-                return res.status(400).json({ message: "Invalid data", errors: result.error.errors });
+                return res.status(400).json({ message: "Invalid data", errors: result.error.issues });
             }
 
             const updatedDorm = await db.update(dormitories)
@@ -4097,7 +4110,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
-            const id = parseInt(req.params.id);
+            const id = parseInt(param(req, 'id'));
 
             const deleted = await db.delete(dormitories)
                 .where(and(eq(dormitories.id, id), eq(dormitories.schoolId, schoolId)))
@@ -4156,9 +4169,9 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-            const result = insertBedSchema.omit({ id: true, schoolId: true }).safeParse(req.body);
+            const result = (insertBedSchema as any).omit({ id: true, schoolId: true }).safeParse(req.body);
             if (!result.success) {
-                return res.status(400).json({ message: "Invalid data", errors: result.error.errors });
+                return res.status(400).json({ message: "Invalid data", errors: result.error.issues });
             }
 
             const data = { ...result.data, schoolId, status: 'vacant' }; // Default status
@@ -4184,14 +4197,14 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
 
             const result = bulkBedSchema.safeParse(req.body);
             if (!result.success) {
-                return res.status(400).json({ message: "Invalid data", errors: result.error.errors });
+                return res.status(400).json({ message: "Invalid data", errors: result.error.issues });
             }
 
             const { dormitoryId, startNumber, count, type } = result.data;
 
 
             const createdBeds = [];
-            let currentNumber = parseInt(startNumber);
+            let currentNumber = parseInt(String(startNumber));
             if (isNaN(currentNumber)) currentNumber = 1;
 
             for (let i = 0; i < count; i++) {
@@ -4263,7 +4276,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-            const bedId = parseInt(req.params.id);
+            const bedId = parseInt(param(req, 'id'));
             const { studentId, mattressNumber } = req.body;
 
             if (!studentId) return res.status(400).json({ message: "Student ID required" });
@@ -4306,7 +4319,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-            const bedId = parseInt(req.params.id);
+            const bedId = parseInt(param(req, 'id'));
 
             // Get current student before unassigning
             const currentBed = await db.select().from(beds)
@@ -4336,7 +4349,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-            const id = parseInt(req.params.id);
+            const id = parseInt(param(req, 'id'));
             const deleted = await db.delete(beds)
                 .where(and(eq(beds.id, id), eq(beds.schoolId, schoolId)))
                 .returning();
@@ -4466,14 +4479,14 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-            const result = insertLeaveRequestSchema.omit({
+            const result = (insertLeaveRequestSchema as any).omit({
                 id: true, schoolId: true, approvedById: true, approvedAt: true,
                 checkOutById: true, checkOutTime: true, checkInById: true, checkInTime: true,
                 status: true
             }).safeParse(req.body);
 
             if (!result.success) {
-                return res.status(400).json({ message: "Invalid data", errors: result.error.errors });
+                return res.status(400).json({ message: "Invalid data", errors: result.error.issues });
             }
 
             const data = {
@@ -4491,13 +4504,13 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
 
     app.put("/api/leave-requests/:id", requireStaff, async (req, res) => {
         try {
-            const id = parseInt(req.params.id);
+            const id = parseInt(param(req, 'id'));
             const data = req.body;
 
             // Validate update payload
             const result = insertLeaveRequestSchema.partial().safeParse(data);
             if (!result.success) {
-                return res.status(400).json({ message: "Invalid data", errors: result.error.errors });
+                return res.status(400).json({ message: "Invalid data", errors: result.error.issues });
             }
 
             const updates: any = { ...result.data };
@@ -4525,7 +4538,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
 
     app.delete("/api/leave-requests/:id", requireAdmin, async (req, res) => {
         try {
-            const id = parseInt(req.params.id);
+            const id = parseInt(param(req, 'id'));
             await db.delete(leaveRequests).where(eq(leaveRequests.id, id));
             res.json({ message: "Leave request deleted" });
         } catch (error: any) {
@@ -4536,7 +4549,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     // Public verification endpoint
     app.get("/api/public/verify-student/:id", async (req, res) => {
         try {
-            const id = parseInt(req.params.id);
+            const id = parseInt(param(req, 'id'));
             if (isNaN(id)) return res.status(400).json({ valid: false, message: "Invalid ID" });
 
             const studentData = await db.select({
@@ -4602,9 +4615,9 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-            const result = insertVisitorLogSchema.omit({ id: true, schoolId: true, checkOutTime: true, registeredById: true }).safeParse(req.body);
+            const result = (insertVisitorLogSchema as any).omit({ id: true, schoolId: true, checkOutTime: true, registeredById: true }).safeParse(req.body);
             if (!result.success) {
-                return res.status(400).json({ message: "Invalid data", errors: result.error.errors });
+                return res.status(400).json({ message: "Invalid data", errors: result.error.issues });
             }
 
             const data = {
@@ -4622,7 +4635,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
 
     app.put("/api/visitor-logs/:id/checkout", requireAdmin, async (req, res) => {
         try {
-            const id = parseInt(req.params.id);
+            const id = parseInt(param(req, 'id'));
             const { checkOutTime } = req.body;
 
             const updated = await db.update(visitorLogs)
@@ -4638,7 +4651,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
 
     app.delete("/api/visitor-logs/:id", requireAdmin, async (req, res) => {
         try {
-            const id = parseInt(req.params.id);
+            const id = parseInt(param(req, 'id'));
             await db.delete(visitorLogs).where(eq(visitorLogs.id, id));
             res.json({ message: "Visitor log deleted" });
         } catch (error: any) {
@@ -4669,9 +4682,9 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-            const result = insertBoardingSettingsSchema.omit({ id: true, schoolId: true, updatedAt: true }).partial().safeParse(req.body);
+            const result = (insertBoardingSettingsSchema as any).omit({ id: true, schoolId: true, updatedAt: true }).partial().safeParse(req.body);
             if (!result.success) {
-                return res.status(400).json({ message: "Invalid data", errors: result.error.errors });
+                return res.status(400).json({ message: "Invalid data", errors: result.error.issues });
             }
             const data = result.data;
 
@@ -4742,7 +4755,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
 
     app.get("/api/schools/:id", requireAuth, async (req, res) => {
         try {
-            const id = parseInt(req.params.id);
+            const id = parseInt(param(req, 'id'));
             if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
 
             const [school] = await db.select().from(schools).where(eq(schools.id, id));
@@ -4758,9 +4771,9 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         try {
             if (!(req.user as any)?.isSuperAdmin) return res.status(403).json({ message: "Forbidden" });
 
-            const result = insertSchoolSchema.omit({ id: true, createdAt: true, updatedAt: true, isActive: true }).safeParse(req.body);
+            const result = (insertSchoolSchema as any).omit({ id: true, createdAt: true, updatedAt: true, isActive: true }).safeParse(req.body);
             if (!result.success) {
-                return res.status(400).json({ message: "Invalid data", errors: result.error.errors });
+                return res.status(400).json({ message: "Invalid data", errors: result.error.issues });
             }
 
             const [newSchool] = await db.insert(schools).values({
@@ -4789,11 +4802,11 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     app.put("/api/schools/:id", requireAdmin, async (req, res) => {
         try {
             if (!(req.user as any)?.isSuperAdmin) return res.status(403).json({ message: "Forbidden" });
-            const id = parseInt(req.params.id);
+            const id = parseInt(param(req, 'id'));
 
-            const result = insertSchoolSchema.partial().safeParse(req.body);
+            const result = (insertSchoolSchema as any).partial().safeParse(req.body);
             if (!result.success) {
-                return res.status(400).json({ message: "Invalid data", errors: result.error.errors });
+                return res.status(400).json({ message: "Invalid data", errors: result.error.issues });
             }
 
             const [updated] = await db.update(schools).set({
@@ -4823,7 +4836,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     app.delete("/api/admin/schools/:id", requireSuperAdmin, async (req, res) => {
         try {
             if (!(req.user as any)?.isSuperAdmin) return res.status(403).json({ message: "Forbidden" });
-            const id = parseInt(req.params.id);
+            const id = parseInt(param(req, 'id'));
 
             // Fetch first to get name for log
             const [school] = await db.select().from(schools).where(eq(schools.id, id));
@@ -4903,10 +4916,10 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
 
             const result = schema.safeParse(req.body);
             if (!result.success) {
-                return res.status(400).json({ message: "Invalid data", errors: result.error.errors });
+                return res.status(400).json({ message: "Invalid data", errors: result.error.issues });
             }
 
-            const { username, password, name, role, isSuperAdmin, schoolId } = result.data;
+            const { username, password, name, role, isSuperAdmin, schoolId } = result.data as any;
 
             // Check if username exists
             const [existing] = await db.select().from(users).where(eq(users.username, username));
@@ -4945,7 +4958,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     app.delete("/api/admin/users/:id", requireSuperAdmin, async (req, res) => {
         try {
             if (!(req.user as any)?.isSuperAdmin) return res.status(403).json({ message: "Forbidden" });
-            const id = parseInt(req.params.id);
+            const id = parseInt(param(req, 'id'));
             await db.delete(users).where(eq(users.id, id));
             res.json({ message: "User deleted" });
         } catch (error: any) {
@@ -5004,7 +5017,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
 
     app.get("/api/events/:eventId/program", requireAuth, async (req, res) => {
         try {
-            const eventId = parseInt(req.params.eventId);
+            const eventId = parseInt(param(req, 'eventId'));
             const items = await db.select().from(programItems)
                 .where(eq(programItems.eventId, eventId))
                 .orderBy(asc(programItems.sortOrder));
@@ -5018,7 +5031,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
-            const eventId = parseInt(req.params.eventId);
+            const eventId = parseInt(param(req, 'eventId'));
 
             // IDOR Check: Ensure event belongs to the school
             const event = await db.select().from(schoolEvents)
@@ -5029,9 +5042,9 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                 return res.status(404).json({ message: "Event not found or access denied" });
             }
 
-            const result = insertProgramItemSchema.omit({ id: true, eventId: true }).safeParse(req.body);
+            const result = (insertProgramItemSchema as any).omit({ id: true, eventId: true }).safeParse(req.body);
             if (!result.success) {
-                return res.status(400).json({ message: "Invalid data", errors: result.error.errors });
+                return res.status(400).json({ message: "Invalid data", errors: result.error.issues });
             }
 
             const { title, startTime, endTime, responsiblePerson, description } = result.data;
@@ -5056,7 +5069,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
-            const id = parseInt(req.params.id);
+            const id = parseInt(param(req, 'id'));
 
             // IDOR Check: Verify item belongs to an event in the school
             const item = await db.select({
@@ -5084,7 +5097,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
-            const id = parseInt(req.params.id);
+            const id = parseInt(param(req, 'id'));
 
             // IDOR Check: Verify item belongs to an event in the school
             const item = await db.select({
@@ -5103,7 +5116,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
 
             const result = insertProgramItemSchema.partial().safeParse(req.body);
             if (!result.success) {
-                return res.status(400).json({ message: "Invalid data", errors: result.error.errors });
+                return res.status(400).json({ message: "Invalid data", errors: result.error.issues });
             }
             // Ensure eventId is not changed or if checks are needed
             // For now just update permitted fields
@@ -5142,9 +5155,9 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-            const result = insertP7ExamSetSchema.omit({ id: true, schoolId: true }).safeParse(req.body);
+            const result = (insertP7ExamSetSchema as any).omit({ id: true, schoolId: true }).safeParse(req.body);
             if (!result.success) {
-                return res.status(400).json({ message: "Invalid data", errors: result.error.errors });
+                return res.status(400).json({ message: "Invalid data", errors: result.error.issues });
             }
 
             const { setNumber, name, stream, term, year, examDate, maxMarks, isActive } = result.data;
@@ -5173,7 +5186,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         try {
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
-            const id = parseInt(req.params.id);
+            const id = parseInt(param(req, 'id'));
 
             const deleted = await db.delete(p7ExamSets)
                 .where(and(eq(p7ExamSets.id, id), eq(p7ExamSets.schoolId, schoolId)))
@@ -5219,7 +5232,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
     });
 
     const batchScoreSchema = z.object({
-        scores: z.array(insertP7ScoreSchema.omit({
+        scores: z.array((insertP7ScoreSchema as any).omit({
             id: true, schoolId: true, createdAt: true, updatedAt: true
         }).extend({
             marks: z.union([z.number(), z.string(), z.null()]).optional(), // Handle potential string inputs or nulls
@@ -5234,7 +5247,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
 
             const validation = batchScoreSchema.safeParse(req.body);
             if (!validation.success) {
-                return res.status(400).json({ message: "Invalid data", errors: validation.error.errors });
+                return res.status(400).json({ message: "Invalid data", errors: validation.error.issues });
             }
 
             const { scores } = validation.data;
