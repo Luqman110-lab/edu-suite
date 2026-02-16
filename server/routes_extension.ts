@@ -1247,7 +1247,8 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             res.json(allStudents);
         } catch (error: any) {
             console.error("Get students error:", error);
-            res.status(500).json({ message: "Failed to fetch students: " + error.message });
+            console.error("Get students error detail:", error.cause || error.detail || error.code || 'no detail');
+            res.status(500).json({ message: "Failed to fetch students: " + (error.cause?.message || error.message) });
         }
     });
 
