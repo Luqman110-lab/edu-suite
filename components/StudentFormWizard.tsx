@@ -307,8 +307,9 @@ export const StudentFormWizard: React.FC<StudentFormWizardProps> = ({
         try {
             await onSubmit(formData);
             onClose();
-        } catch (err) {
+        } catch (err: any) {
             console.error('Submit error:', err);
+            setErrors({ submit: err?.message || 'Failed to save student. Please try again.' });
         } finally {
             setSubmitting(false);
         }
@@ -870,6 +871,11 @@ export const StudentFormWizard: React.FC<StudentFormWizardProps> = ({
                 {/* Form Content */}
                 <div className="flex-1 overflow-y-auto p-6">
                     {renderStep()}
+                    {errors.submit && (
+                        <div className="mt-4 p-3 rounded-lg bg-red-100 border border-red-300 text-red-700 text-sm">
+                            {errors.submit}
+                        </div>
+                    )}
                 </div>
 
                 {/* Footer */}

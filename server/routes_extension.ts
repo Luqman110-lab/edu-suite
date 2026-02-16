@@ -1443,30 +1443,35 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             }
 
             // Using onConflictDoNothing to skip duplicates gracefully
-            const created = await db.insert(students).values(newStudents.map((s: any) => ({
-                indexNumber: s.indexNumber,
-                name: s.name,
-                classLevel: s.classLevel,
-                stream: s.stream,
-                gender: s.gender,
-                paycode: s.paycode,
-                parentName: s.parentName,
-                parentContact: s.parentContact,
-                dateOfBirth: s.dateOfBirth,
-                nationality: s.nationality,
-                religion: s.religion,
-                photoBase64: s.photoBase64,
-                admissionDate: s.admissionDate,
-                admissionNumber: s.admissionNumber,
-                previousSchool: s.previousSchool,
-                boardingStatus: s.boardingStatus,
-                houseOrDormitory: s.houseOrDormitory,
-                medicalInfo: s.medicalInfo,
-                emergencyContacts: s.emergencyContacts,
-                specialCases: s.specialCases,
-                isActive: true,
-                schoolId: schoolId
-            }))).onConflictDoNothing().returning();
+            // Only include defined fields to let DB defaults apply for missing optional fields
+            const created = await db.insert(students).values(newStudents.map((s: any) => {
+                const record: Record<string, unknown> = {
+                    indexNumber: s.indexNumber,
+                    name: s.name,
+                    classLevel: s.classLevel,
+                    stream: s.stream,
+                    gender: s.gender,
+                    isActive: true,
+                    schoolId: schoolId,
+                };
+                // Only set optional fields if they have actual values
+                if (s.paycode) record.paycode = s.paycode;
+                if (s.parentName) record.parentName = s.parentName;
+                if (s.parentContact) record.parentContact = s.parentContact;
+                if (s.dateOfBirth) record.dateOfBirth = s.dateOfBirth;
+                if (s.nationality) record.nationality = s.nationality;
+                if (s.religion) record.religion = s.religion;
+                if (s.photoBase64) record.photoBase64 = s.photoBase64;
+                if (s.admissionDate) record.admissionDate = s.admissionDate;
+                if (s.admissionNumber) record.admissionNumber = s.admissionNumber;
+                if (s.previousSchool) record.previousSchool = s.previousSchool;
+                if (s.boardingStatus) record.boardingStatus = s.boardingStatus;
+                if (s.houseOrDormitory) record.houseOrDormitory = s.houseOrDormitory;
+                if (s.medicalInfo) record.medicalInfo = s.medicalInfo;
+                if (s.emergencyContacts) record.emergencyContacts = s.emergencyContacts;
+                if (s.specialCases) record.specialCases = s.specialCases;
+                return record as typeof students.$inferInsert;
+            })).onConflictDoNothing().returning();
 
             res.json(created);
         } catch (error: any) {

@@ -988,10 +988,7 @@ export const Students: React.FC = () => {
             }
 
             await dbService.saveSettings({ ...currentSettings, streams: updatedStreams });
-            await dbService.saveSettings({ ...currentSettings, streams: updatedStreams });
             const insertedStudents = await dbService.addStudents(newStudents);
-            await queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
-            await queryClient.invalidateQueries({ queryKey: ['demographics'] });
 
             const insertedCount = insertedStudents ? insertedStudents.length : 0;
             const skippedCount = newStudents.length - insertedCount;
@@ -1006,7 +1003,9 @@ export const Students: React.FC = () => {
             } else {
               showToast(msg, 'warning');
             }
-            loadData();
+            await loadData();
+            await queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+            await queryClient.invalidateQueries({ queryKey: ['demographics'] });
           } else {
             let msg = "No valid new students found.";
             if (duplicates > 0) msg += ` ${duplicates} duplicates skipped.`;
@@ -1282,14 +1281,19 @@ export const Students: React.FC = () => {
             isOpen={isModalOpen}
             onClose={() => setIsModalOpen(false)}
             onSubmit={async (data) => {
-              if (data.id) {
-                await dbService.updateStudent(data as Student);
-                showToast('Student updated successfully!', 'success');
-              } else {
-                await dbService.addStudent(data as Student);
-                showToast('Student updated successfully!', 'success');
+              try {
+                if (data.id) {
+                  await dbService.updateStudent(data as Student);
+                  showToast('Student updated successfully!', 'success');
+                } else {
+                  await dbService.addStudent(data as Student);
+                  showToast('Student added successfully!', 'success');
+                }
+                await loadData();
+              } catch (error: any) {
+                showToast(`Failed to save student: ${error.message}`, 'error');
+                throw error;
               }
-              loadData();
             }}
             initialData={selectedStudent || undefined}
             settings={settings}
@@ -1851,14 +1855,19 @@ export const Students: React.FC = () => {
             isOpen={isModalOpen}
             onClose={() => setIsModalOpen(false)}
             onSubmit={async (data) => {
-              if (data.id) {
-                await dbService.updateStudent(data as Student);
-                showToast('Student updated successfully!', 'success');
-              } else {
-                await dbService.addStudent(data as Student);
-                showToast('Student added successfully!', 'success');
+              try {
+                if (data.id) {
+                  await dbService.updateStudent(data as Student);
+                  showToast('Student updated successfully!', 'success');
+                } else {
+                  await dbService.addStudent(data as Student);
+                  showToast('Student added successfully!', 'success');
+                }
+                await loadData();
+              } catch (error: any) {
+                showToast(`Failed to save student: ${error.message}`, 'error');
+                throw error;
               }
-              loadData();
             }}
             initialData={formData.id ? (formData as Student) : undefined}
             settings={settings}
