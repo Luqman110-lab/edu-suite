@@ -1449,6 +1449,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                 classLevel: s.classLevel,
                 stream: s.stream,
                 gender: s.gender,
+                paycode: s.paycode,
                 parentName: s.parentName,
                 parentContact: s.parentContact,
                 dateOfBirth: s.dateOfBirth,

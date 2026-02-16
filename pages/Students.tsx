@@ -936,10 +936,9 @@ export const Students: React.FC = () => {
               nextIndexSuffix++;
             }
 
-            // Check for duplicates
+            // Check for duplicates by index number only (names can be shared)
             const isDuplicate = students.some(s =>
-              s.indexNumber === indexNumber ||
-              (s.name.toLowerCase() === name.toLowerCase())
+              s.indexNumber === indexNumber
             ) || newStudents.some(s => s.indexNumber === indexNumber);
 
             if (isDuplicate) {
