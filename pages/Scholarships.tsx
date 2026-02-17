@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import { Button } from '../components/Button';
+import { FEE_TYPES } from '@/lib/constants';
 
 interface Scholarship {
   id: number;
@@ -31,8 +32,6 @@ interface Student {
   classLevel: string;
   stream: string;
 }
-
-const FEE_TYPES = ['Tuition', 'Boarding', 'Transport', 'Uniform', 'Books', 'Exam', 'Development', 'Other'];
 
 export default function Scholarships() {
   const { isDark } = useTheme();

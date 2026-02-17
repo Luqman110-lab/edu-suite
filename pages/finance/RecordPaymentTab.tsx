@@ -8,6 +8,7 @@ import { StudentFilter, FilterState } from '@/components/StudentFilter';
 import { Button } from '../../components/Button';
 import { Card, Input, Spinner } from '../../components/UIComponents';
 import { ArrowLeft, ChevronDown, CheckCircle } from 'lucide-react';
+import { FEE_TYPES } from '@/lib/constants';
 
 interface Student {
     id: number;
@@ -253,15 +254,9 @@ export default function RecordPaymentTab() {
                         <h3 className="text-lg font-bold">New Transaction</h3>
                     </div>
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        {renderSelect('Fee Type', feeType, setFeeType, [
-                            { value: 'Tuition', label: 'Tuition' },
-                            { value: 'Transport', label: 'Transport' },
-                            { value: 'Uniform', label: 'Uniform' },
-                            { value: 'Meals', label: 'Meals' },
-                            { value: 'Development', label: 'Development' },
-                            { value: 'Registration', label: 'Registration' },
-                            { value: 'Other', label: 'Other' },
-                        ])}
+                        {renderSelect('Fee Type', feeType, setFeeType,
+                            FEE_TYPES.map(t => ({ value: t, label: t }))
+                        )}
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">

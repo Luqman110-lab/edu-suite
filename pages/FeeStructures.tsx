@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import { Button } from '../components/Button';
 import { useToast } from '@/hooks/use-toast';
+import { FEE_TYPES, CLASSES } from '@/lib/constants';
 
 interface FeeStructure {
   id: number;
@@ -14,9 +15,6 @@ interface FeeStructure {
   description: string | null;
   isActive: boolean;
 }
-
-const FEE_TYPES = ['Tuition', 'Boarding', 'Transport', 'Uniform', 'Books', 'Exam', 'Development', 'Other'];
-const CLASSES = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7'];
 
 export default function FeeStructures() {
   const { isDark } = useTheme();

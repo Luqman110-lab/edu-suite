@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useFinance } from '../FinancialHub';
 import { Button } from '../../components/Button';
+import { FEE_TYPES, CLASSES } from '@/lib/constants';
 
 interface FeeStructure {
     id: number;
@@ -17,9 +18,6 @@ interface FeeStructure {
     description: string | null;
     isActive: boolean;
 }
-
-const FEE_TYPES = ['Tuition', 'Boarding', 'Transport', 'Uniform', 'Books', 'Exam', 'Development', 'Other'];
-const CLASSES = ['N1', 'N2', 'N3', 'P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7'];
 
 export default function FeeStructuresTab() {
     const { theme } = useTheme();
@@ -46,6 +44,15 @@ export default function FeeStructuresTab() {
         year: year,
         boardingStatus: '',
         description: '',
+    });
+
+    const { data: allStudents = [] } = useQuery<{ classLevel: string; boardingStatus?: string }[]>({
+        queryKey: ['students-for-fee-counts'],
+        queryFn: async () => {
+            const res = await fetch('/api/students', { credentials: 'include' });
+            if (!res.ok) throw new Error('Failed to fetch');
+            return res.json();
+        },
     });
 
     const { data: structures = [], isLoading } = useQuery<FeeStructure[]>({
@@ -193,12 +200,22 @@ export default function FeeStructuresTab() {
                         return null;
                     }
                     const total = classStructures.reduce((sum, s) => sum + s.amount, 0);
+                    const classStudents = allStudents.filter(s => s.classLevel === cls);
+                    const boardingCount = classStudents.filter(s => s.boardingStatus === 'boarding').length;
+                    const dayCount = classStudents.length - boardingCount;
 
                     return (
                         <div key={cls} className={`rounded-xl ${bgCard} shadow-sm overflow-hidden`}>
                             <div className={`px-6 py-4 border-b ${isDark ? 'border-gray-700 bg-gray-700/50' : 'border-gray-200 bg-gray-50'}`}>
                                 <div className="flex items-center justify-between">
-                                    <h3 className={`text-lg font-semibold ${textPrimary}`}>{cls}</h3>
+                                    <div className="flex items-center gap-3">
+                                        <h3 className={`text-lg font-semibold ${textPrimary}`}>{cls}</h3>
+                                        {classStudents.length > 0 && (
+                                            <span className={`text-xs px-2 py-1 rounded-full ${isDark ? 'bg-gray-600 text-gray-300' : 'bg-gray-200 text-gray-600'}`}>
+                                                {classStudents.length} students ({boardingCount} boarding, {dayCount} day)
+                                            </span>
+                                        )}
+                                    </div>
                                     <span className={`text-lg font-bold ${isDark ? 'text-green-400' : 'text-green-600'}`}>
                                         Total: {formatCurrency(total)}
                                     </span>

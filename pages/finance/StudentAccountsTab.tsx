@@ -1,13 +1,15 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useFinance } from '../FinancialHub';
 import { apiRequest } from '@/lib/queryClient';
+import { useToast } from '@/hooks/use-toast';
 import { StudentFilter, FilterState } from '@/components/StudentFilter';
 import { FeePaymentHistory } from '@/components/FeePaymentHistory';
 import { StudentLedger } from '../components/StudentLedger';
 import { Button } from '../../components/Button';
-import { ArrowLeft, User, CreditCard } from 'lucide-react';
+import { ArrowLeft, User, Edit3, Trash2, Plus } from 'lucide-react';
+import { FEE_TYPES } from '@/lib/constants';
 
 interface Student {
     id: number;
@@ -33,16 +35,44 @@ interface FeeOverride {
     id: number;
     feeType: string;
     customAmount: number;
-    term: number;
+    term: number | null;
     year: number;
+    reason?: string;
+    isActive?: boolean;
 }
+
+interface FeeStructure {
+    id: number;
+    classLevel: string;
+    feeType: string;
+    amount: number;
+    term: number | null;
+    year: number;
+    boardingStatus: string | null;
+    isActive: boolean;
+}
+
+const normalizeClass = (raw: string): string => {
+    if (!raw) return '';
+    return raw.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+};
 
 export default function StudentAccountsTab() {
     const { theme } = useTheme();
     const { term, year, formatCurrency } = useFinance();
+    const { toast } = useToast();
+    const queryClient = useQueryClient();
     const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
     const [filters, setFilters] = useState<FilterState>({
         searchQuery: '', classLevel: '', stream: '', boardingStatus: '',
+    });
+    const [showOverrideModal, setShowOverrideModal] = useState(false);
+    const [overrideForm, setOverrideForm] = useState({
+        feeType: '',
+        standardAmount: 0,
+        customAmount: '',
+        term: '',
+        reason: '',
     });
 
     const isDark = theme === 'dark';
@@ -85,6 +115,130 @@ export default function StudentAccountsTab() {
         },
         enabled: !!selectedStudent,
     });
+
+    const { data: allFeeStructures } = useQuery<FeeStructure[]>({
+        queryKey: ['/api/fee-structures'],
+        queryFn: async () => {
+            const res = await fetch('/api/fee-structures', { credentials: 'include' });
+            if (!res.ok) throw new Error('Failed to fetch');
+            return res.json();
+        },
+        enabled: !!selectedStudent,
+    });
+
+    // Override mutations
+    const createOverrideMutation = useMutation({
+        mutationFn: async (data: Record<string, unknown>) => {
+            const res = await apiRequest('POST', '/api/student-fee-overrides', data);
+            return res.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['student-fee-overrides', selectedStudent?.id] });
+            setShowOverrideModal(false);
+            toast({ title: 'Custom fee saved', description: 'The fee override has been applied.' });
+        },
+        onError: (err: Error) => {
+            toast({ title: 'Failed to save override', description: err.message, variant: 'destructive' });
+        },
+    });
+
+    const deleteOverrideMutation = useMutation({
+        mutationFn: async (id: number) => {
+            await apiRequest('DELETE', `/api/student-fee-overrides/${id}`);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['student-fee-overrides', selectedStudent?.id] });
+            toast({ title: 'Override removed', description: 'Standard fee will apply.' });
+        },
+        onError: (err: Error) => {
+            toast({ title: 'Failed to remove override', description: err.message, variant: 'destructive' });
+        },
+    });
+
+    // Compute fee breakdown for student
+    const getStudentFeeBreakdown = () => {
+        if (!selectedStudent || !allFeeStructures) return [];
+
+        const studentClass = normalizeClass(selectedStudent.classLevel);
+        const studentBoarding = selectedStudent.boardingStatus;
+
+        // Filter fee structures for this student's class, year, term, and boarding status
+        const applicable = allFeeStructures.filter(fs => {
+            if (normalizeClass(fs.classLevel) !== studentClass) return false;
+            if (fs.year !== year) return false;
+            if (fs.isActive === false) return false;
+            // Term: null means all terms, otherwise must match
+            if (fs.term !== null && fs.term !== term) return false;
+            // Boarding: null/empty means all students
+            if (fs.boardingStatus && fs.boardingStatus !== 'all' && fs.boardingStatus !== studentBoarding) return false;
+            return true;
+        });
+
+        const currentOverrides = (feeOverrides || []).filter(o =>
+            o.year === year && (o.isActive !== false) &&
+            (o.term === null || o.term === term)
+        );
+
+        // Group by feeType, picking the most specific structure
+        const feeMap = new Map<string, { standardAmount: number; override: FeeOverride | null; structureId: number }>();
+
+        for (const fs of applicable) {
+            const existing = feeMap.get(fs.feeType);
+            // More specific (with term or boardingStatus) wins
+            if (!existing || (fs.term !== null) || (fs.boardingStatus)) {
+                const override = currentOverrides.find(o => o.feeType === fs.feeType) || null;
+                feeMap.set(fs.feeType, { standardAmount: fs.amount, override, structureId: fs.id });
+            }
+        }
+
+        // Also check for overrides that have no matching structure (custom fee types)
+        for (const o of currentOverrides) {
+            if (!feeMap.has(o.feeType)) {
+                feeMap.set(o.feeType, { standardAmount: 0, override: o, structureId: 0 });
+            }
+        }
+
+        return Array.from(feeMap.entries()).map(([feeType, data]) => ({
+            feeType,
+            standardAmount: data.standardAmount,
+            customAmount: data.override?.customAmount ?? null,
+            effectiveAmount: data.override ? data.override.customAmount : data.standardAmount,
+            override: data.override,
+        }));
+    };
+
+    const openOverrideModal = (feeType: string, standardAmount: number, existingOverride?: FeeOverride | null) => {
+        setOverrideForm({
+            feeType,
+            standardAmount,
+            customAmount: existingOverride ? existingOverride.customAmount.toString() : '',
+            term: '',
+            reason: existingOverride?.reason || '',
+        });
+        setShowOverrideModal(true);
+    };
+
+    const handleSaveOverride = () => {
+        const amount = Math.round(Number(overrideForm.customAmount));
+        if (isNaN(amount) || amount < 0) {
+            toast({ title: 'Invalid amount', description: 'Please enter a valid amount.', variant: 'destructive' });
+            return;
+        }
+
+        createOverrideMutation.mutate({
+            studentId: selectedStudent!.id,
+            feeType: overrideForm.feeType,
+            customAmount: amount,
+            term: overrideForm.term ? parseInt(overrideForm.term) : null,
+            year,
+            reason: overrideForm.reason || null,
+        });
+    };
+
+    const handleDeleteOverride = (override: FeeOverride) => {
+        if (!confirm(`Remove custom fee for ${override.feeType}?`)) return;
+        deleteOverrideMutation.mutate(override.id);
+    };
 
     // Browse mode
     if (!selectedStudent) {
@@ -152,7 +306,8 @@ export default function StudentAccountsTab() {
 
     // Detail mode
     const currentInvoice = studentInvoices?.[0];
-    const currentOverrides = (feeOverrides || []).filter(o => o.year === year);
+    const feeBreakdown = getStudentFeeBreakdown();
+    const totalEffective = feeBreakdown.reduce((sum, row) => sum + row.effectiveAmount, 0);
 
     return (
         <div className="space-y-6">
@@ -199,6 +354,86 @@ export default function StudentAccountsTab() {
                 </div>
             )}
 
+            {/* Fee Breakdown */}
+            <div className={`${bgCard} rounded-xl border ${borderColor} overflow-hidden`}>
+                <div className={`px-6 py-4 border-b ${borderColor} flex items-center justify-between`}>
+                    <div>
+                        <h4 className={`font-semibold ${textPrimary}`}>Fee Breakdown</h4>
+                        <p className={`text-xs ${textSecondary}`}>Term {term}, {year} - Scholarships applied at invoice generation</p>
+                    </div>
+                </div>
+                {feeBreakdown.length > 0 ? (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead className={isDark ? 'bg-gray-700' : 'bg-gray-50'}>
+                                <tr>
+                                    <th className={`px-4 py-2 text-left text-xs font-medium ${textSecondary} uppercase`}>Fee Type</th>
+                                    <th className={`px-4 py-2 text-right text-xs font-medium ${textSecondary} uppercase`}>Standard</th>
+                                    <th className={`px-4 py-2 text-right text-xs font-medium ${textSecondary} uppercase`}>Custom</th>
+                                    <th className={`px-4 py-2 text-right text-xs font-medium ${textSecondary} uppercase`}>Effective</th>
+                                    <th className={`px-4 py-2 text-center text-xs font-medium ${textSecondary} uppercase`}>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                                {feeBreakdown.map(row => (
+                                    <tr key={row.feeType}>
+                                        <td className={`px-4 py-3 font-medium ${textPrimary}`}>
+                                            {row.feeType}
+                                            {row.override && (
+                                                <span className="ml-2 px-1.5 py-0.5 text-xs rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                                                    Custom
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td className={`px-4 py-3 text-right ${textSecondary}`}>
+                                            {formatCurrency(row.standardAmount)}
+                                        </td>
+                                        <td className={`px-4 py-3 text-right ${row.customAmount !== null ? 'text-blue-600 dark:text-blue-400 font-medium' : textSecondary}`}>
+                                            {row.customAmount !== null ? formatCurrency(row.customAmount) : '-'}
+                                        </td>
+                                        <td className={`px-4 py-3 text-right font-bold ${textPrimary}`}>
+                                            {formatCurrency(row.effectiveAmount)}
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                            <div className="flex items-center justify-center gap-1">
+                                                <button
+                                                    onClick={() => openOverrideModal(row.feeType, row.standardAmount, row.override)}
+                                                    className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                                    title={row.override ? 'Edit Custom Fee' : 'Set Custom Fee'}
+                                                >
+                                                    {row.override ? <Edit3 className="w-4 h-4 text-blue-500" /> : <Plus className="w-4 h-4 text-gray-400" />}
+                                                </button>
+                                                {row.override && (
+                                                    <button
+                                                        onClick={() => handleDeleteOverride(row.override!)}
+                                                        className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                                        title="Remove Custom Fee"
+                                                    >
+                                                        <Trash2 className="w-4 h-4 text-red-500" />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                                <tr className={isDark ? 'bg-gray-700/50' : 'bg-gray-50'}>
+                                    <td className={`px-4 py-3 font-bold ${textPrimary}`} colSpan={3}>Total</td>
+                                    <td className={`px-4 py-3 text-right font-bold text-lg ${isDark ? 'text-green-400' : 'text-green-600'}`}>
+                                        {formatCurrency(totalEffective)}
+                                    </td>
+                                    <td />
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                ) : (
+                    <div className={`p-8 text-center ${textSecondary}`}>
+                        <p>No fee structures defined for {selectedStudent.classLevel} in {year}.</p>
+                        <p className="text-xs mt-1">Add fee structures in the Fee Structures tab first.</p>
+                    </div>
+                )}
+            </div>
+
             {/* Invoices for this student */}
             {studentInvoices && studentInvoices.length > 0 && (
                 <div className={`${bgCard} rounded-xl border ${borderColor} overflow-hidden`}>
@@ -238,26 +473,6 @@ export default function StudentAccountsTab() {
                 </div>
             )}
 
-            {/* Fee Overrides */}
-            {currentOverrides.length > 0 && (
-                <div className={`${bgCard} rounded-xl border ${borderColor} overflow-hidden`}>
-                    <div className={`px-6 py-4 border-b ${borderColor}`}>
-                        <h4 className={`font-semibold ${textPrimary}`}>Fee Overrides ({year})</h4>
-                    </div>
-                    <div className="p-4">
-                        <div className="flex flex-wrap gap-3">
-                            {currentOverrides.map(o => (
-                                <div key={o.id} className={`px-3 py-2 rounded-lg border ${borderColor} text-sm`}>
-                                    <span className={textSecondary}>{o.feeType}:</span>{' '}
-                                    <span className={`font-medium ${textPrimary}`}>{formatCurrency(o.customAmount)}</span>
-                                    {o.term ? <span className={`text-xs ${textSecondary}`}> (T{o.term})</span> : null}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            )}
-
             {/* Payment History */}
             <FeePaymentHistory
                 studentId={selectedStudent.id}
@@ -270,6 +485,74 @@ export default function StudentAccountsTab() {
 
             {/* Student Ledger */}
             <StudentLedger studentId={selectedStudent.id} />
+
+            {/* Override Modal */}
+            {showOverrideModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className={`rounded-lg shadow-xl w-full max-w-md mx-4 ${bgCard}`}>
+                        <div className={`px-6 py-4 border-b ${borderColor}`}>
+                            <h3 className={`text-lg font-semibold ${textPrimary}`}>Set Custom Fee</h3>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Fee Type</label>
+                                <div className={`px-3 py-2 rounded-lg border ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-100 border-gray-300 text-gray-900'}`}>
+                                    {overrideForm.feeType}
+                                </div>
+                            </div>
+                            <div>
+                                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Standard Amount</label>
+                                <div className={`px-3 py-2 rounded-lg border ${isDark ? 'bg-gray-700 border-gray-600 text-gray-300' : 'bg-gray-100 border-gray-300 text-gray-600'}`}>
+                                    {formatCurrency(overrideForm.standardAmount)}
+                                </div>
+                            </div>
+                            <div>
+                                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Custom Amount (UGX) *</label>
+                                <input
+                                    type="number"
+                                    value={overrideForm.customAmount}
+                                    onChange={(e) => setOverrideForm({ ...overrideForm, customAmount: e.target.value })}
+                                    placeholder="Enter custom amount"
+                                    className={`w-full px-3 py-2 rounded-lg border ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'} focus:outline-none focus:ring-2 focus:ring-blue-500/30`}
+                                />
+                            </div>
+                            <div>
+                                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Term</label>
+                                <select
+                                    value={overrideForm.term}
+                                    onChange={(e) => setOverrideForm({ ...overrideForm, term: e.target.value })}
+                                    className={`w-full px-3 py-2 rounded-lg border ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
+                                >
+                                    <option value="">All Terms</option>
+                                    <option value="1">Term 1</option>
+                                    <option value="2">Term 2</option>
+                                    <option value="3">Term 3</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Reason</label>
+                                <input
+                                    type="text"
+                                    value={overrideForm.reason}
+                                    onChange={(e) => setOverrideForm({ ...overrideForm, reason: e.target.value })}
+                                    placeholder="e.g., Discount, Partial scholarship"
+                                    className={`w-full px-3 py-2 rounded-lg border ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
+                                />
+                            </div>
+                        </div>
+                        <div className={`px-6 py-4 border-t flex justify-end gap-3 ${borderColor}`}>
+                            <Button variant="outline" onClick={() => setShowOverrideModal(false)}>Cancel</Button>
+                            <Button
+                                onClick={handleSaveOverride}
+                                disabled={createOverrideMutation.isPending || !overrideForm.customAmount}
+                                loading={createOverrideMutation.isPending}
+                            >
+                                Save
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
