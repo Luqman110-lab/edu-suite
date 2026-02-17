@@ -15,7 +15,7 @@ function queryStr(req: Request, key: string): string {
     return val ? String(val) : '';
 }
 
-import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, teacherAttendance, users, userSchools, feeStructures, financeTransactions, conversations, conversationParticipants, messages, promotionHistory, studentFeeOverrides, dormitories, beds, boardingRollCalls, leaveRequests, auditLogs, invoices, invoiceItems, paymentPlans, planInstallments, visitorLogs, boardingSettings, faceEmbeddings, insertStudentSchema, p7ExamSets, p7Scores, scholarships, studentScholarships, insertDormitorySchema, insertBedSchema, insertLeaveRequestSchema, insertVisitorLogSchema, insertBoardingSettingsSchema, insertSchoolSchema, insertUserSchema, insertP7ExamSetSchema, insertProgramItemSchema, schoolEvents } from "../shared/schema";
+import { students, teachers, marks, schools, feePayments, expenses, expenseCategories, gateAttendance, teacherAttendance, users, userSchools, feeStructures, financeTransactions, conversations, conversationParticipants, messages, promotionHistory, studentFeeOverrides, dormitories, beds, boardingRollCalls, leaveRequests, auditLogs, invoices, invoiceItems, paymentPlans, planInstallments, visitorLogs, boardingSettings, faceEmbeddings, insertStudentSchema, p7ExamSets, p7Scores, scholarships, studentScholarships, insertDormitorySchema, insertBedSchema, insertLeaveRequestSchema, insertVisitorLogSchema, insertBoardingSettingsSchema, insertSchoolSchema, insertUserSchema, insertP7ExamSetSchema, insertProgramItemSchema, schoolEvents, studentYearSnapshots } from "../shared/schema";
 import { createInsertSchema } from "drizzle-zod"; // Added import
 import { z } from "zod";
 import { requireAuth, requireAdmin, requireStaff, requireSuperAdmin, getActiveSchoolId, hashPassword } from "./auth";
@@ -1254,6 +1254,36 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
+            const yearParam = queryStr(req, 'year');
+
+            if (yearParam) {
+                // Archive mode: return students from snapshot for that year
+                const year = parseInt(yearParam);
+                const snapshots = await db.select({
+                    id: students.id,
+                    name: students.name,
+                    indexNumber: students.indexNumber,
+                    classLevel: studentYearSnapshots.classLevel,
+                    stream: studentYearSnapshots.stream,
+                    gender: students.gender,
+                    dateOfBirth: students.dateOfBirth,
+                    boardingStatus: studentYearSnapshots.boardingStatus,
+                    parentName: students.parentName,
+                    parentContact: students.parentContact,
+                    photoBase64: students.photoBase64,
+                    isActive: studentYearSnapshots.isActive,
+                    schoolId: students.schoolId,
+                })
+                .from(studentYearSnapshots)
+                .innerJoin(students, eq(studentYearSnapshots.studentId, students.id))
+                .where(and(
+                    eq(studentYearSnapshots.schoolId, schoolId),
+                    eq(studentYearSnapshots.year, year)
+                ))
+                .orderBy(students.name);
+                return res.json(snapshots);
+            }
+
             const allStudents = await db.select().from(students)
                 .where(and(eq(students.schoolId, schoolId), eq(students.isActive, true)))
                 .orderBy(students.name);
@@ -2153,6 +2183,58 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             if (securityConfig !== undefined) updateData.securityConfig = securityConfig;
             if (isActive !== undefined) updateData.isActive = isActive;
 
+            // Auto-archive: if currentYear is changing, snapshot students for the old year
+            if (currentYear !== undefined) {
+                const [existingSchool] = await db.select({ currentYear: schools.currentYear, archivedYears: schools.archivedYears })
+                    .from(schools).where(eq(schools.id, schoolId));
+
+                if (existingSchool && currentYear > existingSchool.currentYear) {
+                    const oldYear = existingSchool.currentYear;
+
+                    // Snapshot all active students with their current class/stream for the old year
+                    const activeStudents = await db.select({
+                        id: students.id,
+                        classLevel: students.classLevel,
+                        stream: students.stream,
+                        boardingStatus: students.boardingStatus,
+                        isActive: students.isActive,
+                    }).from(students).where(and(eq(students.schoolId, schoolId), eq(students.isActive, true)));
+
+                    if (activeStudents.length > 0) {
+                        const snapshots = activeStudents.map(s => ({
+                            schoolId,
+                            studentId: s.id,
+                            year: oldYear,
+                            classLevel: s.classLevel,
+                            stream: s.stream,
+                            boardingStatus: s.boardingStatus || 'day',
+                            isActive: s.isActive ?? true,
+                        }));
+
+                        // Use onConflictDoNothing for idempotency
+                        await db.insert(studentYearSnapshots).values(snapshots).onConflictDoNothing();
+                    }
+
+                    // Update archivedYears
+                    const existingArchived = existingSchool.archivedYears || [];
+                    if (!existingArchived.includes(oldYear)) {
+                        updateData.archivedYears = [...existingArchived, oldYear].sort((a, b) => b - a);
+                    }
+
+                    // Audit log
+                    await db.insert(auditLogs).values({
+                        userId: req.user!.id,
+                        userName: req.user!.name,
+                        action: 'year_archive',
+                        entityType: 'school',
+                        entityId: schoolId,
+                        details: { oldYear, newYear: currentYear, studentsArchived: activeStudents.length },
+                    });
+
+                    console.log(`[Archive] School ${schoolId}: Archived ${activeStudents.length} students for year ${oldYear}, advancing to ${currentYear}`);
+                }
+            }
+
             const updated = await db.update(schools)
                 .set(updateData)
                 .where(eq(schools.id, schoolId))
@@ -2185,6 +2267,147 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
         } catch (error: any) {
             console.error("Delete school error:", error);
             res.status(500).json({ message: "Failed to delete school: " + error.message });
+        }
+    });
+
+    // --- Archive API ---
+
+    // GET available archive years
+    app.get("/api/archive/years", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            const [school] = await db.select({
+                currentYear: schools.currentYear,
+                archivedYears: schools.archivedYears,
+            }).from(schools).where(eq(schools.id, schoolId));
+
+            if (!school) return res.status(404).json({ message: "School not found" });
+
+            res.json({
+                currentYear: school.currentYear,
+                archivedYears: (school.archivedYears || []).sort((a, b) => b - a),
+            });
+        } catch (error: any) {
+            res.status(500).json({ message: "Failed to fetch archive years: " + error.message });
+        }
+    });
+
+    // GET students for a specific archived year (using snapshots)
+    app.get("/api/archive/students", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            const year = parseInt(queryStr(req, 'year'));
+            if (isNaN(year)) return res.status(400).json({ message: "Year parameter required" });
+
+            const snapshotStudents = await db.select({
+                id: students.id,
+                name: students.name,
+                gender: students.gender,
+                indexNumber: students.indexNumber,
+                paycode: students.paycode,
+                parentName: students.parentName,
+                parentContact: students.parentContact,
+                dateOfBirth: students.dateOfBirth,
+                photoBase64: students.photoBase64,
+                boardingStatus: studentYearSnapshots.boardingStatus,
+                classLevel: studentYearSnapshots.classLevel,
+                stream: studentYearSnapshots.stream,
+                isActive: studentYearSnapshots.isActive,
+                snapshotYear: studentYearSnapshots.year,
+            })
+                .from(studentYearSnapshots)
+                .innerJoin(students, eq(studentYearSnapshots.studentId, students.id))
+                .where(and(
+                    eq(studentYearSnapshots.schoolId, schoolId),
+                    eq(studentYearSnapshots.year, year)
+                ))
+                .orderBy(students.name);
+
+            res.json(snapshotStudents);
+        } catch (error: any) {
+            res.status(500).json({ message: "Failed to fetch archived students: " + error.message });
+        }
+    });
+
+    // GET archive summary stats for a year
+    app.get("/api/archive/summary", requireAuth, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            const year = parseInt(queryStr(req, 'year'));
+            if (isNaN(year)) return res.status(400).json({ message: "Year parameter required" });
+
+            const [studentCount] = await db.select({ count: sql<number>`count(*)`.mapWith(Number) })
+                .from(studentYearSnapshots)
+                .where(and(eq(studentYearSnapshots.schoolId, schoolId), eq(studentYearSnapshots.year, year)));
+
+            const [marksCount] = await db.select({ count: sql<number>`count(*)`.mapWith(Number) })
+                .from(marks)
+                .where(and(eq(marks.schoolId, schoolId), eq(marks.year, year)));
+
+            const [feeTotal] = await db.select({ total: sql<number>`COALESCE(SUM(amount), 0)`.mapWith(Number) })
+                .from(feePayments)
+                .where(and(eq(feePayments.schoolId, schoolId), eq(feePayments.year, year)));
+
+            res.json({
+                year,
+                students: studentCount?.count || 0,
+                marksEntries: marksCount?.count || 0,
+                feesCollected: feeTotal?.total || 0,
+            });
+        } catch (error: any) {
+            res.status(500).json({ message: "Failed to fetch archive summary: " + error.message });
+        }
+    });
+
+    // POST manually create a snapshot for a year (admin only)
+    app.post("/api/archive/create-snapshot", requireAdmin, async (req, res) => {
+        try {
+            const schoolId = getActiveSchoolId(req);
+            if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+            const { year } = req.body;
+            if (!year || typeof year !== 'number') return res.status(400).json({ message: "Year is required" });
+
+            const activeStudents = await db.select({
+                id: students.id,
+                classLevel: students.classLevel,
+                stream: students.stream,
+                boardingStatus: students.boardingStatus,
+                isActive: students.isActive,
+            }).from(students).where(and(eq(students.schoolId, schoolId), eq(students.isActive, true)));
+
+            if (activeStudents.length === 0) return res.json({ message: "No active students to snapshot", count: 0 });
+
+            const snapshots = activeStudents.map(s => ({
+                schoolId,
+                studentId: s.id,
+                year,
+                classLevel: s.classLevel,
+                stream: s.stream,
+                boardingStatus: s.boardingStatus || 'day',
+                isActive: s.isActive ?? true,
+            }));
+
+            await db.insert(studentYearSnapshots).values(snapshots).onConflictDoNothing();
+
+            // Update archivedYears on school
+            const [school] = await db.select({ archivedYears: schools.archivedYears }).from(schools).where(eq(schools.id, schoolId));
+            const existingArchived = school?.archivedYears || [];
+            if (!existingArchived.includes(year)) {
+                await db.update(schools).set({
+                    archivedYears: [...existingArchived, year].sort((a, b) => b - a),
+                }).where(eq(schools.id, schoolId));
+            }
+
+            res.json({ message: `Snapshot created for ${year}`, count: activeStudents.length });
+        } catch (error: any) {
+            res.status(500).json({ message: "Failed to create snapshot: " + error.message });
         }
     });
 
@@ -2317,8 +2540,14 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
+            const yearParam = queryStr(req, 'year');
+            const conditions = [eq(marks.schoolId, schoolId)];
+            if (yearParam) {
+                conditions.push(eq(marks.year, parseInt(yearParam)));
+            }
+
             const allMarks = await db.select().from(marks)
-                .where(eq(marks.schoolId, schoolId));
+                .where(and(...conditions));
 
             res.json(allMarks);
         } catch (error: any) {

@@ -5,6 +5,7 @@ import { queryClient, persister } from './lib/queryClient';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { AuthProvider, useAuth } from './hooks/use-auth';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { AcademicYearProvider } from './contexts/AcademicYearContext';
 import { ProtectedRoute } from './lib/protected-route';
 import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
@@ -42,6 +43,7 @@ import { Supervision } from './pages/Supervision';
 import { Planning } from './pages/Planning';
 import { ClassManagement } from './pages/ClassManagement';
 import FinancialHub from './pages/FinancialHub';
+import { ArchivePage } from './pages/Archive';
 import ParentLayout from './pages/parent/ParentLayout';
 import ParentDashboard from './pages/parent/ParentDashboard';
 import ParentStudentView from './pages/parent/ParentStudentView';
@@ -126,6 +128,7 @@ export default function App() {
                 path="/app/*"
                 element={
                   <ProtectedRoute>
+                    <AcademicYearProvider>
                     <Layout>
                       <Routes>
                         <Route index element={<Dashboard />} />
@@ -137,6 +140,7 @@ export default function App() {
                         <Route path="assessments" element={<Assessments />} />
                         <Route path="tests" element={<Tests />} />
                         <Route path="p7" element={<P7ExamSets />} />
+                        <Route path="archive" element={<ArchivePage />} />
                         <Route path="analytics" element={<Analytics />} />
 
 
@@ -159,6 +163,7 @@ export default function App() {
                         <Route path="*" element={<Navigate to="/app" replace />} />
                       </Routes>
                     </Layout>
+                    </AcademicYearProvider>
                   </ProtectedRoute>
                 }
               />

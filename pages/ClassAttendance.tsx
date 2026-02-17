@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAcademicYear } from '../contexts/AcademicYearContext';
 
 interface Student {
   id: number;
@@ -62,6 +63,7 @@ const Button = ({ children, onClick, variant = 'primary', size = 'md', disabled 
 
 export const ClassAttendance: React.FC = () => {
   const { isDark } = useTheme();
+  const { isArchiveMode } = useAcademicYear();
   const [students, setStudents] = useState<Student[]>([]);
   const [classRecords, setClassRecords] = useState<ClassRecord[]>([]);
   const [settings, setSettings] = useState<AttendanceSettings | null>(null);

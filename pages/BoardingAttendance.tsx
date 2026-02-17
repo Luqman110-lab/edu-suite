@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useAcademicYear } from '../contexts/AcademicYearContext';
 
 interface Student {
   id: number;
@@ -24,6 +25,7 @@ interface Dormitory {
 }
 
 export const BoardingAttendance: React.FC = () => {
+  const { isArchiveMode } = useAcademicYear();
   const [students, setStudents] = useState<Student[]>([]);
   const [rollCalls, setRollCalls] = useState<RollCall[]>([]);
   const [dormitories, setDormitories] = useState<Dormitory[]>([]);

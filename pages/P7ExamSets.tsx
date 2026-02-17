@@ -3,6 +3,7 @@ import { dbService } from '../services/api';
 import { Student, ClassLevel, SubjectMarks, SchoolSettings, Teacher, SUBJECTS_UPPER } from '../types';
 import { calculateGrade, calculateAggregate, calculateDivision } from '../services/grading';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAcademicYear } from '../contexts/AcademicYearContext';
 import { Button } from '../components/Button';
 
 declare const jspdf: any;
@@ -49,6 +50,7 @@ const Icons = {
 
 export const P7ExamSets: React.FC = () => {
   const { isDark } = useTheme();
+  const { isArchiveMode } = useAcademicYear();
 
   const [examSets, setExamSets] = useState<P7ExamSet[]>([]);
   const [scores, setScores] = useState<P7Score[]>([]);

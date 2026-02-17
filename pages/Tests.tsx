@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { dbService } from '../services/api';
 import { Student, ClassLevel, SchoolSettings, SUBJECTS_LOWER, SUBJECTS_UPPER } from '../types';
 import { calculateGrade, calculateAggregate, calculateDivision } from '../services/grading';
+import { useAcademicYear } from '../contexts/AcademicYearContext';
 
 declare const jspdf: any;
 
@@ -99,6 +100,7 @@ const Icons = {
 type ViewMode = 'sessions' | 'entry' | 'results';
 
 export const Tests: React.FC = () => {
+  const { isArchiveMode } = useAcademicYear();
   const [viewMode, setViewMode] = useState<ViewMode>('sessions');
   const [testSessions, setTestSessions] = useState<TestSession[]>([]);
   const [selectedSession, setSelectedSession] = useState<TestSession | null>(null);

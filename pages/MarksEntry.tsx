@@ -4,6 +4,7 @@ import { Student, ClassLevel, SubjectMarks, AssessmentType, MarkRecord, SUBJECTS
 import { calculateGrade, calculateAggregate, calculateDivision } from '../services/grading';
 import { Button } from '../components/Button';
 import { useClassNames } from '../hooks/use-class-names';
+import { useAcademicYear } from '../contexts/AcademicYearContext';
 import * as XLSX from 'xlsx';
 
 interface HistoryState {
@@ -16,6 +17,7 @@ interface HistoryState {
 
 export const MarksEntry: React.FC = () => {
   const { getDisplayName, getAllClasses } = useClassNames();
+  const { selectedYear, isArchiveMode } = useAcademicYear();
   const [selectedClass, setSelectedClass] = useState<ClassLevel>(ClassLevel.P7);
   const [selectedStream, setSelectedStream] = useState<string>('All');
   const [selectedTerm, setSelectedTerm] = useState(1);
@@ -252,7 +254,7 @@ export const MarksEntry: React.FC = () => {
       setSettings(currentSettings);
     }
 
-    const allStudents = await dbService.getStudents();
+    const allStudents = await dbService.getStudents(isArchiveMode ? selectedYear : undefined);
     let classStudents = allStudents.filter(s => s.classLevel === selectedClass);
 
     if (selectedStream !== 'All') {
@@ -261,7 +263,7 @@ export const MarksEntry: React.FC = () => {
 
     classStudents.sort((a, b) => a.name.localeCompare(b.name));
 
-    const allMarks = await dbService.getMarks();
+    const allMarks = await dbService.getMarks(isArchiveMode ? selectedYear : undefined);
     const currentMarks: { [id: number]: SubjectMarks } = {};
     const currentComments: { [id: number]: string } = {};
     const loadedAbsent = new Set<number>();
@@ -588,7 +590,7 @@ export const MarksEntry: React.FC = () => {
     setLoading(true);
     saveToHistory();
     setLoading(true);
-    const allMarks = await dbService.getMarks();
+    const allMarks = await dbService.getMarks(isArchiveMode ? selectedYear : undefined);
     const year = settings?.currentYear || new Date().getFullYear();
 
     const newMarksData = { ...marksData };
@@ -737,7 +739,7 @@ export const MarksEntry: React.FC = () => {
   };
 
   const downloadTemplate = async () => {
-    const allStudents = await dbService.getStudents();
+    const allStudents = await dbService.getStudents(isArchiveMode ? selectedYear : undefined);
 
     let classStudents = allStudents.filter(s => s.classLevel === selectedClass);
 
@@ -984,7 +986,7 @@ export const MarksEntry: React.FC = () => {
         return;
       }
 
-      const allStudents = await dbService.getStudents();
+      const allStudents = await dbService.getStudents(isArchiveMode ? selectedYear : undefined);
       const classStudents = allStudents.filter(s =>
         s.classLevel === selectedClass &&
         (selectedStream === 'All' || s.stream === selectedStream)
@@ -1232,13 +1234,13 @@ export const MarksEntry: React.FC = () => {
             <Button variant="secondary" size="sm" onClick={downloadTemplate}>
               Template
             </Button>
-            <Button variant="outline" size="sm" onClick={handleImportClick} disabled={loading}>
+            <Button variant="outline" size="sm" onClick={handleImportClick} disabled={loading || isArchiveMode}>
               Import
             </Button>
             <Button variant="outline" size="sm" onClick={copyFromOtherAssessment} disabled={loading}>
               Copy {selectedType === AssessmentType.BOT ? 'EOT' : 'BOT'}
             </Button>
-            <Button onClick={handleSave} disabled={loading || !hasUnsavedChanges}>
+            <Button onClick={handleSave} disabled={loading || !hasUnsavedChanges || isArchiveMode}>
               {loading ? 'Saving...' : 'Save All'}
             </Button>
             <div className="h-6 w-px bg-gray-200 dark:bg-gray-600 mx-1"></div>

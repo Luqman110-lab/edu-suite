@@ -7,6 +7,8 @@ import { PWAInstallPrompt } from './PWAInstallPrompt';
 import { NetworkStatus } from './NetworkStatus';
 import { MobileBottomNav } from './MobileBottomNav';
 import { QRScanner } from './QRScanner';
+import { AcademicYearSelector } from './AcademicYearSelector';
+import { useAcademicYear } from '../contexts/AcademicYearContext';
 import {
   LayoutDashboard,
   Users,
@@ -42,7 +44,8 @@ import {
   Search,
   School2,
   Layers,
-  Camera
+  Camera,
+  Archive
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -299,6 +302,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const { user, logoutMutation, activeSchool, isSuperAdmin } = useAuth();
   const { isDark, toggleTheme } = useTheme();
+  const { isArchiveMode, selectedYear } = useAcademicYear();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState(0);
@@ -424,6 +428,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       ]
     },
     { path: '/app/finance-hub', label: 'Finance', icon: BadgeDollarSign, allowedRoles: ['admin'] },
+    { path: '/app/archive', label: 'Archive', icon: Archive, allowedRoles: ['admin'] },
     { path: '/app/analytics', label: 'Analytics', icon: BarChart3, allowedRoles: ['admin'] },
     { path: '/app/settings', label: 'Settings', icon: Settings, allowedRoles: ['admin'] },
     ...(isSuperAdmin ? [{ path: '/app/admin', label: 'Admin Console', icon: School2 }] : []),
@@ -711,6 +716,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
             <SchoolSelector />
 
+            <AcademicYearSelector />
+
             <button
               onClick={toggleTheme}
               className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-yellow-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
@@ -729,6 +736,15 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             </button>
           </div>
         </header>
+
+        {isArchiveMode && (
+          <div className="bg-amber-50 dark:bg-amber-900/30 border-b border-amber-200 dark:border-amber-800 px-4 py-2 flex items-center justify-center gap-2">
+            <Archive className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+            <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
+              Viewing {selectedYear} archive data (read-only)
+            </span>
+          </div>
+        )}
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 pb-20 md:pb-8 scroll-smooth">
           <div className={`max-w-7xl mx-auto transition-all duration-300 ${collapsed ? 'max-w-[1600px]' : ''}`}>

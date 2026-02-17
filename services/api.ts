@@ -18,7 +18,7 @@ async function handleResponse<T>(res: Response): Promise<T> {
   return res.json();
 }
 
-async function apiRequest<T>(
+export async function apiRequest<T>(
   method: string,
   url: string,
   data?: unknown
@@ -118,7 +118,7 @@ export interface MarkRecord {
 export type { SchoolSettings, SecurityConfig, GradingConfig, SubjectConfig, ReportConfig };
 
 export const apiService = {
-  getStudents: () => apiRequest<Student[]>('GET', '/students'),
+  getStudents: (year?: number) => apiRequest<Student[]>('GET', year ? `/students?year=${year}` : '/students'),
 
   addStudent: (student: Omit<Student, 'id'>) =>
     apiRequest<Student>('POST', '/students', student),
@@ -146,7 +146,7 @@ export const apiService = {
   deleteTeacher: (id: number) =>
     apiRequest<void>('DELETE', `/teachers/${id}`),
 
-  getMarks: () => apiRequest<MarkRecord[]>('GET', '/marks'),
+  getMarks: (year?: number) => apiRequest<MarkRecord[]>('GET', year ? `/marks?year=${year}` : '/marks'),
 
   saveMark: (mark: Omit<MarkRecord, 'id'>) =>
     apiRequest<MarkRecord>('POST', '/marks', mark),

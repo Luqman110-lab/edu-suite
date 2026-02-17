@@ -8,6 +8,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useClassNames } from '../hooks/use-class-names';
 import * as XLSX from 'xlsx';
 import { ReportPreviewModal } from '../components/ReportPreviewModal';
+import { useAcademicYear } from '../contexts/AcademicYearContext';
 
 declare const jspdf: any;
 
@@ -95,6 +96,7 @@ const calculatePositionFromMarks = (studentId: number, marks: ApiMarkRecord[], c
 export const Reports: React.FC = () => {
   const { isDark } = useTheme();
   const { getDisplayName, getAllClasses } = useClassNames();
+  const { selectedYear, isArchiveMode } = useAcademicYear();
   const [selectedClass, setSelectedClass] = useState<ClassLevel>(ClassLevel.P7);
   const [selectedStream, setSelectedStream] = useState<string>('All');
   const [selectedTerm, setSelectedTerm] = useState(1);
@@ -143,8 +145,8 @@ export const Reports: React.FC = () => {
 
       setDataLoading(true);
       try {
-        const allStudents = await dbService.getStudents();
-        const marks = await dbService.getMarks();
+        const allStudents = await dbService.getStudents(isArchiveMode ? selectedYear : undefined);
+        const marks = await dbService.getMarks(isArchiveMode ? selectedYear : undefined);
         const teachers = await dbService.getTeachers();
 
         setAllMarks(marks);
@@ -364,7 +366,7 @@ export const Reports: React.FC = () => {
     }
     setLoading(true);
 
-    const allStudents = await dbService.getStudents();
+    const allStudents = await dbService.getStudents(isArchiveMode ? selectedYear : undefined);
     let classStudents = allStudents.filter(s => s.classLevel === selectedClass);
 
     if (selectedStream !== 'All') {
@@ -377,7 +379,7 @@ export const Reports: React.FC = () => {
       classStudents = classStudents.filter(s => selectedStudentIds.has(s.id!));
     }
 
-    const allMarks = await dbService.getMarks();
+    const allMarks = await dbService.getMarks(isArchiveMode ? selectedYear : undefined);
     const allTeachers = await dbService.getTeachers();
     const year = settings.currentYear || new Date().getFullYear();
 

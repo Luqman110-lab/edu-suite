@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useAcademicYear } from '../contexts/AcademicYearContext';
 
 interface Student {
   id: number;
@@ -23,6 +24,7 @@ interface VisitorLogEntry {
 }
 
 export const VisitorLog: React.FC = () => {
+  const { isArchiveMode } = useAcademicYear();
   const [students, setStudents] = useState<Student[]>([]);
   const [visitors, setVisitors] = useState<VisitorLogEntry[]>([]);
   const [loading, setLoading] = useState(true);

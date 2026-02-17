@@ -143,6 +143,7 @@ export const schools = pgTable("schools", {
     allowedIPAddresses: [],
     enforceIPWhitelist: false,
   }),
+  archivedYears: json("archived_years").$type<number[]>().default([]),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -2485,5 +2486,36 @@ export const insertProgramItemSchema = createInsertSchema(programItems);
 export const selectProgramItemSchema = createSelectSchema(programItems);
 export type ProgramItem = typeof programItems.$inferSelect;
 export type InsertProgramItem = typeof programItems.$inferInsert;
+
+// ==================== ACADEMIC YEAR ARCHIVE ====================
+
+export const studentYearSnapshots = pgTable("student_year_snapshots", {
+  id: serial("id").primaryKey(),
+  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
+  studentId: integer("student_id").notNull().references(() => students.id, { onDelete: "cascade" }),
+  year: integer("year").notNull(),
+  classLevel: text("class_level").notNull(),
+  stream: text("stream").notNull(),
+  boardingStatus: text("boarding_status").default("day"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  schoolYearIdx: index("snapshots_school_year_idx").on(table.schoolId, table.year),
+  studentYearUnique: unique().on(table.studentId, table.year),
+}));
+
+export const studentYearSnapshotsRelations = relations(studentYearSnapshots, ({ one }) => ({
+  school: one(schools, {
+    fields: [studentYearSnapshots.schoolId],
+    references: [schools.id],
+  }),
+  student: one(students, {
+    fields: [studentYearSnapshots.studentId],
+    references: [students.id],
+  }),
+}));
+
+export const insertStudentYearSnapshotSchema = createInsertSchema(studentYearSnapshots);
+export type StudentYearSnapshot = typeof studentYearSnapshots.$inferSelect;
 
 

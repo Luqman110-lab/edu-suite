@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { useAcademicYear } from '../contexts/AcademicYearContext';
 
 interface Dormitory {
   id: number;
@@ -35,6 +36,7 @@ interface Student {
 }
 
 export const DormitoryManager: React.FC = () => {
+  const { isArchiveMode } = useAcademicYear();
   const [dormitories, setDormitories] = useState<Dormitory[]>([]);
   const [beds, setBeds] = useState<Bed[]>([]);
   const [students, setStudents] = useState<Student[]>([]);

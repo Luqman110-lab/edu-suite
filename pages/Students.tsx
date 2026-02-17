@@ -11,6 +11,7 @@ import { StudentIDCard, BulkIDCardPrint } from '../components/StudentIDCard';
 import { StudentFormWizard } from '../components/StudentFormWizard';
 import { AttendanceSummaryCard, PerformanceTrendCard, BirthdayBadge } from '../components/StudentProfileCards';
 import { useClassNames } from '../hooks/use-class-names';
+import { useAcademicYear } from '../contexts/AcademicYearContext';
 const FaceEnrollment = React.lazy(() => import('../client/src/components/FaceEnrollment'));
 
 const ITEMS_PER_PAGE = 100;
@@ -129,7 +130,7 @@ const AcademicHistory = ({ studentId, isDark }: { studentId: number; isDark: boo
 
   useEffect(() => {
     const fetchHistory = async () => {
-      const allMarks = await dbService.getMarks();
+      const allMarks = await dbService.getMarks();  // Student profile history - no year filter needed
       const studentMarks = allMarks.filter(m => m.studentId === studentId).sort((a, b) => {
         if (a.year !== b.year) return b.year - a.year;
         if (a.term !== b.term) return b.term - a.term;
@@ -475,6 +476,7 @@ export const Students: React.FC = () => {
   const queryClient = useQueryClient();
   const { isDark } = useTheme();
   const { getDisplayName, getAllClasses } = useClassNames();
+  const { selectedYear, isArchiveMode } = useAcademicYear();
   const [viewMode, setViewMode] = useState<'list' | 'grid' | 'profile'>('list');
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -524,7 +526,7 @@ export const Students: React.FC = () => {
   const loadData = async () => {
     try {
       let studentLoadError = '';
-      const studentsPromise = dbService.getStudents().catch(err => {
+      const studentsPromise = dbService.getStudents(isArchiveMode ? selectedYear : undefined).catch(err => {
         console.error("Failed to fetch students:", err);
         studentLoadError = err.message || 'Unknown error loading students';
         return [];
@@ -1309,13 +1311,13 @@ export const Students: React.FC = () => {
           <Button variant="secondary" onClick={downloadImportTemplate} size="sm">
             Template
           </Button>
-          <Button variant="outline" onClick={handleImportClick} disabled={importing}>
+          <Button variant="outline" onClick={handleImportClick} disabled={importing || isArchiveMode}>
             {importing ? 'Importing...' : 'Import CSV'}
           </Button>
           <Button variant="outline" onClick={exportStudentsCSV}>
             Export CSV
           </Button>
-          <Button onClick={() => {
+          <Button disabled={isArchiveMode} onClick={() => {
             const defaultClass = ClassLevel.P1;
             const defaultStream = settings?.streams[defaultClass]?.[0] || '';
             setFormData({

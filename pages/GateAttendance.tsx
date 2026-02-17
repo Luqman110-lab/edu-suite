@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAcademicYear } from '../contexts/AcademicYearContext';
 
 interface Student {
   id: number;
@@ -77,6 +78,7 @@ const Button = ({ children, onClick, variant = 'primary', size = 'md', disabled 
 
 export const GateAttendance: React.FC = () => {
   const { isDark } = useTheme();
+  const { selectedYear, isArchiveMode } = useAcademicYear();
   const [students, setStudents] = useState<Student[]>([]);
   const [gateRecords, setGateRecords] = useState<GateRecord[]>([]);
   const [settings, setSettings] = useState<AttendanceSettings | null>(null);

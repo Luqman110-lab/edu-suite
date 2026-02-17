@@ -5,6 +5,7 @@ import { dbService } from '../services/api';
 import { ClassLevel, AssessmentType, SUBJECTS_UPPER, SUBJECTS_LOWER, SchoolSettings, MarkRecord, Student, Gender, Teacher } from '../types';
 import { calculateGrade, calculateAggregate, calculateDivision } from '../services/grading';
 import { useClassNames } from '../hooks/use-class-names';
+import { useAcademicYear } from '../contexts/AcademicYearContext';
 import { Button } from '../components/Button';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 
@@ -34,6 +35,7 @@ const Icons = {
 export const Assessments: React.FC = () => {
   const { isDark } = useTheme();
   const { getDisplayName, getAllClasses } = useClassNames();
+  const { selectedYear, isArchiveMode } = useAcademicYear();
   const [selectedClass, setSelectedClass] = useState<ClassLevel>(ClassLevel.P7);
   const [selectedStream, setSelectedStream] = useState<string>('ALL');
   const [selectedTerm, setSelectedTerm] = useState(1);
@@ -96,14 +98,14 @@ export const Assessments: React.FC = () => {
   };
 
   const getFilteredData = async () => {
-    const allStudents = await dbService.getStudents();
+    const allStudents = await dbService.getStudents(isArchiveMode ? selectedYear : undefined);
     let classStudents = allStudents.filter(s => s.classLevel === selectedClass);
 
     if (selectedStream !== 'ALL') {
       classStudents = classStudents.filter(s => s.stream === selectedStream);
     }
 
-    const allMarks = await dbService.getMarks();
+    const allMarks = await dbService.getMarks(isArchiveMode ? selectedYear : undefined);
     const year = settings?.currentYear || new Date().getFullYear();
     const typeToAnalyze = selectedType === 'BOTH' ? AssessmentType.EOT : selectedType;
 
@@ -878,9 +880,9 @@ export const Assessments: React.FC = () => {
     if (!settings) return;
     setLoading(true);
 
-    const allStudents = await dbService.getStudents();
+    const allStudents = await dbService.getStudents(isArchiveMode ? selectedYear : undefined);
     const classStudents = allStudents.filter(s => s.classLevel === selectedClass);
-    const allMarks = await dbService.getMarks();
+    const allMarks = await dbService.getMarks(isArchiveMode ? selectedYear : undefined);
     const year = settings.currentYear || new Date().getFullYear();
 
     let filteredStudents = classStudents;

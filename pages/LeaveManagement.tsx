@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useAcademicYear } from '../contexts/AcademicYearContext';
 
 interface Student {
   id: number;
@@ -28,6 +29,7 @@ interface LeaveRequest {
 }
 
 export const LeaveManagement: React.FC = () => {
+  const { isArchiveMode } = useAcademicYear();
   const [students, setStudents] = useState<Student[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState(true);
