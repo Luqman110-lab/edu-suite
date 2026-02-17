@@ -55,7 +55,7 @@ export default defineConfig(({ mode }) => {
               handler: 'NetworkOnly',
               options: {
                 backgroundSync: {
-                  name: 'mutation-queue',
+                  name: 'post-mutation-queue',
                   options: {
                     maxRetentionTime: 24 * 60 // 24 hours
                   }
@@ -68,7 +68,7 @@ export default defineConfig(({ mode }) => {
               handler: 'NetworkOnly',
               options: {
                 backgroundSync: {
-                  name: 'mutation-queue',
+                  name: 'put-mutation-queue',
                   options: {
                     maxRetentionTime: 24 * 60 // 24 hours
                   }
@@ -81,7 +81,7 @@ export default defineConfig(({ mode }) => {
               handler: 'NetworkOnly',
               options: {
                 backgroundSync: {
-                  name: 'mutation-queue',
+                  name: 'delete-mutation-queue',
                   options: {
                     maxRetentionTime: 24 * 60 // 24 hours
                   }
