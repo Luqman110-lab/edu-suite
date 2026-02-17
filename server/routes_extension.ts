@@ -3810,64 +3810,36 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
             const schoolId = getActiveSchoolId(req);
             if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-            const result = (insertSchoolSchema as any).partial().safeParse(req.body);
-            if (!result.success) {
-                return res.status(400).json({ message: "Invalid data", errors: result.error.issues });
-            }
+            // Build update object with only the fields actually provided
+            const body = req.body;
+            const updateData: Record<string, unknown> = { updatedAt: new Date() };
 
-            const { schoolName, addressBox, contactPhones, email, motto, regNumber, centreNumber,
-                primaryColor, secondaryColor, logoBase64, currentTerm, currentYear,
-                streams, gradingConfig, subjectsConfig, reportConfig, securityConfig, idCardConfig,
-                nextTermBeginBoarders, nextTermBeginDay } = result.data as any; // Cast as any because some fields might be mapped differently or just use result.data
-
-            // We need to map 'schoolName' back to 'name' if it came in as such, or schema handles it?
-            // insertSchoolSchema uses 'name', but the route uses 'schoolName'.
-            // Let's check schema. schools table has 'name'. 
-            // If the frontend sends 'schoolName', Zod for 'schools' (insertSchoolSchema) will fail or ignore it if strict.
-            // The route destructures 'schoolName' but DB column is 'name'.
-            // I should respect the route's destructuring but validate what I can.
-            // Actually, best to manually validation or adapt the body.
-            // The frontend seems to send 'schoolName'.
-
-            // Let's just validate specific fields we know match, or skip full schema if it mismatches too much.
-            // But we want to improve validation. 
-            // Let's map schoolName -> name for validation.
-
-            const payload = { ...req.body };
-            if (payload.schoolName) payload.name = payload.schoolName;
-
-            const validation = (insertSchoolSchema as any).partial().safeParse(payload);
-            if (!validation.success) {
-                return res.status(400).json({ message: "Invalid data", errors: validation.error.issues });
-            }
-
-            // Proceed with update using the original destructured logic to map correctly to DB
-            // Or just use validation.data if it mapped correctly.
+            // Map frontend field names to DB column names
+            if (body.schoolName !== undefined) updateData.name = body.schoolName;
+            if (body.name !== undefined) updateData.name = body.name;
+            if (body.addressBox !== undefined) updateData.addressBox = body.addressBox;
+            if (body.contactPhones !== undefined) updateData.contactPhones = body.contactPhones;
+            if (body.email !== undefined) updateData.email = body.email;
+            if (body.motto !== undefined) updateData.motto = body.motto;
+            if (body.regNumber !== undefined) updateData.regNumber = body.regNumber;
+            if (body.centreNumber !== undefined) updateData.centreNumber = body.centreNumber;
+            if (body.primaryColor !== undefined) updateData.primaryColor = body.primaryColor;
+            if (body.secondaryColor !== undefined) updateData.secondaryColor = body.secondaryColor;
+            if (body.logoBase64 !== undefined) updateData.logoBase64 = body.logoBase64;
+            if (body.currentTerm !== undefined) updateData.currentTerm = body.currentTerm;
+            if (body.currentYear !== undefined) updateData.currentYear = body.currentYear;
+            if (body.streams !== undefined) updateData.streams = body.streams;
+            if (body.classAliases !== undefined) updateData.classAliases = body.classAliases;
+            if (body.gradingConfig !== undefined) updateData.gradingConfig = body.gradingConfig;
+            if (body.subjectsConfig !== undefined) updateData.subjectsConfig = body.subjectsConfig;
+            if (body.reportConfig !== undefined) updateData.reportConfig = body.reportConfig;
+            if (body.securityConfig !== undefined) updateData.securityConfig = body.securityConfig;
+            if (body.idCardConfig !== undefined) updateData.idCardConfig = body.idCardConfig;
+            if (body.nextTermBeginBoarders !== undefined) updateData.nextTermBeginBoarders = body.nextTermBeginBoarders;
+            if (body.nextTermBeginDay !== undefined) updateData.nextTermBeginDay = body.nextTermBeginDay;
 
             const updated = await db.update(schools)
-                .set({
-                    name: schoolName, // from req.body or validated?
-                    addressBox,
-                    contactPhones,
-                    email,
-                    motto,
-                    regNumber,
-                    centreNumber,
-                    primaryColor,
-                    secondaryColor,
-                    logoBase64,
-                    currentTerm,
-                    currentYear,
-                    streams,
-                    gradingConfig,
-                    subjectsConfig,
-                    reportConfig,
-                    securityConfig,
-                    idCardConfig,
-                    nextTermBeginBoarders,
-                    nextTermBeginDay,
-                    updatedAt: new Date(),
-                })
+                .set(updateData as typeof schools.$inferInsert)
 
                 .where(eq(schools.id, schoolId))
                 .returning();
