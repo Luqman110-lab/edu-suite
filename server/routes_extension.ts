@@ -3790,6 +3790,7 @@ OVER(ORDER BY transaction_date ASC, id ASC) as running_balance
                 currentTerm: school[0].currentTerm || 1,
                 currentYear: school[0].currentYear || new Date().getFullYear(),
                 streams: school[0].streams || defaultStreams,
+                classAliases: school[0].classAliases || {},
                 gradingConfig: school[0].gradingConfig || defaultGrading,
                 subjectsConfig: school[0].subjectsConfig || defaultSubjects,
                 reportConfig: school[0].reportConfig || defaultReport,
