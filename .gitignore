@@ -7,6 +7,27 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Debug / build output files
+*_log.txt
+*_log_*.txt
+*-log.txt
+build-log.txt
+error_log*.txt
+error_logs.json
+all_logs.json
+logs.json
+v4_errors.json
+db_check_result.txt
+drizzle-output.txt
+seed_log.txt
+server_log*.txt
+verify_result.txt
+headers.txt
+fix_ts_log.txt
+
+# Uploaded files
+uploads/
+
 node_modules
 dist
 dist-ssr
