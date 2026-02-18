@@ -27,6 +27,7 @@ fix_ts_log.txt
 
 # Uploaded files
 uploads/
+attached_assets/
 
 node_modules
 dist

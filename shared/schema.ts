@@ -334,99 +334,7 @@ export const marks = pgTable("marks", {
   studentTermTypeUnique: unique().on(table.studentId, table.term, table.year, table.type),
 }));
 
-// DEPRECATED: This table is no longer used. School settings are stored in the 'schools' table.
-export const deprecatedSettings = pgTable("settings", {
-  id: text("id").primaryKey().default("config"),
-  schoolName: text("school_name").default("BROADWAY NURSERY AND PRIMARY SCHOOL"),
-  addressBox: text("address_box").default("P.O.BOX 10, NAAMA-MITYANA"),
-  contactPhones: text("contact_phones").default("0772324288  0709087676  0744073812"),
-  motto: text("motto").default("WE BUILD FOR THE FUTURE"),
-  regNumber: text("reg_number").default("ME/P/10247"),
-  centreNumber: text("centre_number").default("670135"),
-  logoBase64: text("logo_base64"),
-  currentTerm: integer("current_term").default(1),
-  currentYear: integer("current_year").default(2026),
-  nextTermBeginBoarders: text("next_term_begin_boarders").default(""),
-  nextTermBeginDay: text("next_term_begin_day").default(""),
-  streams: json("streams").$type<{ [key: string]: string[] }>().default({
-    N1: [],
-    N2: [],
-    N3: [],
-    P1: [],
-    P2: [],
-    P3: [],
-    P4: [],
-    P5: [],
-    P6: [],
-    P7: [],
-  }),
-  classAliases: json("class_aliases").$type<{ [key: string]: string }>().default({}),
-  gradingConfig: json("grading_config").$type<{
-    grades: { grade: string; minScore: number; maxScore: number; points: number }[];
-    divisions: { division: string; minAggregate: number; maxAggregate: number }[];
-    passingMark: number;
-  }>().default({
-    grades: [
-      { grade: "D1", minScore: 90, maxScore: 100, points: 1 },
-      { grade: "D2", minScore: 80, maxScore: 89, points: 2 },
-      { grade: "C3", minScore: 70, maxScore: 79, points: 3 },
-      { grade: "C4", minScore: 60, maxScore: 69, points: 4 },
-      { grade: "C5", minScore: 55, maxScore: 59, points: 5 },
-      { grade: "C6", minScore: 50, maxScore: 54, points: 6 },
-      { grade: "P7", minScore: 45, maxScore: 49, points: 7 },
-      { grade: "P8", minScore: 40, maxScore: 44, points: 8 },
-      { grade: "F9", minScore: 0, maxScore: 39, points: 9 },
-    ],
-    divisions: [
-      { division: "I", minAggregate: 4, maxAggregate: 12 },
-      { division: "II", minAggregate: 13, maxAggregate: 24 },
-      { division: "III", minAggregate: 25, maxAggregate: 28 },
-      { division: "IV", minAggregate: 29, maxAggregate: 32 },
-      { division: "U", minAggregate: 33, maxAggregate: 36 },
-    ],
-    passingMark: 40,
-  }),
-  subjectsConfig: json("subjects_config").$type<{
-    lowerPrimary: { name: string; code: string; isCompulsory: boolean }[];
-    upperPrimary: { name: string; code: string; isCompulsory: boolean }[];
-  }>().default({
-    lowerPrimary: [
-      { name: "English", code: "english", isCompulsory: true },
-      { name: "Mathematics", code: "maths", isCompulsory: true },
-      { name: "Literacy 1", code: "literacy1", isCompulsory: true },
-      { name: "Literacy 2", code: "literacy2", isCompulsory: true },
-    ],
-    upperPrimary: [
-      { name: "English", code: "english", isCompulsory: true },
-      { name: "Mathematics", code: "maths", isCompulsory: true },
-      { name: "Science", code: "science", isCompulsory: true },
-      { name: "Social Studies", code: "sst", isCompulsory: true },
-    ],
-  }),
-  reportConfig: json("report_config").$type<{
-    headteacherName: string;
-    headteacherTitle: string;
-    showClassTeacherSignature: boolean;
-    showHeadteacherSignature: boolean;
-    showParentSignature: boolean;
-    commentTemplates: string[];
-    conductOptions: string[];
-  }>().default({
-    headteacherName: "",
-    headteacherTitle: "Headteacher",
-    showClassTeacherSignature: true,
-    showHeadteacherSignature: true,
-    showParentSignature: true,
-    commentTemplates: [
-      "Excellent performance. Keep it up!",
-      "Good work. Continue improving.",
-      "Fair performance. More effort needed.",
-      "Needs improvement. Work harder next term.",
-      "Poor performance. Requires special attention.",
-    ],
-    conductOptions: ["Excellent", "Very Good", "Good", "Fair", "Needs Improvement"],
-  }),
-});
+
 
 export const activityLogs = pgTable("activity_logs", {
   id: serial("id").primaryKey(),
@@ -631,8 +539,7 @@ export const selectTeacherSchema = createSelectSchema(teachers);
 export const insertMarkSchema = createInsertSchema(marks);
 export const selectMarkSchema = createSelectSchema(marks);
 
-export const insertSettingsSchema = createInsertSchema(deprecatedSettings);
-export const selectSettingsSchema = createSelectSchema(deprecatedSettings);
+
 
 export const insertActivityLogSchema = createInsertSchema(activityLogs);
 export const selectActivityLogSchema = createSelectSchema(activityLogs);
@@ -665,8 +572,7 @@ export type Teacher = typeof teachers.$inferSelect;
 export type InsertTeacher = typeof teachers.$inferInsert;
 export type Mark = typeof marks.$inferSelect;
 export type InsertMark = typeof marks.$inferInsert;
-export type Settings = typeof deprecatedSettings.$inferSelect;
-export type InsertSettings = typeof deprecatedSettings.$inferInsert;
+
 export type ActivityLog = typeof activityLogs.$inferSelect;
 export type InsertActivityLog = typeof activityLogs.$inferInsert;
 export type TestSession = typeof testSessions.$inferSelect;

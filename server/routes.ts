@@ -14,7 +14,7 @@ import { expensesRoutes } from "./routes/expenses";       // relative paths: /, 
 import { attendanceRoutes } from "./routes/attendance";   // absolute paths: /gate-attendance, /attendance-settings
 import { boardingRoutes } from "./routes/boarding";       // absolute paths: /boarding-stats, /dormitories, /visitor-logs
 import { adminRoutes } from "./routes/admin";             // absolute paths: /settings, /users, /schools
-import { messagingRoutes } from "./routes/messaging";     // absolute paths: /notifications/subscribe, /events
+import { notificationsRoutes } from "./routes/notifications"; // absolute paths: /notifications/subscribe, /events, /program-items
 import { academicRoutes } from "./routes/academic";       // absolute paths: /test-sessions
 import { biometricRoutes } from "./routes/biometrics";   // absolute paths: /face-embeddings
 import { conversationRoutes } from "./routes/conversations"; // absolute paths: /conversations, /messaging/users, /upload
@@ -36,7 +36,7 @@ export function registerRoutes(app: Express): Server {
     app.use("/api", attendanceRoutes);
     app.use("/api", boardingRoutes);
     app.use("/api", adminRoutes);
-    app.use("/api", messagingRoutes);
+    app.use("/api", notificationsRoutes);
     app.use("/api", academicRoutes);
     app.use("/api", biometricRoutes);
     app.use("/api", conversationRoutes);

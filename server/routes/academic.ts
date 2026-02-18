@@ -1,24 +1,18 @@
-
 import { Router } from "express";
-import { db } from "../db";
-import { eq, and, desc } from "drizzle-orm";
-import { testSessions, testScores, students } from "../../shared/schema";
-import { requireAuth, requireAdmin, getActiveSchoolId } from "../auth";
+import { academicService } from "../services/AcademicService";
+import { requireAuth, getActiveSchoolId } from "../auth";
 
 export const academicRoutes = Router();
 
 // --- Test Sessions ---
 
-// GET /api/test-sessions - List endpoints
+// GET /api/test-sessions
 academicRoutes.get("/test-sessions", requireAuth, async (req, res) => {
     try {
         const schoolId = getActiveSchoolId(req);
         if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-        const sessions = await db.select().from(testSessions)
-            .where(and(eq(testSessions.schoolId, schoolId), eq(testSessions.isActive, true)))
-            .orderBy(desc(testSessions.testDate));
-
+        const sessions = await academicService.getTestSessions(schoolId);
         res.json(sessions);
     } catch (error: any) {
         console.error("Get test sessions error:", error);
@@ -26,27 +20,13 @@ academicRoutes.get("/test-sessions", requireAuth, async (req, res) => {
     }
 });
 
-// POST /api/test-sessions - Create endpoint
+// POST /api/test-sessions
 academicRoutes.post("/test-sessions", requireAuth, async (req, res) => {
     try {
         const schoolId = getActiveSchoolId(req);
         if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-        const { name, testType, classLevel, stream, term, year, testDate, maxMarks } = req.body;
-
-        const [newSession] = await db.insert(testSessions).values({
-            schoolId,
-            name,
-            testType,
-            classLevel,
-            stream: stream || null,
-            term: parseInt(term),
-            year: parseInt(year),
-            testDate,
-            maxMarks,
-            isActive: true
-        }).returning();
-
+        const newSession = await academicService.createTestSession(schoolId, req.body);
         res.status(201).json(newSession);
     } catch (error: any) {
         console.error("Create test session error:", error);
@@ -54,98 +34,57 @@ academicRoutes.post("/test-sessions", requireAuth, async (req, res) => {
     }
 });
 
-// PUT /api/test-sessions/:id - Update endpoint
+// PUT /api/test-sessions/:id
 academicRoutes.put("/test-sessions/:id", requireAuth, async (req, res) => {
     try {
         const schoolId = getActiveSchoolId(req);
         if (!schoolId) return res.status(400).json({ message: "No active school selected" });
         const id = parseInt(req.params.id as string);
 
-        // Verify ownership
-        const existing = await db.select().from(testSessions)
-            .where(and(eq(testSessions.id, id), eq(testSessions.schoolId, schoolId)))
-            .limit(1);
-
-        if (!existing.length) return res.status(404).json({ message: "Test session not found" });
-
-        // Only allow safe fields to be updated (prevent mass assignment)
-        const { name, testType, classLevel, stream, term, year, testDate, maxMarks, isActive } = req.body;
-        const safeUpdate: Record<string, any> = {};
-        if (name !== undefined) safeUpdate.name = name;
-        if (testType !== undefined) safeUpdate.testType = testType;
-        if (classLevel !== undefined) safeUpdate.classLevel = classLevel;
-        if (stream !== undefined) safeUpdate.stream = stream;
-        if (term !== undefined) safeUpdate.term = term;
-        if (year !== undefined) safeUpdate.year = year;
-        if (testDate !== undefined) safeUpdate.testDate = testDate;
-        if (maxMarks !== undefined) safeUpdate.maxMarks = maxMarks;
-        if (isActive !== undefined) safeUpdate.isActive = isActive;
-
-        const [updated] = await db.update(testSessions)
-            .set(safeUpdate)
-            .where(eq(testSessions.id, id))
-            .returning();
-
+        const updated = await academicService.updateTestSession(id, schoolId, req.body);
         res.json(updated);
     } catch (error: any) {
+        if (error.message === "Test session not found") return res.status(404).json({ message: error.message });
         console.error("Update test session error:", error);
         res.status(500).json({ message: "Failed to update test session" });
     }
 });
 
-// DELETE /api/test-sessions/:id - Delete endpoint
+// DELETE /api/test-sessions/:id
 academicRoutes.delete("/test-sessions/:id", requireAuth, async (req, res) => {
     try {
         const schoolId = getActiveSchoolId(req);
         if (!schoolId) return res.status(400).json({ message: "No active school selected" });
         const id = parseInt(req.params.id as string);
 
-        const existing = await db.select().from(testSessions)
-            .where(and(eq(testSessions.id, id), eq(testSessions.schoolId, schoolId)))
-            .limit(1);
-
-        if (!existing.length) return res.status(404).json({ message: "Test session not found" });
-
-        // Soft delete
-        await db.update(testSessions)
-            .set({ isActive: false })
-            .where(eq(testSessions.id, id));
-
+        const success = await academicService.deleteTestSession(id, schoolId);
         res.json({ message: "Test session deleted" });
     } catch (error: any) {
+        if (error.message === "Test session not found") return res.status(404).json({ message: error.message });
         console.error("Delete test session error:", error);
         res.status(500).json({ message: "Failed to delete test session" });
     }
 });
 
-
 // --- Test Scores ---
 
-// GET /api/test-scores/:sessionId - Get scores for a session
+// GET /api/test-scores/:sessionId
 academicRoutes.get("/test-scores/:sessionId", requireAuth, async (req, res) => {
     try {
         const schoolId = getActiveSchoolId(req);
         if (!schoolId) return res.status(400).json({ message: "No active school selected" });
         const sessionId = parseInt(req.params.sessionId as string);
 
-        // Verify the session belongs to the active school
-        const session = await db.select().from(testSessions)
-            .where(and(eq(testSessions.id, sessionId), eq(testSessions.schoolId, schoolId)))
-            .limit(1);
-
-        if (!session.length) return res.status(404).json({ message: "Test session not found" });
-
-        const scores = await db.select().from(testScores)
-            .where(eq(testScores.testSessionId, sessionId));
-
+        const scores = await academicService.getTestScores(sessionId, schoolId);
         res.json(scores);
     } catch (error: any) {
+        if (error.message === "Test session not found") return res.status(404).json({ message: error.message });
         console.error("Get test scores error:", error);
         res.status(500).json({ message: "Failed to fetch test scores" });
     }
 });
 
-// POST /api/test-scores/batch - Batch save scores
+// POST /api/test-scores/batch
 academicRoutes.post("/test-scores/batch", requireAuth, async (req, res) => {
     try {
         const schoolId = getActiveSchoolId(req);
@@ -154,47 +93,7 @@ academicRoutes.post("/test-scores/batch", requireAuth, async (req, res) => {
         const { scores } = req.body;
         if (!Array.isArray(scores)) return res.status(400).json({ message: "Invalid scores data" });
 
-        // Process in transaction or loop
-        const savedScores = [];
-
-        for (const score of scores) {
-            const { testSessionId, studentId, rawMarks, convertedMarks, aggregate, division } = score;
-
-            // Check if exists
-            const existing = await db.select().from(testScores)
-                .where(and(
-                    eq(testScores.testSessionId, testSessionId),
-                    eq(testScores.studentId, studentId)
-                ))
-                .limit(1);
-
-            if (existing.length > 0) {
-                // Update
-                const [updated] = await db.update(testScores)
-                    .set({
-                        rawMarks,
-                        convertedMarks,
-                        aggregate,
-                        division
-                    })
-                    .where(eq(testScores.id, existing[0].id))
-                    .returning();
-                savedScores.push(updated);
-            } else {
-                // Insert
-                const [inserted] = await db.insert(testScores).values({
-                    schoolId,
-                    testSessionId,
-                    studentId,
-                    rawMarks,
-                    convertedMarks,
-                    aggregate,
-                    division
-                }).returning();
-                savedScores.push(inserted);
-            }
-        }
-
+        const savedScores = await academicService.batchSaveTestScores(schoolId, scores);
         res.json(savedScores);
     } catch (error: any) {
         console.error("Batch save scores error:", error);

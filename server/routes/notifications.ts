@@ -13,10 +13,10 @@ function param(req: Request, key: string): string {
     return Array.isArray(val) ? val[0] : val;
 }
 
-export const messagingRoutes = Router();
+export const notificationsRoutes = Router();
 
 // POST /api/notifications/subscribe
-messagingRoutes.post("/notifications/subscribe", requireAuth, async (req, res) => {
+notificationsRoutes.post("/notifications/subscribe", requireAuth, async (req, res) => {
     try {
         const subscription = req.body;
         const existing = await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.endpoint, subscription.endpoint));
@@ -35,7 +35,7 @@ messagingRoutes.post("/notifications/subscribe", requireAuth, async (req, res) =
 });
 
 // POST /api/notifications/test
-messagingRoutes.post("/notifications/test", requireAuth, async (req, res) => {
+notificationsRoutes.post("/notifications/test", requireAuth, async (req, res) => {
     try {
         await NotificationService.sendToUser((req.user as any).id, "Test Notification", "System check successful!");
         res.json({ message: "Test notification sent" });
@@ -45,7 +45,7 @@ messagingRoutes.post("/notifications/test", requireAuth, async (req, res) => {
 });
 
 // GET /api/events/:eventId/program
-messagingRoutes.get("/events/:eventId/program", requireAuth, async (req, res) => {
+notificationsRoutes.get("/events/:eventId/program", requireAuth, async (req, res) => {
     try {
         const eventId = parseInt(param(req, 'eventId'));
         const items = await db.select().from(programItems)
@@ -58,7 +58,7 @@ messagingRoutes.get("/events/:eventId/program", requireAuth, async (req, res) =>
 });
 
 // POST /api/events/:eventId/program
-messagingRoutes.post("/events/:eventId/program", requireStaff, async (req, res) => {
+notificationsRoutes.post("/events/:eventId/program", requireStaff, async (req, res) => {
     try {
         const schoolId = getActiveSchoolId(req);
         if (!schoolId) return res.status(400).json({ message: "No active school selected" });
@@ -77,7 +77,7 @@ messagingRoutes.post("/events/:eventId/program", requireStaff, async (req, res) 
 });
 
 // DELETE /api/program-items/:id
-messagingRoutes.delete("/program-items/:id", requireStaff, async (req, res) => {
+notificationsRoutes.delete("/program-items/:id", requireStaff, async (req, res) => {
     try {
         const schoolId = getActiveSchoolId(req);
         if (!schoolId) return res.status(400).json({ message: "No active school selected" });
@@ -93,7 +93,7 @@ messagingRoutes.delete("/program-items/:id", requireStaff, async (req, res) => {
 });
 
 // PUT /api/program-items/:id
-messagingRoutes.put("/program-items/:id", requireStaff, async (req, res) => {
+notificationsRoutes.put("/program-items/:id", requireStaff, async (req, res) => {
     try {
         const schoolId = getActiveSchoolId(req);
         if (!schoolId) return res.status(400).json({ message: "No active school selected" });

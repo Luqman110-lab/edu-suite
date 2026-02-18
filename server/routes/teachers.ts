@@ -1,7 +1,5 @@
 import { Router, Request } from "express";
-import { db } from "../db";
-import { eq, and } from "drizzle-orm";
-import { teachers } from "../../shared/schema";
+import { teacherService } from "../services/TeacherService";
 import { requireAuth, requireAdmin, getActiveSchoolId } from "../auth";
 
 function param(req: Request, key: string): string {
@@ -17,8 +15,7 @@ teacherRoutes.get("/", requireAuth, async (req, res) => {
         const schoolId = getActiveSchoolId(req);
         if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-        const allTeachers = await db.select().from(teachers)
-            .where(and(eq(teachers.schoolId, schoolId), eq(teachers.isActive, true)));
+        const allTeachers = await teacherService.getTeachers(schoolId);
         res.json(allTeachers);
     } catch (error: any) {
         console.error("Get teachers error:", error);
@@ -32,8 +29,8 @@ teacherRoutes.post("/", requireAdmin, async (req, res) => {
         const schoolId = getActiveSchoolId(req);
         if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-        const newTeacher = await db.insert(teachers).values({ ...req.body, schoolId, isActive: true }).returning();
-        res.status(201).json(newTeacher[0]);
+        const newTeacher = await teacherService.createTeacher(schoolId, req.body, req.user!.id, req.user!.name);
+        res.status(201).json(newTeacher);
     } catch (error: any) {
         console.error("Create teacher error:", error);
         res.status(500).json({ message: "Failed to create teacher: " + error.message });
@@ -48,13 +45,10 @@ teacherRoutes.put("/:id", requireAdmin, async (req, res) => {
         if (!schoolId) return res.status(400).json({ message: "No active school selected" });
         if (isNaN(teacherId)) return res.status(400).json({ message: "Invalid teacher ID" });
 
-        const existing = await db.select().from(teachers)
-            .where(and(eq(teachers.id, teacherId), eq(teachers.schoolId, schoolId))).limit(1);
-        if (existing.length === 0) return res.status(404).json({ message: "Teacher not found" });
+        const updated = await teacherService.updateTeacher(teacherId, schoolId, req.body, req.user!.id, req.user!.name);
+        if (!updated) return res.status(404).json({ message: "Teacher not found" });
 
-        const updated = await db.update(teachers).set({ ...req.body, schoolId })
-            .where(eq(teachers.id, teacherId)).returning();
-        res.json(updated[0]);
+        res.json(updated);
     } catch (error: any) {
         console.error("Update teacher error:", error);
         res.status(500).json({ message: "Failed to update teacher: " + error.message });
@@ -69,11 +63,9 @@ teacherRoutes.delete("/:id", requireAdmin, async (req, res) => {
         if (!schoolId) return res.status(400).json({ message: "No active school selected" });
         if (isNaN(teacherId)) return res.status(400).json({ message: "Invalid teacher ID" });
 
-        const existing = await db.select().from(teachers)
-            .where(and(eq(teachers.id, teacherId), eq(teachers.schoolId, schoolId))).limit(1);
-        if (existing.length === 0) return res.status(404).json({ message: "Teacher not found" });
+        const success = await teacherService.deleteTeacher(teacherId, schoolId, req.user!.id, req.user!.name);
+        if (!success) return res.status(404).json({ message: "Teacher not found" });
 
-        await db.update(teachers).set({ isActive: false }).where(eq(teachers.id, teacherId));
         res.json({ message: "Teacher deleted successfully" });
     } catch (error: any) {
         console.error("Delete teacher error:", error);
@@ -90,14 +82,7 @@ teacherRoutes.post("/batch", requireAdmin, async (req, res) => {
         const { teachers: newTeachers } = req.body;
         if (!Array.isArray(newTeachers) || newTeachers.length === 0) return res.status(400).json({ message: "No teachers provided" });
 
-        const created = await db.insert(teachers).values(newTeachers.map((t: any) => ({
-            name: t.name, gender: t.gender, phone: t.phone, email: t.email,
-            employeeId: t.employeeId, roles: t.roles, assignedClass: t.assignedClass,
-            assignedStream: t.assignedStream, subjects: t.subjects, teachingClasses: t.teachingClasses,
-            qualifications: t.qualifications, dateJoined: t.dateJoined, initials: t.initials,
-            schoolId, isActive: true
-        }))).returning();
-
+        const created = await teacherService.batchImportTeachers(schoolId, newTeachers);
         res.json(created);
     } catch (error: any) {
         console.error("Batch teacher import error:", error);
