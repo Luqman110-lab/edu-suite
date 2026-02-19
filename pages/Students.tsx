@@ -9,7 +9,7 @@ import { toast } from 'react-hot-toast'; // Assuming usage of react-hot-toast or
 import { Student, ClassLevel, Gender } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
 import { useClassNames } from '../client/src/hooks/use-class-names';
-import { useAcademicYear } from '../hooks/useAcademicYear';
+import { useAcademicYear } from '../contexts/AcademicYearContext';
 import { useStudents } from '../client/src/hooks/useStudents';
 import { useSettings } from '../client/src/hooks/useSettings';
 import { Button } from '../components/Button';
