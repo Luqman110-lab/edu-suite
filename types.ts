@@ -432,3 +432,75 @@ export interface SchoolRoutine {
   slots?: RoutineSlot[];
 }
 
+
+export interface P7ExamSet {
+  id?: number;
+  setNumber: number;
+  name: string;
+  stream?: string;
+  term: number;
+  year: number;
+  examDate?: string;
+  maxMarks: { english?: number; maths?: number; science?: number; sst?: number };
+  isActive: boolean;
+}
+
+export interface P7Score {
+  id?: number;
+  examSetId: number;
+  studentId: number;
+  marks: SubjectMarks;
+  total: number;
+  aggregate: number;
+  division: string;
+  position?: number;
+  comment?: string;
+  status?: string;
+}
+
+export interface TestSession {
+  id?: number;
+  schoolId?: number;
+  name: string;
+  testType: string;
+  classLevel: string;
+  stream?: string;
+  term: number;
+  year: number;
+  testDate?: string;
+  maxMarks: {
+    english?: number;
+    maths?: number;
+    science?: number;
+    sst?: number;
+    literacy1?: number;
+    literacy2?: number;
+  };
+  isActive?: boolean;
+  createdAt?: string;
+}
+
+export interface TestScore {
+  id?: number;
+  schoolId?: number;
+  testSessionId: number;
+  studentId: number;
+  rawMarks: {
+    english?: number;
+    maths?: number;
+    science?: number;
+    sst?: number;
+    literacy1?: number;
+    literacy2?: number;
+  };
+  convertedMarks: {
+    english?: number;
+    maths?: number;
+    science?: number;
+    sst?: number;
+    literacy1?: number;
+    literacy2?: number;
+  };
+  aggregate?: number;
+  division?: string;
+}

@@ -1,517 +1,84 @@
-
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import Papa from 'papaparse';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import Papa from 'papaparse';
+import { toast } from 'react-hot-toast'; // Assuming usage of react-hot-toast or similar, based on previous code usually having a toast generic
+// If not using react-hot-toast, we'll keep the local toast implementation but it's better to use the global one if available.
+// The previous code had a local `toast` state. I will keep the local one for now to minimize breaking changes, 
+// OR I can see if `Toast` component is imported. It was.
 
-import { dbService } from '../services/api';
-import { Student, ClassLevel, Gender, MarkRecord, SchoolSettings } from '../types';
-import { Button } from '../components/Button';
+import { Student, ClassLevel, Gender } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
-import { StudentIDCard, BulkIDCardPrint } from '../components/StudentIDCard';
-import { StudentFormWizard } from '../components/StudentFormWizard';
-import { AttendanceSummaryCard, PerformanceTrendCard, BirthdayBadge } from '../components/StudentProfileCards';
-import { useClassNames } from '../hooks/use-class-names';
-import { useAcademicYear } from '../contexts/AcademicYearContext';
-const FaceEnrollment = React.lazy(() => import('../client/src/components/FaceEnrollment'));
+import { useClassNames } from '../client/src/hooks/use-class-names';
+import { useAcademicYear } from '../hooks/useAcademicYear';
+import { useStudents } from '../client/src/hooks/useStudents';
+import { useSettings } from '../client/src/hooks/useSettings';
+import { Button } from '../components/Button';
+import { Toast } from '../components/Toast';
+import { StudentIDCard } from '../components/StudentIDCard';
+import { BulkIDCardPrint } from '../components/BulkIDCardPrint';
+import { FaceEnrollment } from '../components/FaceEnrollment';
 
-const ITEMS_PER_PAGE = 100;
+// Imported Components
+import { StudentStats } from '../client/src/components/students/StudentStats';
+import { StudentFilters } from '../client/src/components/students/StudentFilters';
+import { StudentList } from '../client/src/components/students/StudentList';
+import { StudentModal } from '../client/src/components/students/StudentModal';
+import { StudentProfile } from '../client/src/components/students/StudentProfile';
+import { PromoteStudentsModal } from '../client/src/components/students/PromoteStudentsModal';
 
-// Modern Imports
-import { LayoutGrid, List as ListIcon, Search, Filter, Download, Upload, Plus, Printer, Trash2, MoreHorizontal, Calendar, MapPin, Hash, Building, User, Phone, Mail, Heart, AlertCircle, FileText, School, Clock } from 'lucide-react';
-
-const ProfileHeader = ({ student, onEdit, onBack, onPrintID, onEnrollFace, hasFaceEnrolled, isDark }: { student: Student; onEdit: () => void; onBack: () => void; onPrintID: () => void; onEnrollFace: () => void; hasFaceEnrolled: boolean; isDark: boolean }) => {
-  const { getDisplayName } = useClassNames();
-  return (
-    <div className={`rounded-2xl shadow-sm border overflow-hidden mb-8 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-      {/* Animated Gradient Banner */}
-      <div className="h-48 relative bg-gradient-to-r from-blue-600 via-indigo-700 to-purple-800 overflow-hidden">
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150"></div>
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/30"></div>
-
-        {/* Decorative Blur Circles */}
-        <div className="absolute -top-24 -right-24 w-64 h-64 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
-        <div className="absolute top-0 -left-4 w-72 h-72 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
-
-        <div className="absolute top-4 left-6">
-          <Button variant="ghost" size="sm" onClick={onBack} className="text-white/80 hover:text-white hover:bg-white/10 transition-all backdrop-blur-sm">
-            <div className="flex items-center gap-1">
-              <span className="text-lg">←</span>
-              <span>Back to Directory</span>
-            </div>
-          </Button>
-        </div>
-      </div>
-
-      <div className="px-8 pb-8 relative">
-        <div className="flex flex-col md:flex-row justify-between items-end -mt-16 gap-6">
-
-          {/* Avatar and Main Info */}
-          <div className="flex flex-col md:flex-row items-end md:items-end gap-6">
-            <div className="relative group">
-              <div className={`h-32 w-32 rounded-full p-1.5 shadow-xl ${isDark ? 'bg-gray-800 ring-4 ring-gray-800' : 'bg-white ring-4 ring-white'}`}>
-                {student.photoBase64 ? (
-                  <img
-                    src={student.photoBase64}
-                    alt={student.name}
-                    className="h-full w-full rounded-full object-cover border border-gray-200 dark:border-gray-700"
-                  />
-                ) : (
-                  <div className={`h-full w-full rounded-full flex items-center justify-center text-4xl font-bold border-2 ${isDark ? 'bg-gray-700 text-gray-300 border-gray-600' : 'bg-gradient-to-br from-indigo-50 to-blue-50 text-indigo-500 border-white'}`}>
-                    {student.name.substring(0, 2).toUpperCase()}
-                  </div>
-                )}
-              </div>
-              <div className="absolute bottom-2 right-2 h-6 w-6 rounded-full border-4 border-white dark:border-gray-900 bg-green-500 shadow-sm" title="Active Student"></div>
-            </div>
-
-            <div className="mb-2 text-center md:text-left z-10 relative pt-2">
-              <h1 className={`text-4xl md:text-5xl font-black tracking-tight mb-3 ${isDark ? 'text-white' : 'text-gray-900 drop-shadow-sm'}`}>{student.name}</h1>
-
-              <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
-                <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border ${isDark ? 'bg-blue-900/30 border-blue-800 text-blue-300' : 'bg-blue-50 border-blue-100 text-blue-700'}`}>
-                  <School size={14} />
-                  <span>{getDisplayName(student.classLevel)} {student.stream}</span>
-                </div>
-
-                <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border ${student.gender === 'M' ? (isDark ? 'bg-sky-900/30 border-sky-800 text-sky-300' : 'bg-sky-50 border-sky-100 text-sky-700') : (isDark ? 'bg-pink-900/30 border-pink-800 text-pink-300' : 'bg-pink-50 border-pink-100 text-pink-700')}`}>
-                  <User size={14} />
-                  <span>{student.gender === 'M' ? 'Male' : 'Female'}</span>
-                </div>
-
-                {student.boardingStatus && (
-                  <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border ${student.boardingStatus === 'boarding' ? (isDark ? 'bg-purple-900/30 border-purple-800 text-purple-300' : 'bg-purple-50 border-purple-100 text-purple-700') : (isDark ? 'bg-gray-800/80 border-gray-700 text-gray-400' : 'bg-gray-100 border-gray-200 text-gray-600')}`}>
-                    <Building size={14} />
-                    <span>{student.boardingStatus === 'boarding' ? 'Boarder' : 'Day Scholar'}</span>
-                  </div>
-                )}
-
-                <BirthdayBadge dateOfBirth={student.dateOfBirth} isDark={isDark} />
-              </div>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex gap-3 mb-2 flex-wrap justify-center md:justify-end w-full md:w-auto">
-            <Button
-              variant="outline"
-              className={`${isDark ? 'bg-gray-800 hover:bg-gray-700 border-gray-700' : 'bg-white hover:bg-gray-50'}`}
-              onClick={onPrintID}
-            >
-              <Printer size={16} className="mr-2" />
-              Print ID
-            </Button>
-
-            <Button
-              variant={hasFaceEnrolled ? "outline" : "secondary"}
-              className={hasFaceEnrolled ? (isDark ? 'border-green-800 text-green-400' : 'border-green-200 text-green-700 bg-green-50') : ''}
-              onClick={onEnrollFace}
-            >
-              <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${hasFaceEnrolled ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-                {hasFaceEnrolled ? 'Face Enrolled' : 'Enroll Face'}
-              </div>
-            </Button>
-
-            <Button onClick={onEdit} className="shadow-lg shadow-primary-600/20">
-              Edit Profile
-            </Button>
-          </div>
-
-        </div>
-      </div>
-    </div>
-  );
-
-};
-
-const AcademicHistory = ({ studentId, isDark }: { studentId: number; isDark: boolean }) => {
-  const [history, setHistory] = useState<MarkRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchHistory = async () => {
-      const allMarks = await dbService.getMarks();  // Student profile history - no year filter needed
-      const studentMarks = allMarks.filter(m => m.studentId === studentId).sort((a, b) => {
-        if (a.year !== b.year) return b.year - a.year;
-        if (a.term !== b.term) return b.term - a.term;
-        return 0;
-      });
-      setHistory(studentMarks as any);
-      setLoading(false);
-    };
-    fetchHistory();
-  }, [studentId]);
-
-  if (loading) return <div className={`p-4 text-center ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Loading history...</div>;
-
-  return (
-    <div className={`rounded-lg shadow-sm border overflow-hidden ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-      <div className={`px-6 py-4 border-b flex justify-between items-center ${isDark ? 'bg-gray-750 border-gray-700' : 'bg-gray-50 border-gray-100'}`}>
-        <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-gray-800'}`}>Academic History</h3>
-        <span className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{history.length} Records found</span>
-      </div>
-      {history.length === 0 ? (
-        <div className={`p-8 text-center ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>No academic records found for this student.</div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className={isDark ? 'bg-gray-750' : 'bg-gray-50'}>
-              <tr>
-                <th className={`px-6 py-3 text-left text-xs font-medium uppercase ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Year</th>
-                <th className={`px-6 py-3 text-left text-xs font-medium uppercase ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Term</th>
-                <th className={`px-6 py-3 text-left text-xs font-medium uppercase ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Type</th>
-                <th className={`px-6 py-3 text-center text-xs font-medium uppercase ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Agg</th>
-                <th className={`px-6 py-3 text-center text-xs font-medium uppercase ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Div</th>
-              </tr>
-            </thead>
-            <tbody className={`divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
-              {history.map((record) => (
-                <tr key={record.id} className={isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}>
-                  <td className={`px-6 py-4 whitespace-nowrap text-sm ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>{record.year}</td>
-                  <td className={`px-6 py-4 whitespace-nowrap text-sm ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>Term {record.term}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <span className={`px-2 py-1 rounded-full text-xs ${record.type === 'EOT' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300' : 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300'}`}>
-                      {record.type}
-                    </span>
-                  </td>
-                  <td className={`px-6 py-4 whitespace-nowrap text-sm font-bold text-center ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>{record.aggregate}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-center text-primary-600">{record.division}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
-};
-
-const PersonalInfoCard = ({ student, isDark }: { student: Student; isDark: boolean }) => (
-  <div className={`rounded-xl shadow-sm border overflow-hidden ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-    <div className={`px-6 py-4 border-b flex items-center gap-3 ${isDark ? 'bg-gray-750 border-gray-700' : 'bg-gray-50/50 border-gray-100'}`}>
-      <div className={`p-2 rounded-lg ${isDark ? 'bg-gray-700 text-gray-300' : 'bg-white text-gray-500 shadow-sm border border-gray-100'}`}>
-        <User size={18} />
-      </div>
-      <h3 className={`font-semibold text-lg ${isDark ? 'text-white' : 'text-gray-800'}`}>Personal Details</h3>
-    </div>
-    <div className="p-6 space-y-6">
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-        <div className="group">
-          <div className="flex items-center gap-2 mb-1">
-            <Calendar size={14} className={isDark ? 'text-gray-500' : 'text-gray-400'} />
-            <label className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Date of Birth</label>
-          </div>
-          <p className={`text-sm font-medium pl-6 ${isDark ? 'text-gray-200' : 'text-gray-900 group-hover:text-primary-600 transition-colors'}`}>{student.dateOfBirth || '-'}</p>
-        </div>
-        <div className="group">
-          <div className="flex items-center gap-2 mb-1">
-            <MapPin size={14} className={isDark ? 'text-gray-500' : 'text-gray-400'} />
-            <label className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Nationality</label>
-          </div>
-          <p className={`text-sm font-medium pl-6 ${isDark ? 'text-gray-200' : 'text-gray-900 group-hover:text-primary-600 transition-colors'}`}>{student.nationality || 'Ugandan'}</p>
-        </div>
-        <div className="group">
-          <div className="flex items-center gap-2 mb-1">
-            <Hash size={14} className={isDark ? 'text-gray-500' : 'text-gray-400'} />
-            <label className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Religion</label>
-          </div>
-          <p className={`text-sm font-medium pl-6 ${isDark ? 'text-gray-200' : 'text-gray-900 group-hover:text-primary-600 transition-colors'}`}>{student.religion || '-'}</p>
-        </div>
-        <div className="group">
-          <div className="flex items-center gap-2 mb-1">
-            <FileText size={14} className={isDark ? 'text-gray-500' : 'text-gray-400'} />
-            <label className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Pay Code</label>
-          </div>
-          <p className={`text-sm font-mono font-medium pl-6 ${isDark ? 'text-gray-200' : 'text-gray-900 group-hover:text-primary-600 transition-colors'}`}>{student.paycode || '-'}</p>
-        </div>
-        <div className="group">
-          <div className="flex items-center gap-2 mb-1">
-            <Clock size={14} className={isDark ? 'text-gray-500' : 'text-gray-400'} />
-            <label className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Admission Date</label>
-          </div>
-          <p className={`text-sm font-medium pl-6 ${isDark ? 'text-gray-200' : 'text-gray-900 group-hover:text-primary-600 transition-colors'}`}>{student.admissionDate || '-'}</p>
-        </div>
-        <div className="group">
-          <div className="flex items-center gap-2 mb-1">
-            <School size={14} className={isDark ? 'text-gray-500' : 'text-gray-400'} />
-            <label className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Previous School</label>
-          </div>
-          <p className={`text-sm font-medium pl-6 ${isDark ? 'text-gray-200' : 'text-gray-900 group-hover:text-primary-600 transition-colors'}`}>{student.previousSchool || '-'}</p>
-        </div>
-      </div>
-
-      <div className={`pt-4 border-t ${isDark ? 'border-gray-700' : 'border-gray-100'}`}>
-        <label className={`text-xs font-semibold uppercase mb-3 block ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Status Flags</label>
-        <div className="flex flex-wrap gap-2">
-          {(!student.specialCases.fees && !student.specialCases.sickness && !student.specialCases.absenteeism) ? (
-            <span className={`text-sm italic flex items-center gap-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-              <div className="w-2 h-2 rounded-full bg-green-500"></div>
-              No active flags
-            </span>
-          ) : (
-            <>
-              {student.specialCases.sickness && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 text-xs rounded-full font-medium border border-red-200 dark:border-red-800">
-                  <Heart size={12} className="fill-current" /> Medical Attention
-                </span>
-              )}
-              {student.specialCases.absenteeism && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 text-xs rounded-full font-medium border border-orange-200 dark:border-orange-800">
-                  <AlertCircle size={12} /> Chronic Absenteeism
-                </span>
-              )}
-              {student.specialCases.fees && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300 text-xs rounded-full font-medium border border-yellow-200 dark:border-yellow-800">
-                  <span className="text-lg leading-none">💰</span> Fees Outstanding
-                </span>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
-const GuardianCard = ({ student, isDark }: { student: Student; isDark: boolean }) => (
-  <div className={`rounded-xl shadow-sm border overflow-hidden ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-    <div className={`px-6 py-4 border-b flex items-center gap-3 ${isDark ? 'bg-gray-750 border-gray-700' : 'bg-gray-50/50 border-gray-100'}`}>
-      <div className={`p-2 rounded-lg ${isDark ? 'bg-gray-700 text-gray-300' : 'bg-white text-gray-500 shadow-sm border border-gray-100'}`}>
-        <User size={18} />
-      </div>
-      <h3 className={`font-semibold text-lg ${isDark ? 'text-white' : 'text-gray-800'}`}>Parent / Guardian</h3>
-    </div>
-    <div className="p-6">
-      {student.parentName ? (
-        <div className="flex items-start gap-4">
-          <div className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl shrink-0 ${isDark ? 'bg-gray-700 text-gray-300' : 'bg-blue-50 text-blue-600'}`}>
-            <User size={24} />
-          </div>
-          <div className="space-y-1">
-            <p className={`font-bold text-lg ${isDark ? 'text-white' : 'text-gray-900'}`}>{student.parentName}</p>
-            <p className={`text-xs font-medium uppercase tracking-wide ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Primary Guardian</p>
-
-            {student.parentContact && (
-              <div className={`flex items-center gap-2 mt-3 text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                <div className={`p-1.5 rounded-full ${isDark ? 'bg-gray-700' : 'bg-gray-100'}`}>
-                  <Phone size={14} />
-                </div>
-                <span className="font-mono font-medium">{student.parentContact}</span>
-              </div>
-            )}
-          </div>
-        </div>
-      ) : (
-        <div className={`flex flex-col items-center justify-center py-6 text-center ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-          <User size={48} strokeWidth={1} className="mb-2 opacity-50" />
-          <p className="text-sm italic">No guardian information on file</p>
-        </div>
-      )}
-    </div>
-  </div>
-);
-
-const EmergencyContactsCard = ({ student, isDark }: { student: Student; isDark: boolean }) => (
-  <div className={`rounded-lg shadow-sm border overflow-hidden ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-    <div className={`px-6 py-4 border-b flex items-center gap-2 ${isDark ? 'bg-gray-750 border-gray-700' : 'bg-amber-50 border-amber-100'}`}>
-      <span className="text-lg">🚨</span>
-      <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-amber-800'}`}>Emergency Contacts</h3>
-    </div>
-    <div className="p-6">
-      {student.emergencyContacts && student.emergencyContacts.length > 0 ? (
-        <div className="space-y-4">
-          {student.emergencyContacts.map((contact, idx) => (
-            <div key={idx} className={`p-3 rounded-lg ${isDark ? 'bg-gray-700' : 'bg-gray-50'}`}>
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{contact.name}</p>
-                  <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{contact.relationship}</p>
-                </div>
-                <span className={`text-xs px-2 py-0.5 rounded ${idx === 0 ? 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300' : 'bg-gray-200 text-gray-600 dark:bg-gray-600 dark:text-gray-300'}`}>
-                  {idx === 0 ? 'Primary' : `#${idx + 1}`}
-                </span>
-              </div>
-              <div className={`mt-2 flex items-center gap-2 text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                <span>📞</span>
-                <span className="font-mono">{contact.phone}</span>
-              </div>
-              {contact.address && (
-                <div className={`mt-1 flex items-center gap-2 text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                  <span>📍</span>
-                  <span>{contact.address}</span>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className={`text-sm italic ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>No emergency contacts on file</p>
-      )}
-    </div>
-  </div>
-);
-
-const MedicalInfoCard = ({ student, isDark }: { student: Student; isDark: boolean }) => (
-  <div className={`rounded-xl shadow-sm border overflow-hidden ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-    <div className={`px-6 py-4 border-b flex items-center gap-3 ${isDark ? 'bg-gray-750 border-gray-700' : 'bg-red-50/50 border-red-100'}`}>
-      <div className={`p-2 rounded-lg ${isDark ? 'bg-red-900/30 text-red-300' : 'bg-white text-red-500 shadow-sm border border-red-100'}`}>
-        <Heart size={18} />
-      </div>
-      <h3 className={`font-semibold text-lg ${isDark ? 'text-white' : 'text-red-900'}`}>Medical Information</h3>
-    </div>
-    <div className="p-6">
-      <div className="grid grid-cols-2 gap-6">
-        <div>
-          <label className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Blood Group</label>
-          <div className="flex items-center gap-2 mt-1">
-            <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-xs font-bold text-red-600 dark:text-red-400">
-              {student.medicalInfo?.bloodGroup || '?'}
-            </div>
-            <span className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Type</span>
-          </div>
-        </div>
-        <div>
-          <label className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Allergies</label>
-          <div className={`mt-1 text-sm ${student.medicalInfo?.allergies ? (isDark ? 'text-red-300' : 'text-red-700') : (isDark ? 'text-gray-500' : 'text-gray-400')}`}>
-            {student.medicalInfo?.allergies ? (
-              <span className="flex items-start gap-1">
-                <AlertCircle size={14} className="mt-0.5 shrink-0" />
-                {student.medicalInfo.allergies}
-              </span>
-            ) : 'None reported'}
-          </div>
-        </div>
-        <div className="col-span-2">
-          <label className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Medical Conditions</label>
-          <p className={`mt-1 text-sm ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>{student.medicalInfo?.medicalConditions || 'None reported'}</p>
-        </div>
-        {(student.medicalInfo?.doctorName || student.medicalInfo?.doctorPhone) && (
-          <div className={`col-span-2 pt-4 border-t ${isDark ? 'border-gray-700' : 'border-gray-100'}`}>
-            <label className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Primary Physician</label>
-            <div className="flex items-center gap-3 mt-2">
-              <div className={`p-2 rounded-full ${isDark ? 'bg-gray-700' : 'bg-gray-100'}`}>
-                <User size={14} />
-              </div>
-              <div>
-                <p className={`text-sm font-bold ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>
-                  {student.medicalInfo?.doctorName || 'Unknown Doctor'}
-                </p>
-                {student.medicalInfo?.doctorPhone && (
-                  <p className={`text-xs font-mono flex items-center gap-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                    <Phone size={10} /> {student.medicalInfo.doctorPhone}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  </div>
-);
-
-
-
-
-const Toast = ({ message, type, onClose }: { message: string; type: 'success' | 'error' | 'warning'; onClose: () => void }) => {
-  useEffect(() => {
-    const timer = setTimeout(onClose, 4000);
-    return () => clearTimeout(timer);
-  }, [onClose]);
-
-  const colors = {
-    success: 'bg-green-500',
-    error: 'bg-red-500',
-    warning: 'bg-yellow-500'
-  };
-
-  const icons = {
-    success: '✓',
-    error: '✕',
-    warning: '!'
-  };
-
-  return (
-    <div className={`fixed bottom-4 right-4 ${colors[type]} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 z-50 animate-slide-up`}>
-      <span className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-sm font-bold">
-        {icons[type]}
-      </span>
-      <span>{message}</span>
-      <button onClick={onClose} className="ml-2 hover:bg-white/20 rounded p-1">✕</button>
-    </div>
-  );
-};
-
-const StatCard = ({ label, value, icon, color, isDark }: { label: string; value: string | number; icon: string; color: string; isDark: boolean }) => (
-  <div className={`rounded-lg border p-4 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-    <div className="flex items-center justify-between">
-      <div>
-        <p className={`text-xs font-medium uppercase ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{label}</p>
-        <p className={`text-2xl font-bold mt-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>{value}</p>
-      </div>
-      <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl ${color}`}>
-        {icon}
-      </div>
-    </div>
-  </div>
-);
-
-const HighlightText = ({ text, query }: { text: string; query: string }) => {
-  if (!query.trim()) return <>{text}</>;
-
-  const parts = text.split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'));
-
-  return (
-    <>
-      {parts.map((part, i) =>
-        part.toLowerCase() === query.toLowerCase() ? (
-          <mark key={i} className="bg-yellow-200 dark:bg-yellow-700 px-0.5 rounded">{part}</mark>
-        ) : part
-      )}
-    </>
-  );
-};
+const ITEMS_PER_PAGE = 20;
 
 export const Students: React.FC = () => {
   const queryClient = useQueryClient();
   const { isDark } = useTheme();
   const { getDisplayName, getAllClasses } = useClassNames();
   const { selectedYear, isArchiveMode } = useAcademicYear();
+
+  // View State
   const [viewMode, setViewMode] = useState<'list' | 'grid' | 'profile'>('list');
-  const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterClass, setFilterClass] = useState<string>('All');
-  const [filterStream, setFilterStream] = useState<string>('All');
-  const [filterGender, setFilterGender] = useState<string>('All');
-  const [filterStatus, setFilterStatus] = useState<string>('All');
-  const [sortOption, setSortOption] = useState<'name' | 'class'>('class');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [importing, setImporting] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-  const [currentPage, setCurrentPage] = useState(1);
   const [showPromoteModal, setShowPromoteModal] = useState(false);
-  const [promoteTargetStream, setPromoteTargetStream] = useState<string>('');
-  const [promotionSummary, setPromotionSummary] = useState<{ [key: string]: { count: number; targetClass: string } }>({});
-  const [isPromoting, setIsPromoting] = useState(false);
-  const [editingRowId, setEditingRowId] = useState<number | null>(null);
-  const [editingField, setEditingField] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState('');
   const [showIdCard, setShowIdCard] = useState(false);
   const [idCardStudent, setIdCardStudent] = useState<Student | null>(null);
   const [showBulkIdCards, setShowBulkIdCards] = useState(false);
   const [showFaceEnrollment, setShowFaceEnrollment] = useState(false);
   const [faceEnrollStudent, setFaceEnrollStudent] = useState<Student | null>(null);
   const [enrolledFaceIds, setEnrolledFaceIds] = useState<Set<number>>(new Set());
-  const [activeProfileTab, setActiveProfileTab] = useState<'overview' | 'personal' | 'academic'>('overview');
 
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'warning' } | null>(null);
-  const showToast = (message: string, type: 'success' | 'error' | 'warning') => setToast({ message, type });
+  // Filter State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterClass, setFilterClass] = useState<string>('All');
+  const [filterStream, setFilterStream] = useState<string>('All');
+  const [filterGender, setFilterGender] = useState<string>('All');
+  const [filterStatus, setFilterStatus] = useState<string>('All'); // 'medical', 'absent', 'active'
+  const [sortOption, setSortOption] = useState<'name' | 'class'>('class');
 
-  const [settings, setSettings] = useState<SchoolSettings | null>(null);
+  // Selection & Pagination State
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Operation State
+  const [importing, setImporting] = useState(false);
+  const [isPromoting, setIsPromoting] = useState(false);
+  const [promotionSummary, setPromotionSummary] = useState<{ [key: string]: { count: number; targetClass: string } }>({});
+
+  // Inline Edit State
+  const [editingRowId, setEditingRowId] = useState<number | null>(null);
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
+
+  // Toast State
+  const [localToast, setLocalToast] = useState<{ message: string; type: 'success' | 'error' | 'warning' } | null>(null);
+  const showToast = (message: string, type: 'success' | 'error' | 'warning') => setLocalToast({ message, type });
+
+  // Hooks
+  const { students, isLoading: studentsLoading, addStudent, updateStudent, deleteStudent, deleteStudents, importStudents, refetch: refetchStudents } = useStudents(isArchiveMode && selectedYear ? selectedYear.toString() : undefined);
+  const { settings, isLoading: settingsLoading, updateSettings, refetch: refetchSettings } = useSettings();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Form Data State
   const [formData, setFormData] = useState<Partial<Student>>({
     name: '',
     classLevel: ClassLevel.P1,
@@ -523,76 +90,7 @@ export const Students: React.FC = () => {
     specialCases: { absenteeism: false, sickness: false, fees: false }
   });
 
-  const loadData = async () => {
-    try {
-      let studentLoadError = '';
-      const studentsPromise = dbService.getStudents(isArchiveMode ? selectedYear : undefined).catch(err => {
-        console.error("Failed to fetch students:", err);
-        studentLoadError = err.message || 'Unknown error loading students';
-        return [];
-      });
-
-      const settingsPromise = dbService.getSettings().catch(err => {
-        console.error("Failed to fetch settings:", err);
-        return {
-          currentYear: new Date().getFullYear(),
-          currentTerm: 1,
-          streams: { P1: [], P2: [], P3: [], P4: [], P5: [], P6: [], P7: [] },
-          classAliases: {},
-          gradingConfig: { grades: [], divisions: [], passingMark: 40 },
-          subjectConfig: { lowerPrimary: [], upperPrimary: [] },
-          reportConfig: { headteacherName: '', headteacherTitle: '', showClassTeacherSignature: false, showHeadteacherSignature: false, showParentSignature: false, commentTemplates: [] },
-          idCardConfig: { showBloodGroup: false, showDob: false, showEmergencyContact: false, customTerms: [], layout: 'single' as const },
-        } as SchoolSettings;
-      });
-
-      const [data, s] = await Promise.all([studentsPromise, settingsPromise]);
-      setStudents(data as any);
-      setSettings(s);
-
-      if (studentLoadError) {
-        showToast(`Failed to load students: ${studentLoadError}`, 'error');
-      }
-
-      if (s && s.streams['P1'] && s.streams['P1'].length > 0) {
-        setFormData(prev => ({ ...prev, stream: s.streams['P1'][0] }));
-      }
-    } catch (err: any) {
-      console.error("Error loading student directory:", err);
-      showToast(`Error loading student directory: ${err.message}`, 'error');
-      setStudents([]);
-    }
-
-    try {
-      const faceResp = await fetch('/api/face-embeddings?personType=student');
-      if (faceResp.ok) {
-        const faceData = await faceResp.json();
-        const ids = new Set<number>(faceData.map((f: any) => f.personId));
-        setEnrolledFaceIds(ids);
-      }
-    } catch (err) {
-      console.error('Failed to load face embeddings:', err);
-    }
-  };
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const stats = useMemo(() => {
-    const total = students.length;
-    const males = students.filter(s => s.gender === 'M').length;
-    const females = students.filter(s => s.gender === 'F').length;
-
-
-    const classDistribution: { [key: string]: number } = {};
-    students.forEach(s => {
-      classDistribution[s.classLevel] = (classDistribution[s.classLevel] || 0) + 1;
-    });
-
-    return { total, males, females, classDistribution };
-  }, [students]);
-
+  // Derived State
   const availableStreams = useMemo(() => {
     if (filterClass === 'All') {
       const allStreams = new Set<string>();
@@ -602,9 +100,64 @@ export const Students: React.FC = () => {
     return settings?.streams[filterClass] || [];
   }, [filterClass, settings, students]);
 
+  const filteredStudents = useMemo(() => {
+    let filtered = students.filter(s =>
+    ((s.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (s.paycode && s.paycode.toLowerCase().includes(searchQuery.toLowerCase())))
+    );
+
+    if (filterClass !== 'All') {
+      filtered = filtered.filter(s => s.classLevel === filterClass);
+    }
+
+    if (filterStream !== 'All') {
+      filtered = filtered.filter(s => s.stream === filterStream);
+    }
+
+    if (filterGender !== 'All') {
+      filtered = filtered.filter(s => s.gender === filterGender);
+    }
+
+    if (filterStatus !== 'All') {
+      filtered = filtered.filter(s => {
+        if (filterStatus === 'medical') return s.specialCases?.sickness;
+        if (filterStatus === 'absent') return s.specialCases?.absenteeism;
+        if (filterStatus === 'active') return !s.specialCases?.fees && !s.specialCases?.sickness && !s.specialCases?.absenteeism;
+        return true;
+      });
+    }
+
+    filtered.sort((a, b) => {
+      if (sortOption === 'name') return a.name.localeCompare(b.name);
+      if (sortOption === 'class') {
+        const classCompare = a.classLevel.localeCompare(b.classLevel);
+        if (classCompare !== 0) return classCompare;
+        return a.name.localeCompare(b.name);
+      }
+      return 0;
+    });
+
+    return filtered;
+  }, [students, searchQuery, filterClass, filterStream, filterGender, filterStatus, sortOption]);
+
+  const paginatedStudents = useMemo(() => {
+    const totalPages = Math.ceil(filteredStudents.length / ITEMS_PER_PAGE);
+    return filteredStudents.slice(
+      (currentPage - 1) * ITEMS_PER_PAGE,
+      currentPage * ITEMS_PER_PAGE
+    );
+  }, [filteredStudents, currentPage]);
+
+  const totalPages = Math.ceil(filteredStudents.length / ITEMS_PER_PAGE);
+
+  // Effects
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterClass, filterStream, filterGender, filterStatus]);
+
+  // Handlers
   const handleViewProfile = (student: Student) => {
     setSelectedStudent(student);
-    setActiveProfileTab('overview');
     setViewMode('profile');
   };
 
@@ -626,10 +179,7 @@ export const Students: React.FC = () => {
     }
     if (window.confirm('Are you sure you want to delete this student? This will permanently remove the student profile AND all associated marks.')) {
       try {
-        await dbService.deleteStudent(id);
-        await loadData();
-        await queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
-        await queryClient.invalidateQueries({ queryKey: ['demographics'] });
+        await deleteStudent.mutateAsync(id);
         showToast('Student deleted successfully', 'success');
 
         if (viewMode === 'profile') {
@@ -645,11 +195,8 @@ export const Students: React.FC = () => {
     if (selectedIds.size === 0) return;
     if (window.confirm(`Are you sure you want to delete ${selectedIds.size} students? This will permanently remove them and their marks.`)) {
       try {
-        await dbService.deleteStudents(Array.from(selectedIds));
+        await deleteStudents.mutateAsync(Array.from(selectedIds));
         setSelectedIds(new Set());
-        loadData();
-        await queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
-        await queryClient.invalidateQueries({ queryKey: ['demographics'] });
         showToast(`${selectedIds.size} students deleted successfully`, 'success');
       } catch (error: any) {
         showToast(`Failed to delete: ${error.message}`, 'error');
@@ -666,7 +213,8 @@ export const Students: React.FC = () => {
       if (str && settings) {
         const classStreams = settings.streams[cls] || [];
         if (!classStreams.includes(str)) {
-          await dbService.addStream(cls, str);
+          const newStreams = { ...settings.streams, [cls]: [...classStreams, str] };
+          await updateSettings.mutateAsync({ ...settings, streams: newStreams });
         }
       }
 
@@ -675,34 +223,103 @@ export const Students: React.FC = () => {
         name: formData.name.toUpperCase()
       } as Student;
 
-      if (studentToSave.id) {
-        await dbService.updateStudent(studentToSave);
-        if (selectedStudent && selectedStudent.id === studentToSave.id) {
-          setSelectedStudent(studentToSave);
+      try {
+        if (studentToSave.id) {
+          await updateStudent.mutateAsync(studentToSave);
+          if (selectedStudent && selectedStudent.id === studentToSave.id) {
+            setSelectedStudent(studentToSave);
+          }
+          showToast('Student updated successfully', 'success');
+        } else {
+          await addStudent.mutateAsync(studentToSave);
+          showToast('Student added successfully', 'success');
         }
-        showToast('Student updated successfully', 'success');
-      } else {
-        await dbService.addStudent(studentToSave);
-        showToast('Student added successfully', 'success');
+        setIsModalOpen(false);
+        // Reset form
+        setFormData({
+          name: '', classLevel: ClassLevel.P1, stream: '', gender: Gender.Male, paycode: '', parentName: '', parentContact: '',
+          specialCases: { absenteeism: false, sickness: false, fees: false }
+        });
+      } catch (error: any) {
+        showToast(`Failed to save: ${error.message}`, 'error');
       }
-
-      await queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
-      await queryClient.invalidateQueries({ queryKey: ['demographics'] });
-      setIsModalOpen(false);
-      setFormData({
-        name: '',
-        classLevel: formData.classLevel,
-        stream: formData.stream,
-        gender: Gender.Male,
-        paycode: '',
-        parentName: '',
-        parentContact: '',
-        specialCases: { absenteeism: false, sickness: false, fees: false }
-      });
-      loadData();
     }
   };
 
+  // Quick Edit
+  const handleQuickEdit = async (studentId: number, field: string, value: string) => {
+    const student = students.find(s => s.id === studentId);
+    if (!student) return;
+
+    let updatedStudent = { ...student };
+
+    switch (field) {
+      case 'name':
+        updatedStudent.name = value.toUpperCase();
+        break;
+      case 'stream':
+        updatedStudent.stream = value;
+        break;
+      case 'paycode':
+        updatedStudent.paycode = value;
+        break;
+    }
+
+    try {
+      await updateStudent.mutateAsync(updatedStudent);
+      showToast('Updated successfully', 'success');
+    } catch (error: any) {
+      showToast(`Update failed: ${error.message}`, 'error');
+    }
+
+    setEditingRowId(null);
+    setEditingField(null);
+  };
+
+  // Selection Handlers
+  const toggleSelection = (id: number) => {
+    const newSet = new Set(selectedIds);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
+    setSelectedIds(newSet);
+  };
+
+  const toggleSelectAllFiltered = () => {
+    const filteredIds = filteredStudents.map(s => s.id!);
+    const allFilteredSelected = filteredIds.length > 0 && filteredIds.every(id => selectedIds.has(id));
+
+    if (allFilteredSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredIds));
+    }
+  };
+
+  const toggleSelectAllPage = () => {
+    const pageIds = paginatedStudents.map(s => s.id!);
+    const allPageSelected = pageIds.length > 0 && pageIds.every(id => selectedIds.has(id));
+
+    if (allPageSelected) {
+      const newSet = new Set(selectedIds);
+      pageIds.forEach(id => newSet.delete(id));
+      setSelectedIds(newSet);
+    } else {
+      const newSet = new Set(selectedIds);
+      pageIds.forEach(id => newSet.add(id));
+      setSelectedIds(newSet);
+    }
+  };
+
+  const pageIds = paginatedStudents.map(s => s.id!);
+  const allPageSelected = pageIds.length > 0 && pageIds.every(id => selectedIds.has(id));
+  const somePageSelected = pageIds.some(id => selectedIds.has(id));
+  const indeterminate = somePageSelected && !allPageSelected;
+  const allFilteredSelected = filteredStudents.length > 0 && filteredStudents.every(s => selectedIds.has(s.id!));
+
+  // Promotion Logic
   const preparePromotionSummary = () => {
     const promotionMapping: { [key: string]: string } = {
       "P1": "P2", "P2": "P3", "P3": "P4", "P4": "P5", "P5": "P6", "P6": "P7", "P7": "Graduated"
@@ -727,14 +344,9 @@ export const Students: React.FC = () => {
     setShowPromoteModal(true);
   };
 
-  const handlePromoteStudents = async () => {
-    if (selectedIds.size === 0) {
-      showToast('Please select students to promote', 'warning');
-      return;
-    }
-
+  const handlePromoteStudents = async (targetStream: string) => {
+    if (selectedIds.size === 0) return;
     setIsPromoting(true);
-
     try {
       const response = await fetch('/api/students/promote', {
         method: 'POST',
@@ -742,7 +354,7 @@ export const Students: React.FC = () => {
         credentials: 'include',
         body: JSON.stringify({
           studentIds: Array.from(selectedIds),
-          targetStream: promoteTargetStream || undefined,
+          targetStream: targetStream || undefined,
           academicYear: settings?.currentYear || new Date().getFullYear(),
           term: settings?.currentTerm || 3
         })
@@ -751,21 +363,14 @@ export const Students: React.FC = () => {
       const result = await response.json();
 
       if (response.ok) {
-        await loadData();
+        await refetchStudents();
         setSelectedIds(new Set());
         setShowPromoteModal(false);
-        setPromoteTargetStream('');
         setPromotionSummary({});
-        await queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
-        await queryClient.invalidateQueries({ queryKey: ['demographics'] });
 
         let message = `Successfully promoted ${result.promotedCount} student(s)!`;
-        if (result.graduatedCount > 0) {
-          message += ` (${result.graduatedCount} graduated)`;
-        }
-        if (result.skippedCount > 0) {
-          message += ` ${result.skippedCount} skipped.`;
-        }
+        if (result.graduatedCount > 0) message += ` (${result.graduatedCount} graduated)`;
+        if (result.skippedCount > 0) message += ` ${result.skippedCount} skipped.`;
 
         showToast(message, result.promotedCount > 0 ? 'success' : 'warning');
       } else {
@@ -778,507 +383,170 @@ export const Students: React.FC = () => {
     }
   };
 
-  const handleQuickEdit = async (studentId: number, field: string, value: string) => {
-    const student = students.find(s => s.id === studentId);
-    if (!student) return;
-
-    let updatedStudent = { ...student };
-
-    switch (field) {
-      case 'name':
-        updatedStudent.name = value.toUpperCase();
-        break;
-      case 'stream':
-        updatedStudent.stream = value;
-        break;
-      case 'paycode':
-        updatedStudent.paycode = value;
-        break;
-    }
-
-    try {
-      await dbService.updateStudent(updatedStudent);
-      await loadData();
-      showToast('Updated successfully', 'success');
-    } catch (error: any) {
-      showToast(`Update failed: ${error.message}`, 'error');
-    }
-
-    setEditingRowId(null);
-    setEditingField(null);
-  };
-
-  const handleImportClick = () => {
-    fileInputRef.current?.click();
-  };
-
+  // CSV Logic
   const normalizeClassInput = (rawClass: string): ClassLevel => {
     const cleaned = rawClass.toUpperCase().replace(/[^A-Z0-9]/g, '');
-    if (Object.values(ClassLevel).includes(cleaned as ClassLevel)) {
-      return cleaned as ClassLevel;
-    }
+    if (Object.values(ClassLevel).includes(cleaned as ClassLevel)) return cleaned as ClassLevel;
     if (cleaned.startsWith('PRIMARY')) {
       const num = cleaned.replace('PRIMARY', '');
-      const candidate = 'P' + num;
-      if (Object.values(ClassLevel).includes(candidate as ClassLevel)) return candidate as ClassLevel;
+      if (Object.values(ClassLevel).includes(('P' + num) as ClassLevel)) return ('P' + num) as ClassLevel;
     }
-    if (cleaned.startsWith('GRADE')) {
-      const num = cleaned.replace('GRADE', '');
-      const candidate = 'P' + num;
-      if (Object.values(ClassLevel).includes(candidate as ClassLevel)) return candidate as ClassLevel;
-    }
-    if (/^\d$/.test(cleaned)) {
-      const candidate = 'P' + cleaned;
-      if (Object.values(ClassLevel).includes(candidate as ClassLevel)) return candidate as ClassLevel;
+    if (/^\d$/.test(cleaned) && Object.values(ClassLevel).includes(('P' + cleaned) as ClassLevel)) {
+      return ('P' + cleaned) as ClassLevel;
     }
     return ClassLevel.P1;
-  };
-
-  const exportStudentsCSV = () => {
-    const headers = ['Name', 'Gender', 'Class', 'Stream', 'Pay Code', 'Parent Name', 'Parent Contact'];
-
-    const sortedStudents = [...filteredStudents].sort((a, b) => a.name.localeCompare(b.name));
-
-    const rows = sortedStudents.map(s => [
-      `"${s.name}"`,
-      s.gender,
-      s.classLevel,
-      `"${s.stream}"`,
-      `"${s.paycode || ''}"`,
-      `"${s.parentName || ''}"`,
-      `"${s.parentContact || ''}"`
-    ].join(','));
-
-    const csvContent = [headers.join(','), ...rows].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Students_Export_${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    showToast(`Exported ${sortedStudents.length} students`, 'success');
-  };
-
-  const downloadImportTemplate = () => {
-    const headers = ['Name', 'Gender', 'Class', 'Stream', 'Pay Code', 'Parent Name', 'Parent Contact'];
-
-    const sampleRows = [
-      `"SAMPLE STUDENT NAME",M,P4,"Red","1004452753","",""`,
-      `"ANOTHER STUDENT",F,P5,"Blue","1004452754","Parent Name","0700123456"`,
-    ];
-
-    const csvContent = [headers.join(','), ...sampleRows].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Students_Import_Template.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     setImporting(true);
-
     Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      transformHeader: (header) => header.trim().toLowerCase().replace(/[\s_-]/g, ''),
+      header: true, skipEmptyLines: true, transformHeader: h => h.trim().toLowerCase().replace(/[\s_-]/g, ''),
       complete: async (results) => {
         try {
           const newStudents: Student[] = [];
           const rows = results.data as any[];
-
           let duplicates = 0;
-          let addedCount = 0;
           const detectedStreams: { [key: string]: Set<string> } = {};
 
           for (const row of rows) {
             const name = row.name || row.fullname || `${row.firstname || ''} ${row.lastname || ''}`.trim();
-
-            if (!name) {
-              continue;
-            }
+            if (!name) continue;
 
             const classRaw = row.class || row.classlevel || row.grade || '';
             const classLevel = normalizeClassInput(classRaw);
-
-            // Check for duplicates by name + class (since index numbers are auto-generated)
             const nameUpper = name.toUpperCase();
-            const isDuplicate = students.some(s =>
-              s.name.toUpperCase() === nameUpper && s.classLevel === classLevel
-            ) || newStudents.some(s => s.name.toUpperCase() === nameUpper && s.classLevel === classLevel);
 
-            if (isDuplicate) {
+            if (students.some(s => s.name.toUpperCase() === nameUpper && s.classLevel === classLevel) ||
+              newStudents.some(s => s.name.toUpperCase() === nameUpper && s.classLevel === classLevel)) {
               duplicates++;
               continue;
             }
 
             let gender = Gender.Male;
-            const genderRaw = (row.gender || row.sex || '').toUpperCase();
-            if (genderRaw === 'F' || genderRaw === 'FEMALE') gender = Gender.Female;
+            if ((row.gender?.toUpperCase() || '') === 'F' || (row.gender?.toUpperCase() || '') === 'FEMALE') gender = Gender.Female;
 
             const stream = (row.stream || row.section || '').toUpperCase().trim() || 'Blue';
-
             if (classLevel && stream) {
               if (!detectedStreams[classLevel]) detectedStreams[classLevel] = new Set();
               detectedStreams[classLevel].add(stream);
             }
 
-            const student: Student = {
-              name: name.toUpperCase(),
-              gender,
-              classLevel,
-              stream,
-              paycode: row.paycode || row.paymentcode || '',
-              parentName: row.parentname || row.guardianname || '',
-              parentContact: row.parentcontact || row.phone || row.contact || '',
+            newStudents.push({
+              name: nameUpper, gender, classLevel, stream,
+              paycode: row.paycode || '', parentName: row.parentname || '', parentContact: row.parentcontact || '',
               specialCases: { absenteeism: false, sickness: false, fees: false }
-            };
-
-            newStudents.push(student);
-            addedCount++;
+            });
           }
 
           if (newStudents.length > 0) {
-            const currentSettings = await dbService.getSettings();
-            const updatedStreams = { ...currentSettings.streams };
-
-            for (const [classLevel, streamSet] of Object.entries(detectedStreams)) {
-              const existingStreams = updatedStreams[classLevel] || [];
-              const newStreamsArray = Array.from(streamSet);
-              const mergedStreams = [...new Set([...existingStreams, ...newStreamsArray])];
-              updatedStreams[classLevel] = mergedStreams;
+            if (settings) {
+              const updatedStreams = { ...settings.streams };
+              for (const [classLevel, streamSet] of Object.entries(detectedStreams)) {
+                const existing = updatedStreams[classLevel] || [];
+                updatedStreams[classLevel] = [...new Set([...existing, ...Array.from(streamSet)])];
+              }
+              await updateSettings.mutateAsync({ ...settings, streams: updatedStreams });
             }
-
-            await dbService.saveSettings({ ...currentSettings, streams: updatedStreams });
-            const insertedStudents = await dbService.addStudents(newStudents);
-
-            const insertedCount = insertedStudents ? insertedStudents.length : 0;
-            const skippedCount = newStudents.length - insertedCount;
-
-            let msg = `Successfully imported ${insertedCount} students.`;
-            if (skippedCount > 0 || duplicates > 0) {
-              msg += ` ${skippedCount + duplicates} duplicates skipped.`;
-            }
-
-            if (insertedCount > 0) {
-              showToast(msg, 'success');
-            } else {
-              showToast(msg, 'warning');
-            }
-            await loadData();
-            await queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
-            await queryClient.invalidateQueries({ queryKey: ['demographics'] });
+            const inserted = await importStudents.mutateAsync(newStudents);
+            showToast(`Imported ${inserted ? inserted.length : 0} students. ${duplicates} skipped.`, 'success');
           } else {
-            let msg = "No valid new students found.";
-            if (duplicates > 0) msg += ` ${duplicates} duplicates skipped.`;
-            showToast(msg, 'warning');
+            showToast(`No new students found. ${duplicates} duplicates skipped.`, 'warning');
           }
-        } catch (error: any) {
-          console.error("CSV Import Error:", error);
-          showToast(`Error processing CSV: ${error.message}`, 'error');
+        } catch (e: any) {
+          showToast(`Error: ${e.message}`, 'error');
         } finally {
           setImporting(false);
           if (fileInputRef.current) fileInputRef.current.value = '';
         }
       },
-      error: (error: any) => {
+      error: (e) => {
         setImporting(false);
-        showToast(`CSV Parsing Error: ${error.message}`, 'error');
-        if (fileInputRef.current) fileInputRef.current.value = '';
+        showToast(`CSV Error: ${e.message}`, 'error');
       }
     });
   };
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-  let filteredStudents = students.filter(s =>
-  ((s.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (s.paycode && s.paycode.toLowerCase().includes(searchQuery.toLowerCase())))
-  );
-
-  if (filterClass !== 'All') {
-    filteredStudents = filteredStudents.filter(s => s.classLevel === filterClass);
-  }
-
-  if (filterStream !== 'All') {
-    filteredStudents = filteredStudents.filter(s => s.stream === filterStream);
-  }
-
-  if (filterGender !== 'All') {
-    filteredStudents = filteredStudents.filter(s => s.gender === filterGender);
-  }
-
-  if (filterStatus !== 'All') {
-    filteredStudents = filteredStudents.filter(s => {
-
-      if (filterStatus === 'medical') return s.specialCases?.sickness;
-      if (filterStatus === 'absent') return s.specialCases?.absenteeism;
-      if (filterStatus === 'active') return !s.specialCases?.fees && !s.specialCases?.sickness && !s.specialCases?.absenteeism;
-      return true;
-    });
-  }
-
-  filteredStudents.sort((a, b) => {
-    if (sortOption === 'name') return a.name.localeCompare(b.name);
-    if (sortOption === 'class') {
-      const classCompare = a.classLevel.localeCompare(b.classLevel);
-      if (classCompare !== 0) return classCompare;
-      return a.name.localeCompare(b.name);
-    }
-    return 0;
-  });
-
-  const totalPages = Math.ceil(filteredStudents.length / ITEMS_PER_PAGE);
-  const paginatedStudents = filteredStudents.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, filterClass, filterStream, filterGender, filterStatus]);
-
-  const toggleSelection = (id: number) => {
-    const newSet = new Set(selectedIds);
-    if (newSet.has(id)) {
-      newSet.delete(id);
-    } else {
-      newSet.add(id);
-    }
-    setSelectedIds(newSet);
+  const exportStudentsCSV = () => {
+    const headers = ['Name', 'Gender', 'Class', 'Stream', 'Pay Code', 'Parent Name', 'Parent Contact'];
+    const rows = filteredStudents.map(s => [
+      `"${s.name}"`, s.gender, s.classLevel, `"${s.stream}"`, `"${s.paycode || ''}"`, `"${s.parentName || ''}"`, `"${s.parentContact || ''}"`
+    ].join(','));
+    const csv = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Students_${new Date().toLocaleDateString()}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    showToast(`Exported ${filteredStudents.length} students`, 'success');
   };
 
-  const toggleSelectAll = () => {
-    const pageIds = paginatedStudents.map(s => s.id!);
-    const allPageSelected = pageIds.every(id => selectedIds.has(id));
-
-    if (allPageSelected) {
-      const newSet = new Set(selectedIds);
-      pageIds.forEach(id => newSet.delete(id));
-      setSelectedIds(newSet);
-    } else {
-      const newSet = new Set(selectedIds);
-      pageIds.forEach(id => newSet.add(id));
-      setSelectedIds(newSet);
-    }
+  const downloadTemplate = () => {
+    const headers = ['Name', 'Gender', 'Class', 'Stream', 'Pay Code', 'Parent Name', 'Parent Contact'];
+    const sample = [`"SAMPLE NAME",M,P4,"Red","12345","Parent","0700000000"`];
+    const csv = [headers.join(','), ...sample].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'Students_Import_Template.csv';
+    link.click();
+    URL.revokeObjectURL(url);
   };
-
-  const toggleSelectAllFiltered = () => {
-    const filteredIds = filteredStudents.map(s => s.id!);
-    const allFilteredSelected = filteredIds.length > 0 && filteredIds.every(id => selectedIds.has(id));
-
-    if (allFilteredSelected) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(filteredIds));
-    }
-  };
-
-  const pageIds = paginatedStudents.map(s => s.id!);
-  const allPageSelected = paginatedStudents.length > 0 && pageIds.every(id => selectedIds.has(id));
-  const somePageSelected = pageIds.some(id => selectedIds.has(id));
-  const indeterminate = somePageSelected && !allPageSelected;
-
-  const filteredIds = filteredStudents.map(s => s.id!);
-  const allFilteredSelected = filteredIds.length > 0 && filteredIds.every(id => selectedIds.has(id));
 
   if (viewMode === 'profile' && selectedStudent) {
     return (
-      <div className="max-w-6xl mx-auto animate-in fade-in duration-300">
-        <ProfileHeader
+      <>
+        <StudentProfile
           student={selectedStudent}
-          onEdit={() => handleEdit(selectedStudent)}
           onBack={handleBackToList}
-          onPrintID={() => {
-            setIdCardStudent(selectedStudent);
-            setShowIdCard(true);
-          }}
-          onEnrollFace={() => {
-            setFaceEnrollStudent(selectedStudent);
-            setShowFaceEnrollment(true);
-          }}
+          onEdit={() => handleEdit(selectedStudent)}
+          onPrintID={() => { setIdCardStudent(selectedStudent); setShowIdCard(true); }}
+          onEnrollFace={() => { setFaceEnrollStudent(selectedStudent); setShowFaceEnrollment(true); }}
           hasFaceEnrolled={enrolledFaceIds.has(selectedStudent.id!)}
-          isDark={isDark}
+          onDelete={handleDelete}
         />
 
-        {/* Tab Navigation */}
-        <div className="flex items-center gap-1 mb-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto pb-1">
-          <button
-            onClick={() => setActiveProfileTab('overview')}
-            className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${activeProfileTab === 'overview'
-              ? `border-primary-600 text-primary-600 ${isDark ? 'text-primary-400 border-primary-400' : ''}`
-              : `border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 ${isDark ? 'text-gray-400 hover:text-gray-300' : ''}`
-              }`}
-          >
-            Overview
-          </button>
-          <button
-            onClick={() => setActiveProfileTab('personal')}
-            className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${activeProfileTab === 'personal'
-              ? `border-primary-600 text-primary-600 ${isDark ? 'text-primary-400 border-primary-400' : ''}`
-              : `border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 ${isDark ? 'text-gray-400 hover:text-gray-300' : ''}`
-              }`}
-          >
-            Personal Details
-          </button>
-          <button
-            onClick={() => setActiveProfileTab('academic')}
-            className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${activeProfileTab === 'academic'
-              ? `border-primary-600 text-primary-600 ${isDark ? 'text-primary-400 border-primary-400' : ''}`
-              : `border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 ${isDark ? 'text-gray-400 hover:text-gray-300' : ''}`
-              }`}
-          >
-            Academic History
-          </button>
-        </div>
-
-        <div className="space-y-6 min-h-[400px]">
-          {activeProfileTab === 'overview' && (
-            <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-300">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <AttendanceSummaryCard studentId={selectedStudent.id!} isDark={isDark} />
-                <PerformanceTrendCard studentId={selectedStudent.id!} isDark={isDark} />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Quick Info Cards to fill space if needed, or just status summary */}
-                <div className={`col-span-1 md:col-span-3 rounded-lg border p-4 flex items-center justify-between ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-                  <div className="flex items-center gap-4">
-                    <div className={`p-3 rounded-full ${isDark ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-50 text-blue-600'}`}>
-                      <School size={24} />
-                    </div>
-                    <div>
-                      <p className={`text-sm font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Current Enrollment</p>
-                      <p className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>{getDisplayName(selectedStudent.classLevel)} - {selectedStudent.stream}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4 border-l pl-4 dark:border-gray-700">
-                    <div>
-                      <p className={`text-sm font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Status</p>
-                      <div className="flex gap-2 mt-1">
-                        {selectedStudent.specialCases?.fees && <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded text-xs font-bold">Fees Due</span>}
-                        {!selectedStudent.specialCases?.fees && <span className="px-2 py-0.5 bg-green-100 text-green-800 rounded text-xs font-bold">Good Standing</span>}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeProfileTab === 'personal' && (
-            <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-300">
-              <PersonalInfoCard student={selectedStudent} isDark={isDark} />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <GuardianCard student={selectedStudent} isDark={isDark} />
-                <MedicalInfoCard student={selectedStudent} isDark={isDark} />
-              </div>
-              <EmergencyContactsCard student={selectedStudent} isDark={isDark} />
-            </div>
-          )}
-
-          {activeProfileTab === 'academic' && (
-            <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-300">
-              <PerformanceTrendCard studentId={selectedStudent.id!} isDark={isDark} />
-              <AcademicHistory studentId={selectedStudent.id!} isDark={isDark} />
-            </div>
-          )}
-        </div>
-
-        <div className={`mt-8 pt-6 border-t flex justify-between items-center ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
-          <div className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-            Student ID: <span className="font-mono">{selectedStudent.id}</span>
-          </div>
-          <Button variant="danger" size="sm" onClick={() => handleDelete(selectedStudent.id)}>
-            <Trash2 size={14} className="mr-2" />
-            Delete Learner Record
-          </Button>
-        </div>
-
         {showIdCard && idCardStudent && (
-          <StudentIDCard
-            student={idCardStudent}
-            settings={settings}
-            onClose={() => {
-              setShowIdCard(false);
-              setIdCardStudent(null);
-            }}
-          />
+          <StudentIDCard student={idCardStudent} settings={settings} onClose={() => { setShowIdCard(false); setIdCardStudent(null); }} />
         )}
 
         {showFaceEnrollment && faceEnrollStudent && (
-          <React.Suspense fallback={<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="bg-white dark:bg-gray-800 rounded-xl p-8"><div className="animate-spin w-8 h-8 border-4 border-[#800020] border-t-transparent rounded-full"></div></div></div>}>
+          <React.Suspense fallback={<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="animate-spin w-8 h-8 border-4 border-[#800020] border-t-transparent rounded-full"></div></div>}>
             <FaceEnrollment
               personId={faceEnrollStudent.id!}
               personType="student"
               personName={faceEnrollStudent.name}
-              onSuccess={() => {
-                setShowFaceEnrollment(false);
-                setFaceEnrollStudent(null);
-                setEnrolledFaceIds(prev => new Set([...prev, faceEnrollStudent.id!]));
-                showToast('Face enrolled successfully!', 'success');
-              }}
-              onCancel={() => {
-                setShowFaceEnrollment(false);
-                setFaceEnrollStudent(null);
-              }}
+              onSuccess={() => { setShowFaceEnrollment(false); setFaceEnrollStudent(null); setEnrolledFaceIds(prev => new Set([...prev, faceEnrollStudent!.id!])); showToast('Face enrolled!', 'success'); }}
+              onCancel={() => { setShowFaceEnrollment(false); setFaceEnrollStudent(null); }}
             />
           </React.Suspense>
         )}
 
         {isModalOpen && (
-          <StudentFormWizard
+          <StudentModal
             isOpen={isModalOpen}
             onClose={() => setIsModalOpen(false)}
-            onSubmit={async (data) => {
-              try {
-                if (data.id) {
-                  await dbService.updateStudent(data as Student);
-                  showToast('Student updated successfully!', 'success');
-                } else {
-                  await dbService.addStudent(data as Student);
-                  showToast('Student added successfully!', 'success');
-                }
-                await loadData();
-              } catch (error: any) {
-                showToast(`Failed to save student: ${error.message}`, 'error');
-                throw error;
-              }
-            }}
-            initialData={selectedStudent || undefined}
+            onSubmit={handleSubmit}
+            formData={formData}
+            setFormData={setFormData}
+            isEdit={!!selectedStudent}
             settings={settings}
             isDark={isDark}
-            students={students}
           />
         )}
 
-        {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-      </div>
+        {localToast && <Toast message={localToast.message} type={localToast.type} onClose={() => setLocalToast(null)} />}
+      </>
     );
   }
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Students Directory</h1>
@@ -1287,36 +555,17 @@ export const Students: React.FC = () => {
         <div className="flex gap-2 flex-wrap items-center">
           {selectedIds.size > 0 && (
             <>
-              <Button
-                variant="outline"
-                onClick={() => setShowBulkIdCards(true)}
-              >
-                Print ID Cards ({selectedIds.size})
-              </Button>
-              <Button variant="secondary" onClick={preparePromotionSummary}>
-                Promote ({selectedIds.size})
-              </Button>
-              <Button variant="danger" onClick={handleBatchDelete}>
-                Delete ({selectedIds.size})
-              </Button>
+              <Button variant="outline" onClick={() => setShowBulkIdCards(true)}>Print ID Cards ({selectedIds.size})</Button>
+              <Button variant="secondary" onClick={preparePromotionSummary}>Promote ({selectedIds.size})</Button>
+              <Button variant="danger" onClick={handleBatchDelete}>Delete ({selectedIds.size})</Button>
             </>
           )}
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileUpload}
-            accept=".csv"
-            className="hidden"
-          />
-          <Button variant="secondary" onClick={downloadImportTemplate} size="sm">
-            Template
-          </Button>
-          <Button variant="outline" onClick={handleImportClick} disabled={importing || isArchiveMode}>
+          <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv" className="hidden" />
+          <Button variant="secondary" onClick={downloadTemplate} size="sm">Template</Button>
+          <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={importing || isArchiveMode}>
             {importing ? 'Importing...' : 'Import CSV'}
           </Button>
-          <Button variant="outline" onClick={exportStudentsCSV}>
-            Export CSV
-          </Button>
+          <Button variant="outline" onClick={exportStudentsCSV}>Export CSV</Button>
           <Button disabled={isArchiveMode} onClick={() => {
             const defaultClass = ClassLevel.P1;
             const defaultStream = settings?.streams[defaultClass]?.[0] || '';
@@ -1324,790 +573,93 @@ export const Students: React.FC = () => {
               name: '', classLevel: defaultClass, stream: defaultStream, gender: Gender.Male, paycode: '', parentName: '', parentContact: '',
               specialCases: { absenteeism: false, sickness: false, fees: false }
             });
+            setSelectedStudent(null);
             setIsModalOpen(true);
-          }}>
-            Add Student
-          </Button>
+          }}>Add Student</Button>
         </div>
       </div>
 
-      {/* Stats Cards overview */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className={`p-4 rounded-xl border shadow-sm ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-          <div className={`text-sm font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Total Learners</div>
-          <div className={`text-2xl font-bold mt-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>{filteredStudents.length}</div>
-          <div className="text-xs text-primary-600 mt-1 font-medium">100% of selected</div>
-        </div>
+      {/* Stats */}
+      <StudentStats students={students} filteredStudents={filteredStudents} isDark={isDark} />
 
-        <div className={`p-4 rounded-xl border shadow-sm ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-          <div className={`text-sm font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Gender Split</div>
-          <div className="flex items-end gap-2 mt-1">
-            <div className="flex flex-col">
-              <span className={`text-xl font-bold ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
-                {filteredStudents.filter(s => s.gender === 'M').length}
-              </span>
-              <span className="text-[10px] uppercase text-gray-500">Male</span>
-            </div>
-            <div className={`h-8 w-[1px] ${isDark ? 'bg-gray-700' : 'bg-gray-200'}`}></div>
-            <div className="flex flex-col">
-              <span className={`text-xl font-bold ${isDark ? 'text-pink-400' : 'text-pink-600'}`}>
-                {filteredStudents.filter(s => s.gender === 'F').length}
-              </span>
-              <span className="text-[10px] uppercase text-gray-500">Female</span>
-            </div>
-          </div>
-        </div>
+      {/* Toolbar/Filters */}
+      <StudentFilters
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        filterClass={filterClass}
+        setFilterClass={setFilterClass}
+        filterStream={filterStream}
+        setFilterStream={setFilterStream}
+        viewMode={viewMode === 'profile' ? 'list' : viewMode} // If profile, default back to list in toolbar state? No, viewMode is controlled by Students component
+        setViewMode={setViewMode}
+        availableStreams={availableStreams}
+        isDark={isDark}
+      />
 
-        <div className={`p-4 rounded-xl border shadow-sm ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-          <div className={`text-sm font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Boarding Status</div>
-          <div className="mt-1">
-            <div className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              {filteredStudents.filter(s => s.boardingStatus === 'boarding').length}
-            </div>
-            <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-              Total Boarders
-            </div>
-          </div>
-        </div>
+      {/* List/Grid View */}
+      <StudentList
+        paginatedStudents={paginatedStudents}
+        allStudentsCount={filteredStudents.length}
+        viewMode={viewMode === 'list' || viewMode === 'grid' ? viewMode : 'list'}
+        selectedIds={selectedIds}
+        toggleSelection={toggleSelection}
+        toggleSelectAll={toggleSelectAllPage}
+        allPageSelected={allPageSelected}
+        indeterminate={indeterminate}
+        isDark={isDark}
+        onViewProfile={handleViewProfile}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        editingRowId={editingRowId}
+        editingField={editingField}
+        editValue={editValue}
+        setEditingRowId={setEditingRowId}
+        setEditingField={setEditingField}
+        setEditValue={setEditValue}
+        handleQuickEdit={handleQuickEdit}
+        searchQuery={searchQuery}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        setCurrentPage={setCurrentPage}
+        toggleSelectAllFiltered={toggleSelectAllFiltered}
+        allFilteredSelected={allFilteredSelected}
+      />
 
-        <div className={`p-4 rounded-xl border shadow-sm ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-          <div className={`text-sm font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Boarders by Gender</div>
-          <div className="flex items-end gap-3 mt-1">
-            <div>
-              <span className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                {filteredStudents.filter(s => s.boardingStatus === 'boarding' && s.gender === 'M').length}
-              </span>
-              <span className={`block text-[10px] ${isDark ? 'text-blue-300' : 'text-blue-600'}`}>Boys</span>
-            </div>
-            <div>
-              <span className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                {filteredStudents.filter(s => s.boardingStatus === 'boarding' && s.gender === 'F').length}
-              </span>
-              <span className={`block text-[10px] ${isDark ? 'text-pink-300' : 'text-pink-600'}`}>Girls</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Modern Toolbar */}
-      <div className={`sticky top-0 z-10 p-4 rounded-xl shadow-sm border backdrop-blur-xl transition-all ${isDark ? 'bg-gray-800/90 border-gray-700' : 'bg-white/90 border-gray-200'}`}>
-        <div className="flex flex-col lg:flex-row gap-4 justify-between">
-
-          {/* Search Bar */}
-          <div className="flex-1 relative group">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className={`w-5 h-5 transition-colors ${isDark ? 'text-gray-500 group-focus-within:text-primary-400' : 'text-gray-400 group-focus-within:text-primary-500'}`} />
-            </div>
-            <input
-              type="text"
-              placeholder="Search students..."
-              className={`block w-full pl-10 pr-4 py-2.5 border rounded-lg leading-5 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all ${isDark ? 'bg-gray-900/50 border-gray-600 text-white placeholder-gray-500' : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400'}`}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-
-          {/* Filters & Actions */}
-          <div className="flex flex-wrap items-center gap-3">
-
-            <div className="flex items-center gap-2 p-1 rounded-lg border bg-gray-50/50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700">
-              <button
-                onClick={() => setViewMode('list')}
-                className={`p-2 rounded-md transition-all ${viewMode === 'list' ? (isDark ? 'bg-gray-700 text-white shadow-sm' : 'bg-white text-primary-600 shadow-sm') : (isDark ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700')}`}
-              >
-                <ListIcon className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`p-2 rounded-md transition-all ${viewMode === 'grid' ? (isDark ? 'bg-gray-700 text-white shadow-sm' : 'bg-white text-primary-600 shadow-sm') : (isDark ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700')}`}
-              >
-                <LayoutGrid className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className={`h-8 w-[1px] ${isDark ? 'bg-gray-700' : 'bg-gray-200'}`}></div>
-
-            <select
-              className={`px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 ${isDark ? 'bg-gray-800 border-gray-600 text-white' : 'bg-white border-gray-200 text-gray-700'}`}
-              value={filterClass}
-              onChange={(e) => { setFilterClass(e.target.value); setFilterStream('All'); }}
-            >
-              <option value="All">All Classes</option>
-              {getAllClasses().map(({ level, displayName }) => <option key={level} value={level}>{displayName}</option>)}
-            </select>
-
-            <select
-              className={`px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 ${isDark ? 'bg-gray-800 border-gray-600 text-white' : 'bg-white border-gray-200 text-gray-700'}`}
-              value={availableStreams.length > 0 ? filterStream : 'All'}
-              onChange={(e) => setFilterStream(e.target.value)}
-              disabled={availableStreams.length === 0}
-            >
-              <option value="All">All Streams</option>
-              {availableStreams.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-        </div>
-
-        {/* Active Filters Summary (Optional) */}
-        {(filterClass !== 'All' || filterStream !== 'All' || filterGender !== 'All' || filterStatus !== 'All') && (
-          <div className="mt-3 flex gap-2 flex-wrap">
-            {/* Reset Button could go here */}
-          </div>
-        )}
-      </div>
-
-
-
-      <div className={`flex items-center justify-between text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-        <div className="flex items-center gap-3">
-          <span>Showing {paginatedStudents.length} of {filteredStudents.length} students</span>
-          {filteredStudents.length > 0 && (
-            <button
-              onClick={toggleSelectAllFiltered}
-              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${allFilteredSelected
-                ? 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-                : 'bg-primary-100 text-primary-700 hover:bg-primary-200 dark:bg-primary-900 dark:text-primary-300 dark:hover:bg-primary-800'
-                }`}
-            >
-              {allFilteredSelected ? 'Unselect All' : `Select All (${filteredStudents.length})`}
-            </button>
-          )}
-        </div>
-        {selectedIds.size > 0 && <span className="font-medium text-primary-600">{selectedIds.size} selected</span>}
-      </div>
-
-      {viewMode === 'list' && (
-        <>
-          <div className="hidden md:block">
-            <div className={`shadow rounded-lg overflow-hidden border ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                  <thead className={isDark ? 'bg-gray-750' : 'bg-gray-50'}>
-                    <tr>
-                      <th className="px-4 py-3 text-left w-10">
-                        <input
-                          type="checkbox"
-                          className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer w-4 h-4"
-                          checked={allPageSelected}
-                          ref={el => el && (el.indeterminate = indeterminate)}
-                          onChange={toggleSelectAll}
-                        />
-                      </th>
-                      <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Learner</th>
-                      <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Details</th>
-                      <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Class Info</th>
-                      <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Status</th>
-                      <th className={`px-6 py-3 text-right text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className={`divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
-                    {paginatedStudents.map((student) => (
-                      <tr key={student.id} className={`transition-colors ${isDark ? 'hover:bg-gray-700' : 'hover:bg-blue-50'} group`}>
-                        <td className="px-4 py-4 text-left">
-                          <input
-                            type="checkbox"
-                            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer w-4 h-4"
-                            checked={selectedIds.has(student.id!)}
-                            onChange={() => toggleSelection(student.id!)}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap cursor-pointer" onClick={() => handleViewProfile(student)}>
-                          <div className="flex items-center">
-                            {student.photoBase64 ? (
-                              <img src={student.photoBase64} alt="" className="h-10 w-10 rounded-full object-cover" />
-                            ) : (
-                              <div className={`flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center font-bold text-sm ${isDark ? 'bg-primary-900 text-primary-300' : 'bg-primary-50 text-primary-600'}`}>
-                                {student.name.substring(0, 2)}
-                              </div>
-                            )}
-                            <div className="ml-4">
-                              {editingRowId === student.id && editingField === 'name' ? (
-                                <input
-                                  type="text"
-                                  className={`text-sm font-medium px-2 py-1 border rounded ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
-                                  value={editValue}
-                                  onChange={(e) => setEditValue(e.target.value)}
-                                  onBlur={() => handleQuickEdit(student.id!, 'name', editValue)}
-                                  onKeyDown={(e) => e.key === 'Enter' && handleQuickEdit(student.id!, 'name', editValue)}
-                                  autoFocus
-                                  onClick={(e) => e.stopPropagation()}
-                                />
-                              ) : (
-                                <div
-                                  className={`text-sm font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}
-                                  onDoubleClick={(e) => { e.stopPropagation(); setEditingRowId(student.id!); setEditingField('name'); setEditValue(student.name); }}
-                                >
-                                  <HighlightText text={student.name} query={searchQuery} />
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap cursor-pointer" onClick={() => handleViewProfile(student)}>
-                          <div className={`text-sm ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>{student.gender === 'M' ? 'Male' : 'Female'}</div>
-                          {editingRowId === student.id && editingField === 'paycode' ? (
-                            <input
-                              type="text"
-                              className={`text-xs px-2 py-0.5 border rounded w-24 ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
-                              value={editValue}
-                              onChange={(e) => setEditValue(e.target.value)}
-                              onBlur={() => handleQuickEdit(student.id!, 'paycode', editValue)}
-                              onKeyDown={(e) => e.key === 'Enter' && handleQuickEdit(student.id!, 'paycode', editValue)}
-                              autoFocus
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                          ) : (
-                            <div
-                              className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}
-                              onDoubleClick={(e) => { e.stopPropagation(); setEditingRowId(student.id!); setEditingField('paycode'); setEditValue(student.paycode || ''); }}
-                            >
-                              <HighlightText text={student.paycode || '-'} query={searchQuery} />
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap cursor-pointer" onClick={() => handleViewProfile(student)}>
-                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${isDark ? 'bg-blue-900 text-blue-300' : 'bg-blue-100 text-blue-800'}`}>
-                            {getDisplayName(student.classLevel)}
-                          </span>
-                          {editingRowId === student.id && editingField === 'stream' ? (
-                            <input
-                              type="text"
-                              className={`ml-2 text-sm px-2 py-0.5 border rounded w-20 ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
-                              value={editValue}
-                              onChange={(e) => setEditValue(e.target.value)}
-                              onBlur={() => handleQuickEdit(student.id!, 'stream', editValue)}
-                              onKeyDown={(e) => e.key === 'Enter' && handleQuickEdit(student.id!, 'stream', editValue)}
-                              autoFocus
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                          ) : (
-                            <span
-                              className={`ml-2 text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}
-                              onDoubleClick={(e) => { e.stopPropagation(); setEditingRowId(student.id!); setEditingField('stream'); setEditValue(student.stream); }}
-                            >
-                              {student.stream}
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap cursor-pointer" onClick={() => handleViewProfile(student)}>
-                          {student.specialCases?.sickness || student.specialCases?.absenteeism ?
-                            <span className="text-xs text-yellow-600 font-medium bg-yellow-50 dark:bg-yellow-900 dark:text-yellow-300 px-2 py-1 rounded">Flagged</span> :
-                            <span className="text-xs text-green-600 font-medium bg-green-50 dark:bg-green-900 dark:text-green-300 px-2 py-1 rounded">Active</span>
-                          }
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleViewProfile(student); }}
-                            className="text-primary-600 hover:text-primary-900 p-1"
-                            title="View Profile"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleEdit(student); }}
-                            className={`p-1 ${isDark ? 'text-gray-400 hover:text-gray-200' : 'text-gray-400 hover:text-gray-600'}`}
-                            title="Edit Student"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDelete(student.id); }}
-                            className="text-red-400 hover:text-red-600 p-1 transition-colors"
-                            title="Delete Student"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                    {paginatedStudents.length === 0 && (
-                      <tr><td colSpan={6} className={`px-6 py-12 text-center ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>No students found matching your search.</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
-          <div className="md:hidden space-y-3">
-            {paginatedStudents.map((student) => (
-              <div
-                key={student.id}
-                className={`rounded-xl border p-4 shadow-sm active:scale-[0.99] transition-all ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}
-                onClick={() => handleViewProfile(student)}
-              >
-                <div className="flex items-start gap-4">
-                  {/* Avatar */}
-                  <div className="relative shrink-0">
-                    {student.photoBase64 ? (
-                      <img src={student.photoBase64} alt="" className="h-14 w-14 rounded-full object-cover border-2 border-white dark:border-gray-700 shadow-sm" />
-                    ) : (
-                      <div className={`h-14 w-14 rounded-full flex items-center justify-center font-bold text-lg border-2 border-white dark:border-gray-700 shadow-sm ${isDark ? 'bg-primary-900 text-primary-300' : 'bg-gradient-to-br from-primary-50 to-primary-100 text-primary-600'}`}>
-                        {student.name.substring(0, 2)}
-                      </div>
-                    )}
-                    <div className={`absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-white dark:border-gray-800 ${student.specialCases?.sickness || student.specialCases?.absenteeism || student.specialCases?.fees ? 'bg-yellow-500' : 'bg-green-500'}`}></div>
-                  </div>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className={`font-bold text-lg truncate pr-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                          <HighlightText text={student.name} query={searchQuery} />
-                        </div>
-                      </div>
-                      <input
-                        type="checkbox"
-                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer w-5 h-5"
-                        checked={selectedIds.has(student.id!)}
-                        onChange={(e) => { e.stopPropagation(); toggleSelection(student.id!); }}
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2 mt-3">
-                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium ${isDark ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-50 text-blue-700 border border-blue-100'}`}>
-                        <School size={12} />
-                        {student.classLevel} {student.stream}
-                      </span>
-                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium ${student.gender === 'M' ? (isDark ? 'bg-sky-900/30 text-sky-300' : 'bg-sky-50 text-sky-700 border border-sky-100') : (isDark ? 'bg-pink-900/30 text-pink-300' : 'bg-pink-50 text-pink-700 border border-pink-100')}`}>
-                        <User size={12} />
-                        {student.gender === 'M' ? 'M' : 'F'}
-                      </span>
-                      {student.boardingStatus === 'boarding' && (
-                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium ${isDark ? 'bg-purple-900/30 text-purple-300' : 'bg-purple-50 text-purple-700 border border-purple-100'}`}>
-                          <Building size={12} />
-                          Brd
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Footer flag if issues */}
-                {(student.specialCases?.fees || student.specialCases?.sickness) && (
-                  <div className={`mt-3 pt-2 border-t flex gap-2 overflow-x-auto ${isDark ? 'border-gray-700' : 'border-gray-100'}`}>
-                    {student.specialCases.fees && <span className="text-[10px] font-bold text-red-600 bg-red-50 dark:bg-red-900/30 px-2 py-0.5 rounded-full whitespace-nowrap">FEES OVERDUE</span>}
-                    {student.specialCases.sickness && <span className="text-[10px] font-bold text-orange-600 bg-orange-50 dark:bg-orange-900/30 px-2 py-0.5 rounded-full whitespace-nowrap">MEDICAL ISSUE</span>}
-                  </div>
-                )}
-              </div>
-            ))}
-            {paginatedStudents.length === 0 && (
-              <div className={`text-center py-12 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                <div className="inline-flex p-4 rounded-full bg-gray-100 dark:bg-gray-800 mb-3">
-                  <Search size={24} className="opacity-50" />
-                </div>
-                <p>No students found matching your search.</p>
-              </div>
-            )}
-          </div>
-        </>
+      {/* Modals */}
+      {isModalOpen && (
+        <StudentModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onSubmit={handleSubmit}
+          formData={formData}
+          setFormData={setFormData}
+          isEdit={!!selectedStudent}
+          settings={settings}
+          isDark={isDark}
+        />
       )}
 
-      {viewMode === 'grid' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {paginatedStudents.map((student) => (
-            <div key={student.id} onClick={() => handleViewProfile(student)}
-              className={`group relative flex flex-col rounded-xl shadow-sm border overflow-hidden cursor-pointer transition-all hover:shadow-md ${isDark ? 'bg-gray-800 border-gray-700 hover:border-gray-600' : 'bg-white border-gray-200 hover:border-primary-200'}`}>
-              <div className={`h-24 ${isDark ? 'bg-gray-750' : 'bg-gradient-to-br from-primary-50 to-primary-100'}`}></div>
-              <div className="px-5 pt-0 pb-5 flex-1 flex flex-col">
-                <div className="relative -mt-12 mb-3 self-center">
-                  <div className={`h-24 w-24 rounded-full p-1 shadow-md ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
-                    {student.photoBase64 ? (
-                      <img src={student.photoBase64} alt="" className="h-full w-full rounded-full object-cover" />
-                    ) : (
-                      <div className={`h-full w-full rounded-full flex items-center justify-center text-2xl font-bold ${isDark ? 'bg-gray-700 text-gray-300' : 'bg-primary-100 text-primary-600'}`}>
-                        {student.name.substring(0, 2)}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="text-center mb-4">
-                  <h3 className={`font-bold text-lg truncate px-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>{student.name}</h3>
-                </div>
-
-                <div className="flex items-center justify-center gap-2 mb-4">
-                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${isDark ? 'bg-blue-900 text-blue-300' : 'bg-blue-100 text-blue-800'}`}>
-                    {student.classLevel} {student.stream}
-                  </span>
-                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${student.gender === 'M' ? (isDark ? 'bg-sky-900 text-sky-300' : 'bg-sky-100 text-sky-800') : (isDark ? 'bg-pink-900 text-pink-300' : 'bg-pink-100 text-pink-800')}`}>
-                    {student.gender === 'M' ? 'Male' : 'Female'}
-                  </span>
-                </div>
-
-                <div className={`mt-auto pt-3 border-t flex items-center justify-between text-xs ${isDark ? 'border-gray-700 text-gray-400' : 'border-gray-100 text-gray-500'}`}>
-                  <span className="flex items-center gap-1">
-                    {student.boardingStatus === 'boarding' ? '🛏️ Boarder' : '🏠 Day Scholar'}
-                  </span>
-                  {student.specialCases?.fees && <span className="text-red-500 font-medium">Fees Due</span>}
-                </div>
-              </div>
-            </div>
-          ))}
-          {paginatedStudents.length === 0 && (
-            <div className={`col-span-full text-center py-12 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>No students found matching your search.</div>
-          )}
-        </div>
+      {showPromoteModal && (
+        <PromoteStudentsModal
+          isOpen={showPromoteModal}
+          onClose={() => setShowPromoteModal(false)}
+          onPromote={handlePromoteStudents}
+          promotionSummary={promotionSummary}
+          selectedCount={selectedIds.size}
+          settings={settings}
+          isPromoting={isPromoting}
+        />
       )}
 
-      {
-        totalPages > 1 && (
-          <div className="flex justify-center items-center gap-2">
-            <button
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className={`px-3 py-1 rounded border text-sm ${isDark ? 'border-gray-600 text-gray-300 hover:bg-gray-700 disabled:opacity-50' : 'border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50'}`}
-            >
-              Previous
-            </button>
+      {showBulkIdCards && (
+        <BulkIDCardPrint
+          students={students.filter(s => s.id && selectedIds.has(s.id))}
+          settings={settings}
+          onClose={() => setShowBulkIdCards(false)}
+        />
+      )}
 
-            <div className="flex gap-1">
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                let pageNum;
-                if (totalPages <= 5) {
-                  pageNum = i + 1;
-                } else if (currentPage <= 3) {
-                  pageNum = i + 1;
-                } else if (currentPage >= totalPages - 2) {
-                  pageNum = totalPages - 4 + i;
-                } else {
-                  pageNum = currentPage - 2 + i;
-                }
-
-                return (
-                  <button
-                    key={pageNum}
-                    onClick={() => setCurrentPage(pageNum)}
-                    className={`w-8 h-8 rounded text-sm ${currentPage === pageNum
-                      ? 'bg-primary-600 text-white'
-                      : isDark ? 'border border-gray-600 text-gray-300 hover:bg-gray-700' : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
-                      }`}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              })}
-            </div>
-
-            <button
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              className={`px-3 py-1 rounded border text-sm ${isDark ? 'border-gray-600 text-gray-300 hover:bg-gray-700 disabled:opacity-50' : 'border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50'}`}
-            >
-              Next
-            </button>
-          </div>
-        )
-      }
-
-      {
-        isModalOpen && (
-          <StudentFormWizard
-            isOpen={isModalOpen}
-            onClose={() => setIsModalOpen(false)}
-            onSubmit={async (data) => {
-              try {
-                if (data.id) {
-                  await dbService.updateStudent(data as Student);
-                  showToast('Student updated successfully!', 'success');
-                } else {
-                  await dbService.addStudent(data as Student);
-                  showToast('Student added successfully!', 'success');
-                }
-                await loadData();
-              } catch (error: any) {
-                showToast(`Failed to save student: ${error.message}`, 'error');
-                throw error;
-              }
-            }}
-            initialData={formData.id ? (formData as Student) : undefined}
-            settings={settings}
-            isDark={isDark}
-            students={students}
-          />
-        )
-      }
-
-      {
-        showPromoteModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-            <div className={`rounded-lg shadow-xl max-w-lg w-full p-6 ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
-              <h2 className={`text-xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>Batch Promotion</h2>
-
-              <div className={`mb-4 p-4 rounded-lg ${isDark ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                <h3 className={`text-sm font-semibold mb-3 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Promotion Summary</h3>
-                <div className="space-y-2">
-                  {Object.entries(promotionSummary).map(([fromClass, info]: [string, { count: number; targetClass: string }]) => (
-                    <div key={fromClass} className={`flex items-center justify-between p-2 rounded ${isDark ? 'bg-gray-600' : 'bg-white'}`}>
-                      <div className="flex items-center gap-2">
-                        <span className={`px-2 py-1 rounded text-xs font-bold ${isDark ? 'bg-blue-900 text-blue-300' : 'bg-blue-100 text-blue-800'}`}>
-                          {getDisplayName(fromClass)}
-                        </span>
-                        <span className={isDark ? 'text-gray-400' : 'text-gray-500'}>→</span>
-                        <span className={`px-2 py-1 rounded text-xs font-bold ${info.targetClass === 'Graduated' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300'}`}>
-                          {info.targetClass === 'Graduated' ? 'Graduated' : getDisplayName(info.targetClass)}
-                        </span>
-                      </div>
-                      <span className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                        {info.count} student{info.count > 1 ? 's' : ''}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="mb-4">
-                <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                  Assign Stream (Optional)
-                </label>
-                <select
-                  value={promoteTargetStream}
-                  onChange={(e) => setPromoteTargetStream(e.target.value)}
-                  className={`w-full rounded-lg border px-3 py-2 text-sm ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                >
-                  <option value="">Keep existing stream</option>
-                  {settings?.streams && Object.entries(settings.streams).map(([cls, streams]) => (
-                    <optgroup key={cls} label={cls}>
-                      {(streams as string[]).map((stream: string) => (
-                        <option key={`${cls}-${stream}`} value={stream}>{stream}</option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </select>
-                <p className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                  If selected, all promoted students will be assigned to this stream
-                </p>
-              </div>
-
-              <div className={`p-3 rounded-lg mb-4 ${isDark ? 'bg-yellow-900/30 border border-yellow-800' : 'bg-yellow-50 border border-yellow-200'}`}>
-                <p className={`text-sm ${isDark ? 'text-yellow-300' : 'text-yellow-800'}`}>
-                  <strong>Note:</strong> P7 students will be marked as "Graduated" and will no longer appear in regular class lists.
-                  Their academic history will be preserved.
-                </p>
-              </div>
-
-              <div className="flex justify-end gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowPromoteModal(false);
-                    setPromoteTargetStream('');
-                    setPromotionSummary({});
-                  }}
-                  disabled={isPromoting}
-                >
-                  Cancel
-                </Button>
-                <Button onClick={handlePromoteStudents} disabled={isPromoting}>
-                  {isPromoting ? 'Promoting...' : `Promote ${selectedIds.size} Student${selectedIds.size > 1 ? 's' : ''}`}
-                </Button>
-              </div>
-            </div>
-          </div>
-        )
-      }
-
-      {
-        showIdCard && idCardStudent && (
-          <StudentIDCard
-            student={idCardStudent}
-            settings={settings}
-            onClose={() => {
-              setShowIdCard(false);
-              setIdCardStudent(null);
-            }}
-          />
-        )
-      }
-
-      {
-        showBulkIdCards && (
-          <BulkIDCardPrint
-            students={students.filter(s => s.id && selectedIds.has(s.id))}
-            settings={settings}
-            onClose={() => setShowBulkIdCards(false)}
-          />
-        )
-      }
-
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-    </div >
-  );
-};
-
-
-
-const StudentModal = ({ isOpen, onClose, onSubmit, formData, setFormData, isEdit, settings, isDark }: any) => {
-  const inputClasses = `mt-1 block w-full rounded-lg border px-4 py-3 shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/50 focus:outline-none text-base transition-all duration-200 ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`;
-
-  const currentStreams = settings?.streams[formData.classLevel] || [];
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
-      <div className={`rounded-t-2xl sm:rounded-lg shadow-xl w-full sm:max-w-2xl p-4 sm:p-6 border max-h-[95vh] sm:max-h-[90vh] overflow-y-auto ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-        <div className={`flex justify-between items-center border-b pb-3 mb-4 ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
-          <h2 className={`text-lg sm:text-xl font-bold ${isDark ? 'text-white' : 'text-gray-800'}`}>{isEdit ? 'Edit Student Profile' : 'Register New Student'}</h2>
-          <button onClick={onClose} className={`p-2 rounded-full ${isDark ? 'text-gray-400 hover:text-gray-200 hover:bg-gray-700' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}>
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <form onSubmit={onSubmit} className="space-y-6">
-          <div>
-            <h3 className={`text-sm font-medium uppercase tracking-wider mb-3 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Academic Details</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="col-span-2">
-                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Full Name (Uppercase)</label>
-                <input
-                  type="text"
-                  className={inputClasses}
-                  value={formData.name}
-                  onChange={e => setFormData({ ...formData, name: e.target.value.toUpperCase() })}
-                  required
-                  placeholder="e.g. MUKASA JOHN"
-                />
-              </div>
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>School Paycode</label>
-                <input
-                  type="text"
-                  className={inputClasses}
-                  value={formData.paycode}
-                  onChange={e => setFormData({ ...formData, paycode: e.target.value })}
-                  placeholder="Optional"
-                />
-              </div>
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Class</label>
-                <select
-                  className={inputClasses}
-                  value={formData.classLevel}
-                  onChange={e => {
-                    const newClass = e.target.value as ClassLevel;
-                    const newStreams = settings?.streams[newClass] || [];
-                    setFormData({
-                      ...formData,
-                      classLevel: newClass,
-                      stream: newStreams.length > 0 ? newStreams[0] : ''
-                    });
-                  }}
-                >
-                  {Object.values(ClassLevel).map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Stream</label>
-                <input
-                  type="text"
-                  list="streams-list"
-                  className={inputClasses}
-                  value={formData.stream}
-                  onChange={e => setFormData({ ...formData, stream: e.target.value })}
-                  placeholder="Select or type stream..."
-                />
-                <datalist id="streams-list">
-                  {currentStreams.map((s: string) => <option key={s} value={s} />)}
-                </datalist>
-                <p className={`text-xs mt-1 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Type a new name to create a stream for this class.</p>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <h3 className={`text-sm font-medium uppercase tracking-wider mb-3 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Personal & Contact</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Gender</label>
-                <select
-                  className={inputClasses}
-                  value={formData.gender}
-                  onChange={e => setFormData({ ...formData, gender: e.target.value as Gender })}
-                >
-                  <option value={Gender.Male}>Male</option>
-                  <option value={Gender.Female}>Female</option>
-                </select>
-              </div>
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Boarding Status</label>
-                <select
-                  className={inputClasses}
-                  value={formData.boardingStatus || 'day'}
-                  onChange={e => setFormData({ ...formData, boardingStatus: e.target.value })}
-                >
-                  <option value="day">Day Scholar</option>
-                  <option value="boarding">Boarder</option>
-                </select>
-                <p className={`text-xs mt-1 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Boarders can be assigned to dormitories and tracked via boarding roll calls.</p>
-              </div>
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Parent/Guardian Name</label>
-                <input
-                  type="text"
-                  className={inputClasses}
-                  value={formData.parentName || ''}
-                  onChange={e => setFormData({ ...formData, parentName: e.target.value })}
-                  placeholder="Mr. Parent Name"
-                />
-              </div>
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Contact Phone</label>
-                <input
-                  type="text"
-                  className={inputClasses}
-                  value={formData.parentContact || ''}
-                  onChange={e => setFormData({ ...formData, parentContact: e.target.value })}
-                  placeholder="07XX XXX XXX"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <h3 className={`text-sm font-medium uppercase tracking-wider mb-3 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Administrative Flags</h3>
-            <div className={`p-4 rounded-lg border grid grid-cols-1 sm:grid-cols-3 gap-3 ${isDark ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
-
-              <label className={`flex items-center space-x-3 cursor-pointer p-3 rounded-lg transition-colors ${isDark ? 'hover:bg-gray-600' : 'hover:bg-gray-100'}`}>
-                <input
-                  type="checkbox"
-                  className="w-5 h-5 rounded text-primary-600 focus:ring-primary-500"
-                  checked={formData.specialCases?.sickness}
-                  onChange={e => setFormData({ ...formData, specialCases: { ...formData.specialCases!, sickness: e.target.checked } })}
-                />
-                <span className={`text-base ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Medical Condition</span>
-              </label>
-              <label className={`flex items-center space-x-3 cursor-pointer p-3 rounded-lg transition-colors ${isDark ? 'hover:bg-gray-600' : 'hover:bg-gray-100'}`}>
-                <input
-                  type="checkbox"
-                  className="w-5 h-5 rounded text-primary-600 focus:ring-primary-500"
-                  checked={formData.specialCases?.absenteeism}
-                  onChange={e => setFormData({ ...formData, specialCases: { ...formData.specialCases!, absenteeism: e.target.checked } })}
-                />
-                <span className={`text-base ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Chronic Absenteeism</span>
-              </label>
-            </div>
-          </div>
-
-
-
-          <div className={`flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 border-t mt-4 ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
-            <Button variant="outline" type="button" onClick={onClose} className="w-full sm:w-auto py-3 text-base">Cancel</Button>
-            <Button type="submit" className="w-full sm:w-auto py-3 text-base">Save Student</Button>
-          </div>
-        </form>
-      </div>
+      {localToast && <Toast message={localToast.message} type={localToast.type} onClose={() => setLocalToast(null)} />}
     </div>
   );
 };

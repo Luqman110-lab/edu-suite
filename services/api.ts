@@ -140,6 +140,9 @@ export const apiService = {
   addTeacher: (teacher: Omit<Teacher, 'id'>) =>
     apiRequest<Teacher>('POST', '/teachers', teacher),
 
+  addTeachers: (teachers: Omit<Teacher, 'id'>[]) =>
+    apiRequest<Teacher[]>('POST', '/teachers/batch', { teachers }),
+
   updateTeacher: (teacher: Teacher) =>
     apiRequest<Teacher>('PUT', `/teachers/${teacher.id}`, teacher),
 

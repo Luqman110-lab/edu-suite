@@ -1,51 +1,47 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
-import { BoardingSettings as BoardingSettingsType } from '../../types';
-import { dbService } from '../../services/api';
+
+import { useBoardingSettings } from '../../client/src/hooks/useBoardingSettings';
 import { Save, Clock, Calendar, Shield } from 'lucide-react';
+import { BoardingSettings as BoardingSettingsType } from '../../types';
 
 export const BoardingSettings: React.FC = () => {
     const { isDark } = useTheme();
-    const [settings, setSettings] = useState<BoardingSettingsType | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
+    const { settings, isLoading, updateSettings } = useBoardingSettings();
+
+    // const [settings, setSettings] = useState<BoardingSettingsType | null>(null);
+    // const [loading, setLoading] = useState(true);
+    const loading = isLoading;
+    // const [saving, setSaving] = useState(false);
+    const saving = updateSettings.isPending;
+
+    // Toast logic handled locally or could be global
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-
-    useEffect(() => {
-        loadSettings();
-    }, []);
-
-    const loadSettings = async () => {
-        try {
-            const data = await dbService.getBoardingSettings();
-            setSettings(data);
-        } catch (error) {
-            console.error('Failed to load boarding settings:', error);
-            showToast('Failed to load boarding settings', 'error');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleSave = async () => {
-        if (!settings) return;
-        setSaving(true);
-        try {
-            const updated = await dbService.updateBoardingSettings(settings);
-            setSettings(updated);
-            showToast('Boarding settings saved successfully', 'success');
-        } catch (error) {
-            console.error('Failed to save settings:', error);
-            showToast('Failed to save settings', 'error');
-        } finally {
-            setSaving(false);
-        }
-    };
-
     const showToast = (message: string, type: 'success' | 'error') => {
         setToast({ message, type });
         setTimeout(() => setToast(null), 3000);
     };
+
+    /* loadSettings removed */
+
+    const handleSave = async (updatedSettings: BoardingSettingsType) => {
+        if (!updatedSettings) return;
+        try {
+            await updateSettings.mutateAsync(updatedSettings);
+            showToast('Boarding settings saved successfully', 'success');
+        } catch (error) {
+            console.error('Failed to save settings:', error);
+            showToast('Failed to save settings', 'error');
+        }
+    };
+
+    // Helper to update local state logic implies we might need local state if we want controlled inputs
+    // But since we are replacing state with hook data, we need to handle updates.
+    // However, react-query data is immutable usually. 
+    // We should probably keep a local state initialized from hook data for editing form, 
+    // OR just use hook data directly if we are fine with controlled inputs updating the source (anti-pattern for RQ if not used carefully).
+    // Better: maintain local state initialized from settings.
+
 
     const inputClasses = `mt-1 block w-full rounded-xl border px-4 py-3 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 focus:outline-none sm:text-sm transition-all duration-200 ${isDark
         ? 'border-gray-600 bg-gray-700 text-white placeholder-gray-400 focus:bg-gray-600'

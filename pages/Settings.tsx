@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { dbService } from '../services/api';
+import React, { useState, useEffect, useMemo } from 'react';
+
+import { useSettings } from '../client/src/hooks/useSettings';
 import { SchoolSettings } from '../types';
 import { useAuth } from '../hooks/use-auth';
 import { useTheme } from '../contexts/ThemeContext';
@@ -16,10 +17,13 @@ import { BoardingSettings } from './settings/BoardingSettings';
 export const Settings: React.FC = () => {
   const { user, activeSchool } = useAuth();
   const { isDark } = useTheme();
+  const { settings: settingsData, isLoading, updateSettings, refetch } = useSettings();
   const [activeTab, setActiveTab] = useState('general');
-  const [settings, setSettings] = useState<SchoolSettings | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  // const [settings, setSettings] = useState<SchoolSettings | null>(null);
+  // const [loading, setLoading] = useState(true);
+  const loading = isLoading;
+  // const [saving, setSaving] = useState(false);
+  const saving = updateSettings.isPending;
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const defaultGradingConfig = {
@@ -49,56 +53,27 @@ export const Settings: React.FC = () => {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const fetchSettings = async () => {
-    // Fallback to first school if activeSchool is missing, though useAuth usually handles this
-    const targetSchoolId = activeSchool?.id || user?.schools?.[0]?.id;
+  /* fetchSettings removed */
 
-    if (!targetSchoolId) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const data = await dbService.getSchoolSettings(targetSchoolId);
-      // Ensure grading config has defaults if missing
-      setSettings({
-        ...data,
-        gradingConfig: data.gradingConfig || defaultGradingConfig
-      });
-    } catch (error) {
-      console.error('Failed to fetch settings:', error);
-      showToast('Failed to load settings', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (user) {
-      fetchSettings();
-    }
-  }, [user, activeSchool]);
+  const settings = useMemo(() => {
+    if (!settingsData) return null;
+    return {
+      ...settingsData,
+      gradingConfig: settingsData.gradingConfig || defaultGradingConfig
+    };
+  }, [settingsData]);
 
 
   const handleUpdateSettings = async (updates: Partial<SchoolSettings>) => {
     if (!settings) return;
 
-    // Optimistic update
-    const updatedSettings = { ...settings, ...updates };
-    setSettings(updatedSettings);
-
-    setSaving(true);
     try {
-      // dbService expects number for schoolId, but we might have string ID in settings object
-      // Actually updateSchoolSettings implementation in api.ts ignores the first argument!
-      // So passing 0 or any number is fine.
-      await dbService.updateSchoolSettings(0, updates);
+      const newSettings = { ...settings, ...updates };
+      await updateSettings.mutateAsync(newSettings);
       showToast('Settings saved successfully', 'success');
     } catch (error) {
       console.error('Failed to update settings:', error);
       showToast('Failed to save settings', 'error');
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -126,7 +101,7 @@ export const Settings: React.FC = () => {
       case 'general':
         return <GeneralSettings settings={settings} onUpdate={handleUpdateSettings} isSaving={saving} />;
       case 'academic':
-        return <AcademicSettings settings={settings} onUpdate={handleUpdateSettings} onRefresh={fetchSettings} />;
+        return <AcademicSettings settings={settings} onUpdate={handleUpdateSettings} onRefresh={() => { }} />;
       case 'grading':
         return <GradingSettings settings={settings} onUpdate={handleUpdateSettings} />;
       case 'reports':

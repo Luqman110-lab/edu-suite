@@ -3,16 +3,14 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, AreaChart, Area
 } from 'recharts';
-import { dbService } from '../services/api';
+
 import { ClassLevel, Student, MarkRecord, SchoolSettings } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
 import { useClassNames } from '../hooks/use-class-names';
-
-interface AnalyticsData {
-  students: Student[];
-  marks: MarkRecord[];
-  settings: SchoolSettings;
-}
+import { StatCard } from '../client/src/components/StatCard';
+import { useStudents } from '../client/src/hooks/useStudents';
+import { useMarks } from '../client/src/hooks/useMarks';
+import { useSettings } from '../client/src/hooks/useSettings';
 
 const COLORS = {
   primary: '#6366F1',
@@ -28,27 +26,7 @@ const COLORS = {
 const DIVISION_COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#8B5CF6', '#EF4444'];
 const SUBJECT_COLORS = ['#6366F1', '#8B5CF6', '#EC4899', '#14B8A6', '#F59E0B', '#3B82F6'];
 
-const StatCard = ({ title, value, subtitle, icon, color, isDark }: {
-  title: string;
-  value: string | number;
-  subtitle?: string;
-  icon: React.ReactNode;
-  color: string;
-  isDark: boolean;
-}) => (
-  <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'} rounded-2xl shadow-soft border p-6`}>
-    <div className="flex items-center justify-between">
-      <div>
-        <p className={`text-sm font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{title}</p>
-        <p className={`text-3xl font-bold ${isDark ? 'text-white' : 'text-gray-900'} mt-1`}>{value}</p>
-        {subtitle && <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'} mt-1`}>{subtitle}</p>}
-      </div>
-      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${color}`}>
-        {icon}
-      </div>
-    </div>
-  </div>
-);
+
 
 const ChartCard = ({ title, children, className = "", isDark }: { title: string; children: React.ReactNode; className?: string; isDark: boolean }) => (
   <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'} rounded-2xl shadow-soft border p-6 ${className}`}>
@@ -60,78 +38,39 @@ const ChartCard = ({ title, children, className = "", isDark }: { title: string;
 export const Analytics: React.FC = () => {
   const { isDark } = useTheme();
   const { getDisplayName, getAllClasses } = useClassNames();
-  const [data, setData] = useState<AnalyticsData | null>(null);
-  const [loading, setLoading] = useState(true);
+
+  const { students, isLoading: studentsLoading } = useStudents();
+  const { marks, isLoading: marksLoading } = useMarks();
+  const { settings, isLoading: settingsLoading } = useSettings();
+
+  const loading = studentsLoading || marksLoading || settingsLoading;
 
   const [selectedTerm, setSelectedTerm] = useState<number | 'all'>('all');
   const [selectedYear, setSelectedYear] = useState<number | 'all'>('all');
   const [selectedClass, setSelectedClass] = useState<ClassLevel | 'all'>('all');
   const [selectedType, setSelectedType] = useState<'BOT' | 'EOT' | 'all'>('all');
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        // Fetch independently to prevent one failure from blocking others
-        const studentsPromise = dbService.getStudents().catch(err => {
-          console.error("Failed to fetch students:", err);
-          return [];
-        });
-        const marksPromise = dbService.getMarks().catch(err => {
-          console.error("Failed to fetch marks:", err);
-          return [];
-        });
-        const settingsPromise = dbService.getSettings().catch(err => {
-          console.error("Failed to fetch settings:", err);
-          // Return valid default settings to prevent crashes
-          return {
-            currentYear: new Date().getFullYear(),
-            currentTerm: 1,
-            streams: {},
-            classAliases: {},
-            gradingConfig: { grades: [], divisions: [], passingMark: 40 },
-            subjectConfig: { lowerPrimary: [], upperPrimary: [] },
-            reportConfig: { headteacherName: '', headteacherTitle: '', showClassTeacherSignature: false, showHeadteacherSignature: false, showParentSignature: false, commentTemplates: [] },
-            idCardConfig: { showBloodGroup: false, showDob: false, showEmergencyContact: false, customTerms: [], layout: 'single' as const },
-          } as SchoolSettings;
-        });
-
-        const [students, marks, settings] = await Promise.all([
-          studentsPromise,
-          marksPromise,
-          settingsPromise
-        ]);
-
-        setData({ students, marks, settings });
-      } catch (err) {
-        console.error("Critical error loading analytics:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadData();
-  }, []);
-
   const availableYears = useMemo(() => {
-    if (!data) return [];
-    const years = [...new Set(data.marks.map(m => m.year))] as number[];
+    if (!marks) return [];
+    const years = [...new Set(marks.map(m => m.year))] as number[];
     return years.sort((a, b) => b - a);
-  }, [data]);
+  }, [marks]);
 
   const filteredMarks = useMemo(() => {
-    if (!data) return [];
-    return data.marks.filter(m => {
+    if (!marks || !students) return [];
+    return marks.filter(m => {
       if (selectedTerm !== 'all' && m.term !== selectedTerm) return false;
       if (selectedYear !== 'all' && m.year !== selectedYear) return false;
       if (selectedType !== 'all' && m.type !== selectedType) return false;
       if (selectedClass !== 'all') {
-        const student = data.students.find(s => s.id === m.studentId);
+        const student = students.find(s => s.id === m.studentId);
         if (!student || student.classLevel !== selectedClass) return false;
       }
       return true;
     });
-  }, [data, selectedTerm, selectedYear, selectedClass, selectedType]);
+  }, [marks, students, selectedTerm, selectedYear, selectedClass, selectedType]);
 
-  const getStudentById = (id: number) => data?.students.find(s => s.id === id);
+  const getStudentById = (id: number) => students?.find(s => s.id === id);
 
   const summaryStats = useMemo(() => {
     if (!filteredMarks.length) return { totalAssessed: 0, avgAggregate: 0, passRate: 0, bestClass: '-' };
@@ -164,7 +103,7 @@ export const Analytics: React.FC = () => {
     });
 
     return { totalAssessed, avgAggregate: avgAggregate.toFixed(1), passRate: passRate.toFixed(1), bestClass };
-  }, [filteredMarks, data]);
+  }, [filteredMarks, students]);
 
   const divisionData = useMemo(() => {
     const counts = { I: 0, II: 0, III: 0, IV: 0, U: 0 };
@@ -201,7 +140,7 @@ export const Analytics: React.FC = () => {
       avgAggregate: classStats[cls] ? (classStats[cls].aggregate / classStats[cls].count).toFixed(1) : 0,
       students: classStats[cls]?.count || 0,
     }));
-  }, [filteredMarks, data]);
+  }, [filteredMarks, students]);
 
   const subjectPerformanceData = useMemo(() => {
     const subjects: { [key: string]: { total: number; count: number } } = {
@@ -256,7 +195,7 @@ export const Analytics: React.FC = () => {
       { gender: 'Male', ...genderStats.M },
       { gender: 'Female', ...genderStats.F },
     ];
-  }, [filteredMarks, data]);
+  }, [filteredMarks, students]);
 
   const streamComparisonData = useMemo(() => {
     if (selectedClass === 'all') return [];
@@ -279,14 +218,14 @@ export const Analytics: React.FC = () => {
       avgAggregate: (stats.aggregate / stats.count).toFixed(1),
       students: stats.count,
     }));
-  }, [filteredMarks, data, selectedClass]);
+  }, [filteredMarks, students, selectedClass]);
 
   const termTrendData = useMemo(() => {
-    if (!data) return [];
+    if (!marks) return [];
 
     const termStats: { [key: string]: { aggregate: number; count: number } } = {};
 
-    data.marks.forEach(m => {
+    marks.forEach(m => {
       const key = `${m.year} T${m.term}`;
       if (!termStats[key]) {
         termStats[key] = { aggregate: 0, count: 0 };
@@ -302,10 +241,10 @@ export const Analytics: React.FC = () => {
         students: stats.count,
       }))
       .sort((a, b) => a.term.localeCompare(b.term));
-  }, [data]);
+  }, [marks]);
 
   const topPerformers = useMemo(() => {
-    if (!data) return [];
+    if (!marks || !students) return [];
 
     const studentBest: { [key: number]: { aggregate: number; division: string; student: Student } } = {};
 
@@ -321,7 +260,7 @@ export const Analytics: React.FC = () => {
     return Object.values(studentBest)
       .sort((a, b) => a.aggregate - b.aggregate)
       .slice(0, 10);
-  }, [filteredMarks, data]);
+  }, [filteredMarks, students]);
 
   if (loading) {
     return (
@@ -396,7 +335,7 @@ export const Analytics: React.FC = () => {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          title="Students Assessed"
+          label="Students Assessed"
           value={summaryStats.totalAssessed}
           subtitle="Total assessments"
           color="bg-primary-100 text-primary-600"
@@ -404,7 +343,7 @@ export const Analytics: React.FC = () => {
           icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>}
         />
         <StatCard
-          title="Average Aggregate"
+          label="Average Aggregate"
           value={summaryStats.avgAggregate}
           subtitle="Lower is better"
           color="bg-success-100 text-success-600"
@@ -412,7 +351,7 @@ export const Analytics: React.FC = () => {
           icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
         />
         <StatCard
-          title="Pass Rate"
+          label="Pass Rate"
           value={`${summaryStats.passRate}%`}
           subtitle="Div I, II, III"
           color="bg-warning-100 text-warning-600"
@@ -420,7 +359,7 @@ export const Analytics: React.FC = () => {
           icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>}
         />
         <StatCard
-          title="Best Class"
+          label="Best Class"
           value={summaryStats.bestClass === '-' ? '-' : getDisplayName(summaryStats.bestClass)}
           subtitle="Lowest avg aggregate"
           color="bg-purple-100 text-purple-600"

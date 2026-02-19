@@ -1,32 +1,16 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { useAuth } from '../hooks/use-auth';
-import { dbService } from '../services/api';
-import { SchoolSettings } from '../types';
-import { useQuery } from '@tanstack/react-query';
-import { useToast } from '@/hooks/use-toast';
-import {
-  Plus, Users, Layers, BookOpen, AlertCircle, X, Check,
-  Edit2, RotateCcw, Loader2, GripVertical, Hash
-} from 'lucide-react';
 
-type Student = { id?: number; classLevel: string; stream: string };
+import { useSettings } from '../client/src/hooks/useSettings';
+import { useStudents } from '../client/src/hooks/useStudents';
+
+// ...
 
 export function ClassManagement() {
-  const { activeSchool } = useAuth();
   const { toast } = useToast();
 
-  const { data: settings, refetch: refetchSettings } = useQuery<SchoolSettings>({
-    queryKey: ['settings', activeSchool?.id],
-    queryFn: () => dbService.getSettings(),
-    enabled: !!activeSchool?.id,
-  });
-
-  const { data: students } = useQuery<Student[]>({
-    queryKey: ['students', activeSchool?.id],
-    queryFn: () => dbService.getStudents(),
-    enabled: !!activeSchool?.id,
-  });
+  const { settings, refetch: refetchSettings, updateSettings } = useSettings();
+  const { students } = useStudents();
 
   const [newStreams, setNewStreams] = useState<Record<string, string>>({});
   const [editingAlias, setEditingAlias] = useState<{ level: string; value: string } | null>(null);
@@ -71,18 +55,25 @@ export function ClassManagement() {
 
   const handleAddStream = async (classLevel: string) => {
     const streamName = newStreams[classLevel]?.trim();
-    if (!streamName) return;
+    if (!streamName || !settings) return;
 
-    if (settings?.streams[classLevel]?.includes(streamName)) {
+    if (settings.streams[classLevel]?.includes(streamName)) {
       toast({ title: 'Stream already exists', description: `"${streamName}" is already in ${getDisplayName(classLevel)}.`, variant: 'destructive' });
       return;
     }
 
     setBusyAction(`add-${classLevel}`);
     try {
-      await dbService.addStream(classLevel, streamName);
+      const currentStreams = settings.streams[classLevel] || [];
+      const newSettings = {
+        ...settings,
+        streams: {
+          ...settings.streams,
+          [classLevel]: [...currentStreams, streamName]
+        }
+      };
+      await updateSettings.mutateAsync(newSettings);
       setNewStreams(prev => ({ ...prev, [classLevel]: '' }));
-      await refetchSettings();
       toast({ title: 'Stream added', description: `"${streamName}" added to ${getDisplayName(classLevel)}.` });
     } catch (error) {
       console.error(error);
@@ -93,15 +84,22 @@ export function ClassManagement() {
   };
 
   const handleRemoveStream = async () => {
-    if (!confirmDelete) return;
+    if (!confirmDelete || !settings) return;
     const { level, stream } = confirmDelete;
     const count = getStudentCount(level, stream);
 
     setBusyAction(`remove-${level}-${stream}`);
     setConfirmDelete(null);
     try {
-      await dbService.removeStream(level, stream);
-      await refetchSettings();
+      const currentStreams = settings.streams[level] || [];
+      const newSettings = {
+        ...settings,
+        streams: {
+          ...settings.streams,
+          [level]: currentStreams.filter(s => s !== stream)
+        }
+      };
+      await updateSettings.mutateAsync(newSettings);
       toast({
         title: 'Stream removed',
         description: `"${stream}" removed from ${getDisplayName(level)}.${count > 0 ? ` ${count} students were in this stream.` : ''}`,
@@ -115,7 +113,7 @@ export function ClassManagement() {
   };
 
   const handleRenameStream = async () => {
-    if (!editingStream) return;
+    if (!editingStream || !settings) return;
     const { level, oldName, value } = editingStream;
     const newName = value.trim();
     if (!newName || newName === oldName) {
@@ -123,16 +121,28 @@ export function ClassManagement() {
       return;
     }
 
-    if (settings?.streams[level]?.includes(newName)) {
+    if (settings.streams[level]?.includes(newName)) {
       toast({ title: 'Name already taken', description: `"${newName}" already exists in ${getDisplayName(level)}.`, variant: 'destructive' });
       return;
     }
 
     setBusyAction(`rename-stream-${level}-${oldName}`);
     try {
-      await dbService.renameStream(level, oldName, newName);
+      const currentStreams = settings.streams[level] || [];
+      const idx = currentStreams.indexOf(oldName);
+      if (idx !== -1) {
+        const newStreamsList = [...currentStreams];
+        newStreamsList[idx] = newName;
+        const newSettings = {
+          ...settings,
+          streams: {
+            ...settings.streams,
+            [level]: newStreamsList
+          }
+        };
+        await updateSettings.mutateAsync(newSettings);
+      }
       setEditingStream(null);
-      await refetchSettings();
       toast({ title: 'Stream renamed', description: `"${oldName}" renamed to "${newName}".` });
     } catch (error) {
       console.error(error);
@@ -143,16 +153,22 @@ export function ClassManagement() {
   };
 
   const handleUpdateAlias = async () => {
-    if (!editingAlias) return;
+    if (!editingAlias || !settings) return;
     const { level, value } = editingAlias;
     const trimmed = value.trim();
     if (!trimmed) return;
 
     setBusyAction(`alias-${level}`);
     try {
-      await dbService.updateClassAlias(level, trimmed);
+      const newSettings = {
+        ...settings,
+        classAliases: {
+          ...settings.classAliases,
+          [level]: trimmed
+        }
+      };
+      await updateSettings.mutateAsync(newSettings);
       setEditingAlias(null);
-      await refetchSettings();
       toast({ title: 'Class name updated', description: `${level} is now displayed as "${trimmed}".` });
     } catch (error) {
       console.error(error);
@@ -163,10 +179,17 @@ export function ClassManagement() {
   };
 
   const handleResetAlias = async (level: string) => {
+    if (!settings) return;
     setBusyAction(`alias-${level}`);
     try {
-      await dbService.updateClassAlias(level, '');
-      await refetchSettings();
+      const newSettings = {
+        ...settings,
+        classAliases: {
+          ...settings.classAliases,
+          [level]: ''
+        }
+      };
+      await updateSettings.mutateAsync(newSettings);
       toast({ title: 'Class name reset', description: `${level} reset to default name.` });
     } catch (error) {
       console.error(error);
@@ -353,13 +376,12 @@ export function ClassManagement() {
             <button
               onClick={() => handleAddStream(level)}
               disabled={!inputStream.trim() || !!busyAction}
-              className={`absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-all ${
-                inputStream.trim() && !busyAction
-                  ? isNursery
-                    ? 'bg-pink-500 text-white shadow-sm hover:bg-pink-600'
-                    : 'bg-blue-500 text-white shadow-sm hover:bg-blue-600'
-                  : 'bg-gray-200 text-gray-400 dark:bg-gray-700 dark:text-gray-500 cursor-not-allowed'
-              }`}
+              className={`absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-all ${inputStream.trim() && !busyAction
+                ? isNursery
+                  ? 'bg-pink-500 text-white shadow-sm hover:bg-pink-600'
+                  : 'bg-blue-500 text-white shadow-sm hover:bg-blue-600'
+                : 'bg-gray-200 text-gray-400 dark:bg-gray-700 dark:text-gray-500 cursor-not-allowed'
+                }`}
             >
               {isAddingStream ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             </button>

@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
-import { dbService } from '../../services/api';
+
+import { useDataManagement } from '../../client/src/hooks/useDataManagement';
 import { Download, Upload, Trash2, Database } from 'lucide-react';
 
 interface DataManagementSettingsProps {
@@ -8,6 +9,7 @@ interface DataManagementSettingsProps {
 
 export const DataManagementSettings: React.FC<DataManagementSettingsProps> = () => {
     const { isDark } = useTheme();
+    const { exportData, importData, mergeData, deleteAllData } = useDataManagement();
     const restoreInputRef = useRef<HTMLInputElement>(null);
     const mergeInputRef = useRef<HTMLInputElement>(null);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -34,9 +36,14 @@ export const DataManagementSettings: React.FC<DataManagementSettingsProps> = () 
         setTimeout(() => setToast(null), 4000);
     };
 
-    const handleExport = () => {
-        dbService.exportData();
-        showToast('Backup downloaded successfully!', 'success');
+    const handleExport = async () => {
+        try {
+            await exportData();
+            showToast('Backup downloaded successfully!', 'success');
+        } catch (error) { // exportData might fail if network error
+            console.error(error);
+            showToast('Failed to download backup.', 'error');
+        }
     };
 
     const handleRestore = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -47,7 +54,7 @@ export const DataManagementSettings: React.FC<DataManagementSettingsProps> = () 
             const reader = new FileReader();
             reader.onload = async (ev) => {
                 try {
-                    await dbService.importData(ev.target?.result as string);
+                    await importData.mutateAsync(ev.target?.result as string);
                     showToast('Data restored successfully!', 'success');
                     setTimeout(() => window.location.reload(), 1500);
                 } catch (err) {
@@ -75,7 +82,10 @@ export const DataManagementSettings: React.FC<DataManagementSettingsProps> = () 
         const reader = new FileReader();
         reader.onload = async (ev) => {
             try {
-                const stats = await dbService.mergeData(ev.target?.result as string, mergeOptions);
+                const stats = await mergeData.mutateAsync({
+                    jsonContent: ev.target?.result as string,
+                    options: mergeOptions
+                });
                 setMergeStats(stats);
                 showToast(`Merge complete! Added ${stats.studentsAdded} students, updated ${stats.studentsUpdated}.`, 'success');
             } catch (err) {
@@ -112,19 +122,11 @@ export const DataManagementSettings: React.FC<DataManagementSettingsProps> = () 
         }
 
         try {
-            const response = await fetch('/api/all-data', {
-                method: 'DELETE',
-                credentials: 'include',
-            });
-
-            if (response.ok) {
-                showToast('All data has been deleted successfully', 'success');
-                setTimeout(() => window.location.reload(), 1500);
-            } else {
-                const data = await response.json();
-                showToast(data.message || 'Failed to delete data', 'error');
-            }
+            await deleteAllData.mutateAsync();
+            showToast('All data has been deleted successfully', 'success');
+            setTimeout(() => window.location.reload(), 1500);
         } catch (err) {
+            console.error(err);
             showToast('Failed to delete data', 'error');
         }
     };
