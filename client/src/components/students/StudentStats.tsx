@@ -1,6 +1,18 @@
 import React, { useMemo } from 'react';
 import { Student } from '../../../../types';
-import { StatCard } from '../../components/StatCard';
+
+const StatCard = ({ label, value, subtitle, icon, color, isDark }: { label: string; value: number; subtitle: string; icon: React.ReactNode; color: string; isDark: boolean }) => (
+    <div className={`p-4 rounded-xl border shadow-sm ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+        <div className="flex items-center justify-between">
+            <div>
+                <div className={`text-sm font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{label}</div>
+                <div className={`text-2xl font-bold mt-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>{value}</div>
+                <div className={`text-xs mt-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{subtitle}</div>
+            </div>
+            <div className={`p-3 rounded-lg ${color}`}>{icon}</div>
+        </div>
+    </div>
+);
 import { Icons } from '../../lib/icons';
 
 const { User, Building } = Icons;

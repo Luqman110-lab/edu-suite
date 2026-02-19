@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Conversation, Message, Attachment } from '../../types/messaging';
 import { MessageBubble } from './MessageBubble';
-import { AudioRecorder } from '../../AudioRecorder';
+import { AudioRecorder } from '../../../../components/AudioRecorder';
 
 // Icons
 const Icons = {
