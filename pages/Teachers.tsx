@@ -7,7 +7,7 @@ import { Toast } from '../client/src/components/Toast';
 import { useTeachers } from '../client/src/hooks/useTeachers';
 import { useStudents } from '../client/src/hooks/useStudents';
 import { useSettings } from '../client/src/hooks/useSettings';
-import { FaceEnrollment } from '../client/src/components/FaceEnrollment';
+import FaceEnrollment from '../client/src/components/FaceEnrollment';
 
 // Extracted Components
 import { TeacherStats } from '../client/src/components/teachers/TeacherStats';

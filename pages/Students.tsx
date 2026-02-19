@@ -1,14 +1,11 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import Papa from 'papaparse';
-import { toast } from 'react-hot-toast'; // Assuming usage of react-hot-toast or similar, based on previous code usually having a toast generic
-// If not using react-hot-toast, we'll keep the local toast implementation but it's better to use the global one if available.
-// The previous code had a local `toast` state. I will keep the local one for now to minimize breaking changes, 
-// OR I can see if `Toast` component is imported. It was.
+
 
 import { Student, ClassLevel, Gender } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
-import { useClassNames } from '../client/src/hooks/use-class-names';
+import { useClassNames } from '../hooks/use-class-names';
 import { useAcademicYear } from '../contexts/AcademicYearContext';
 import { useStudents } from '../client/src/hooks/useStudents';
 import { useSettings } from '../client/src/hooks/useSettings';
@@ -16,7 +13,7 @@ import { Button } from '../components/Button';
 import { Toast } from '../client/src/components/Toast';
 import { StudentIDCard } from '../components/StudentIDCard';
 import { BulkIDCardPrint } from '../components/StudentIDCard';
-import { FaceEnrollment } from '../client/src/components/FaceEnrollment';
+import FaceEnrollment from '../client/src/components/FaceEnrollment';
 
 // Imported Components
 import { StudentStats } from '../client/src/components/students/StudentStats';
