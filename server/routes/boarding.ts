@@ -1,8 +1,10 @@
 import { Router, Request } from "express";
 import { boardingService } from "../services/BoardingService";
 import { requireAuth, requireAdmin, requireStaff, getActiveSchoolId } from "../auth";
-import { insertDormitorySchema, insertBedSchema, insertVisitorLogSchema, insertBoardingSettingsSchema } from "../../shared/schema";
+import { insertDormitorySchema, insertBedSchema, insertVisitorLogSchema, insertBoardingSettingsSchema, beds, dormitories } from "../../shared/schema";
 import { z } from "zod";
+import { db } from "../db";
+import { eq, and } from "drizzle-orm";
 
 function param(req: Request, key: string): string {
     const val = req.params[key];
@@ -10,6 +12,28 @@ function param(req: Request, key: string): string {
 }
 
 export const boardingRoutes = Router();
+
+// GET /api/students/:id/bed — get the current bed assignment for a student
+boardingRoutes.get("/students/:id/bed", requireAuth, async (req, res) => {
+    try {
+        const schoolId = getActiveSchoolId(req);
+        if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+        const studentId = parseInt(req.params.id);
+        if (isNaN(studentId)) return res.status(400).json({ message: "Invalid student ID" });
+
+        const result = await db
+            .select({ bed: beds, dormitory: dormitories })
+            .from(beds)
+            .leftJoin(dormitories, eq(beds.dormitoryId, dormitories.id))
+            .where(and(eq(beds.schoolId, schoolId), eq(beds.currentStudentId, studentId)))
+            .limit(1);
+
+        res.json(result[0] || null);
+    } catch (error: any) {
+        res.status(500).json({ message: "Failed to fetch student bed: " + error.message });
+    }
+});
+
 
 // GET /api/boarding-stats
 boardingRoutes.get("/boarding-stats", requireAuth, async (req, res) => {
@@ -23,6 +47,7 @@ boardingRoutes.get("/boarding-stats", requireAuth, async (req, res) => {
         res.status(500).json({ message: "Failed to fetch boarding stats: " + error.message });
     }
 });
+
 
 // POST /api/boarding-roll-calls/bulk
 boardingRoutes.post("/boarding-roll-calls/bulk", requireStaff, async (req, res) => {

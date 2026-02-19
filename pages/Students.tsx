@@ -559,6 +559,7 @@ export const Students: React.FC = () => {
             isEdit={!!selectedStudent}
             settings={settings}
             isDark={isDark}
+            studentId={selectedStudent?.id}
           />
         )}
 
@@ -659,6 +660,7 @@ export const Students: React.FC = () => {
           isEdit={!!selectedStudent}
           settings={settings}
           isDark={isDark}
+          studentId={selectedStudent?.id}
         />
       )}
 
