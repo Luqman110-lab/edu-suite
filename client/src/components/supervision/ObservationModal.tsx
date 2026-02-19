@@ -119,7 +119,7 @@ export const ObservationModal: React.FC<ObservationModalProps> = ({
                                 className={`w-full min-h-[44px] px-3 py-2 rounded-lg border ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                             >
                                 <option value="">Select class</option>
-                                {['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7'].map(c => (
+                                {['N1', 'N2', 'N3', 'P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7'].map(c => (
                                     <option key={c} value={c}>{c}</option>
                                 ))}
                             </select>

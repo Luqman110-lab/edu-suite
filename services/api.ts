@@ -179,7 +179,7 @@ export const apiService = {
       nextTermBeginBoarders: settings.nextTermBeginBoarders || '',
       nextTermBeginDay: settings.nextTermBeginDay || '',
       streams: settings.streams || {
-        P1: [], P2: [], P3: [], P4: [], P5: [], P6: [], P7: [],
+        N1: [], N2: [], N3: [], P1: [], P2: [], P3: [], P4: [], P5: [], P6: [], P7: [],
       },
       // Ensure config objects exist
       gradingConfig: settings.gradingConfig,

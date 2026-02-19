@@ -49,7 +49,7 @@ const Button = ({ children, onClick, variant = 'primary', size = 'md', disabled 
     danger: 'bg-red-600 hover:bg-red-700 text-white focus:ring-red-500',
     outline: 'border border-gray-300 dark:border-gray-600 bg-transparent hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
   };
-  
+
   return (
     <button
       onClick={onClick}
@@ -68,7 +68,7 @@ export const ClassAttendance: React.FC = () => {
   const [classRecords, setClassRecords] = useState<ClassRecord[]>([]);
   const [settings, setSettings] = useState<AttendanceSettings | null>(null);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [selectedClass, setSelectedClass] = useState('P1');
+  const [selectedClass, setSelectedClass] = useState('N1');
   const [selectedStream, setSelectedStream] = useState('');
   const [selectedPeriod, setSelectedPeriod] = useState(1);
   const [selectedSubject, setSelectedSubject] = useState('');
@@ -77,7 +77,7 @@ export const ClassAttendance: React.FC = () => {
   const [attendanceState, setAttendanceState] = useState<{ [studentId: number]: string }>({});
   const [hasChanges, setHasChanges] = useState(false);
 
-  const classLevels = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7'];
+  const classLevels = ['N1', 'N2', 'N3', 'P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7'];
   const subjects = ['English', 'Mathematics', 'Science', 'Social Studies', 'Literacy', 'Numeracy', 'P.E.', 'Music', 'Art'];
   const statusOptions = ['present', 'absent', 'late', 'excused'];
 
@@ -93,11 +93,11 @@ export const ClassAttendance: React.FC = () => {
         fetch(`/api/class-attendance?date=${selectedDate}&classLevel=${selectedClass}&period=${selectedPeriod}`, { credentials: 'include' }),
         fetch('/api/attendance-settings', { credentials: 'include' }),
       ]);
-      
+
       if (studentsRes.ok) {
         const allStudents = await studentsRes.json();
-        const filtered = allStudents.filter((s: Student) => 
-          s.classLevel === selectedClass && 
+        const filtered = allStudents.filter((s: Student) =>
+          s.classLevel === selectedClass &&
           (!selectedStream || s.stream === selectedStream)
         );
         setStudents(filtered);
@@ -148,7 +148,7 @@ export const ClassAttendance: React.FC = () => {
         studentId: parseInt(studentId),
         status
       }));
-      
+
       const response = await fetch('/api/class-attendance/bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -162,7 +162,7 @@ export const ClassAttendance: React.FC = () => {
           subject: selectedSubject,
         }),
       });
-      
+
       if (response.ok) {
         setHasChanges(false);
         await fetchData();
@@ -309,7 +309,7 @@ export const ClassAttendance: React.FC = () => {
             {selectedClass} - Period {selectedPeriod} {selectedSubject && `(${selectedSubject})`}
           </h2>
         </div>
-        
+
         {students.length === 0 ? (
           <div className={`p-8 text-center ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
             No students found for {selectedClass}
@@ -319,11 +319,10 @@ export const ClassAttendance: React.FC = () => {
             {students.map(student => {
               const status = attendanceState[student.id] || '';
               return (
-                <div 
+                <div
                   key={student.id}
-                  className={`p-4 rounded-lg border ${isDark ? 'border-gray-700' : 'border-gray-200'} ${
-                    status ? 'border-l-4' : ''
-                  }`}
+                  className={`p-4 rounded-lg border ${isDark ? 'border-gray-700' : 'border-gray-200'} ${status ? 'border-l-4' : ''
+                    }`}
                   style={{ borderLeftColor: status ? getStatusColor(status).replace('bg-', '').replace('-500', '') : undefined }}
                 >
                   <div className="flex items-center justify-between">
@@ -349,14 +348,13 @@ export const ClassAttendance: React.FC = () => {
                       <button
                         key={opt}
                         onClick={() => handleStatusChange(student.id, opt)}
-                        className={`flex-1 py-1.5 text-xs font-medium rounded transition-colors ${
-                          status === opt
-                            ? opt === 'present' ? 'bg-green-600 text-white' :
-                              opt === 'absent' ? 'bg-red-600 text-white' :
+                        className={`flex-1 py-1.5 text-xs font-medium rounded transition-colors ${status === opt
+                          ? opt === 'present' ? 'bg-green-600 text-white' :
+                            opt === 'absent' ? 'bg-red-600 text-white' :
                               opt === 'late' ? 'bg-yellow-600 text-white' :
-                              'bg-blue-600 text-white'
-                            : isDark ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
+                                'bg-blue-600 text-white'
+                          : isDark ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }`}
                       >
                         {opt.charAt(0).toUpperCase() + opt.slice(1)}
                       </button>

@@ -4,7 +4,7 @@ import { Clock, Plus, Settings, RefreshCw, Download, ChevronDown } from 'lucide-
 import { TimetablePeriod, ClassTimetable, Teacher } from '../../types';
 
 const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-const CLASS_LEVELS = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7'];
+const CLASS_LEVELS = ['N1', 'N2', 'N3', 'P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7'];
 const SUBJECTS = ['English', 'Mathematics', 'Science', 'Social Studies', 'Religious Education', 'Literacy', 'P.E.', 'Art', 'Music', 'Local Language'];
 
 interface TimetablesTabProps {

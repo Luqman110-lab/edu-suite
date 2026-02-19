@@ -319,7 +319,7 @@ export const Students: React.FC = () => {
   // Promotion Logic
   const preparePromotionSummary = () => {
     const promotionMapping: { [key: string]: string } = {
-      "P1": "P2", "P2": "P3", "P3": "P4", "P4": "P5", "P5": "P6", "P6": "P7", "P7": "Graduated"
+      "N1": "N2", "N2": "N3", "N3": "P1", "P1": "P2", "P2": "P3", "P3": "P4", "P4": "P5", "P5": "P6", "P6": "P7", "P7": "Graduated"
     };
 
     const summary: { [key: string]: { count: number; targetClass: string } } = {};

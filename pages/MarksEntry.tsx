@@ -86,7 +86,7 @@ export const MarksEntry: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
 
-  const subjects = ['P1', 'P2', 'P3'].includes(selectedClass) ? SUBJECTS_LOWER : SUBJECTS_UPPER;
+  const subjects = ['N1', 'N2', 'N3', 'P1', 'P2', 'P3'].includes(selectedClass) ? SUBJECTS_LOWER : SUBJECTS_UPPER;
   const availableStreams = settings?.streams[selectedClass] || [];
 
   const filteredStudents = useMemo(() => {

@@ -27,7 +27,7 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
 }) => {
     const { isDark } = useTheme();
 
-    const classLevels = ['All', 'P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7'];
+    const classLevels = ['All', 'N1', 'N2', 'N3', 'P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7'];
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
