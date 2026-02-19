@@ -1,7 +1,7 @@
 import React from 'react';
 import { Student } from '../../../../types';
 import { Icons } from '../../lib/icons';
-import { useClassNames } from '../../hooks/use-class-names';
+import { useClassNames } from '../../../../hooks/use-class-names';
 
 const { Search, User, School, Building } = Icons;
 

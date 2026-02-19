@@ -3,7 +3,7 @@ import { Student } from '../../../../types';
 import { Button } from '../../../../components/Button';
 import { Icons } from '../../lib/icons';
 import { BirthdayBadge } from '../../../../components/StudentProfileCards';
-import { useClassNames } from '../../hooks/use-class-names';
+import { useClassNames } from '../../../../hooks/use-class-names';
 
 const { School, User, Building, Printer } = Icons;
 

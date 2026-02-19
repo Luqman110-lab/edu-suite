@@ -9,7 +9,7 @@ import { EmergencyContactsCard } from './EmergencyContactsCard';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { AttendanceSummaryCard, PerformanceTrendCard } from '../../../../components/StudentProfileCards';
 import { Icons } from '../../lib/icons';
-import { useClassNames } from '../../hooks/use-class-names';
+import { useClassNames } from '../../../../hooks/use-class-names';
 import { Button } from '../../../../components/Button';
 
 const { School, Trash2 } = Icons;

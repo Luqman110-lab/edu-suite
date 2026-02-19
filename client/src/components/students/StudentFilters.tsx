@@ -1,6 +1,6 @@
 import React from 'react';
 import { Icons } from '../../lib/icons';
-import { useClassNames } from '../../hooks/use-class-names';
+import { useClassNames } from '../../../../hooks/use-class-names';
 
 const { Search, List: ListIcon, LayoutGrid } = Icons;
 

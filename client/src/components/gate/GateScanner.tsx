@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { useTheme } from '../../contexts/ThemeContext';
+import { useTheme } from '../../../../contexts/ThemeContext';
 import { Button } from '../../../../components/Button';
 import { GateStudent, GateSettings } from '../../types/gate';
 import { FaceEmbedding } from '../../types/attendance';

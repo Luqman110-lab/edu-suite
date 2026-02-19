@@ -1,5 +1,5 @@
 import React from 'react';
-import { useClassNames } from '../../hooks/use-class-names';
+import { useClassNames } from '../../../../hooks/use-class-names';
 import { ClassLevel, AssessmentType } from '../../../../types';
 import { useTheme } from '../../../../contexts/ThemeContext';
 

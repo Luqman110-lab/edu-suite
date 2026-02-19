@@ -3,7 +3,7 @@ import { Icons } from '../../lib/icons';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { ClassLevel, Teacher } from '../../../../types';
 import { Button } from '../../../../components/Button';
-import { FaceEnrollment } from '../../../../components/FaceEnrollment';
+import FaceEnrollment from '../../components/FaceEnrollment';
 
 interface TeacherFiltersProps {
     searchQuery: string;

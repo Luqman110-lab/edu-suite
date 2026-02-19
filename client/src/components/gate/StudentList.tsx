@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useTheme } from '../../contexts/ThemeContext';
+import { useTheme } from '../../../../contexts/ThemeContext';
 import { Button } from '../../../../components/Button';
 import { GateStudent, GateRecord, StudentStatus } from '../../types/gate';
 

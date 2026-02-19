@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { useTheme } from '../../contexts/ThemeContext';
+import { useTheme } from '../../../../contexts/ThemeContext';
 import { Button } from '../../../../components/Button';
 import { AttendanceTeacher, AttendanceSettings, FaceEmbedding } from '../../types/attendance';
 import { useScanner, ScannerType } from '../../hooks/useScanner';

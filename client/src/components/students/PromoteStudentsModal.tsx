@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { SchoolSettings } from '../../../../types';
 import { Button } from '../../../../components/Button';
-import { useClassNames } from '../../hooks/use-class-names';
+import { useClassNames } from '../../../../hooks/use-class-names';
 import { useTheme } from '../../../../contexts/ThemeContext';
 
 interface PromotionSummary {
