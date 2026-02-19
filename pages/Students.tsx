@@ -13,10 +13,10 @@ import { useAcademicYear } from '../contexts/AcademicYearContext';
 import { useStudents } from '../client/src/hooks/useStudents';
 import { useSettings } from '../client/src/hooks/useSettings';
 import { Button } from '../components/Button';
-import { Toast } from '../components/Toast';
+import { Toast } from '../client/src/components/Toast';
 import { StudentIDCard } from '../components/StudentIDCard';
-import { BulkIDCardPrint } from '../components/BulkIDCardPrint';
-import { FaceEnrollment } from '../components/FaceEnrollment';
+import { BulkIDCardPrint } from '../components/StudentIDCard';
+import { FaceEnrollment } from '../client/src/components/FaceEnrollment';
 
 // Imported Components
 import { StudentStats } from '../client/src/components/students/StudentStats';
