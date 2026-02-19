@@ -1,10 +1,10 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-
+import { Plus, Check, X, Edit2, RotateCcw, Loader2, AlertCircle, Layers, Users, Hash, BookOpen } from 'lucide-react';
+import { useToast } from '../hooks/use-toast';
 import { useSettings } from '../client/src/hooks/useSettings';
 import { useStudents } from '../client/src/hooks/useStudents';
 
-// ...
 
 export function ClassManagement() {
   const { toast } = useToast();
