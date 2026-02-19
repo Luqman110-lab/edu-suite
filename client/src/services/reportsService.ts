@@ -1,5 +1,5 @@
 import { Student, MarkRecord, AssessmentType, ClassLevel, SchoolSettings, ApiTeacher, SUBJECTS_LOWER, SUBJECTS_UPPER } from '../../../types';
-import { calculateGrade, getComment, getClassTeacherComment, getHeadTeacherComment } from '../../grading';
+import { calculateGrade, getComment, getClassTeacherComment, getHeadTeacherComment } from '../../../services/grading';
 import * as XLSX from 'xlsx';
 
 declare const jspdf: any;

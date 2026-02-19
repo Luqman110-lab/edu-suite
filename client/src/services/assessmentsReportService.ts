@@ -1,6 +1,7 @@
 import { AssessmentType, SchoolSettings, ApiTeacher, ClassLevel, SUBJECTS_UPPER, SUBJECTS_LOWER } from '../../../types';
-import { calculateGrade } from '../../grading';
-import { getDisplayName } from '../../hooks/use-class-names-logic'; // We might need to duplicate this or import logic
+import { calculateGrade } from '../../../services/grading';
+
+
 
 declare const jspdf: any;
 
