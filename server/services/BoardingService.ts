@@ -10,27 +10,51 @@ export class BoardingService {
     // Boarding Stats
     async getBoardingStats(schoolId: number) {
         const today = new Date().toISOString().split('T')[0];
+
         const dormsCount = await db.select({ count: sql<number>`count(*)` }).from(dormitories).where(eq(dormitories.schoolId, schoolId));
         const bedsCount = await db.select({ count: sql<number>`count(*)` }).from(beds).where(eq(beds.schoolId, schoolId));
         const occupiedBedsCount = await db.select({ count: sql<number>`count(*)` }).from(beds).where(and(eq(beds.schoolId, schoolId), eq(beds.status, 'occupied')));
-        const boardersCount = await db.select({ count: sql<number>`count(*)` }).from(students).where(and(eq(students.schoolId, schoolId), eq(students.boardingStatus, 'boarding')));
+
+        // Only count active students with boarding status = boarding
+        const boardersCount = await db.select({ count: sql<number>`count(*)` })
+            .from(students)
+            .where(and(eq(students.schoolId, schoolId), eq(students.boardingStatus, 'boarding'), eq(students.isActive, true)));
+
         const pendingLeaves = await db.select({ count: sql<number>`count(*)` }).from(leaveRequests).where(and(eq(leaveRequests.schoolId, schoolId), eq(leaveRequests.status, 'pending')));
         const onLeave = await db.select({ count: sql<number>`count(*)` }).from(leaveRequests).where(and(eq(leaveRequests.schoolId, schoolId), eq(leaveRequests.status, 'checked_out')));
-        const morningRollCalls = await db.select({ count: sql<number>`count(*)` }).from(boardingRollCalls).where(and(eq(boardingRollCalls.schoolId, schoolId), eq(boardingRollCalls.date, today), eq(boardingRollCalls.session, 'morning')));
-        const eveningRollCalls = await db.select({ count: sql<number>`count(*)` }).from(boardingRollCalls).where(and(eq(boardingRollCalls.schoolId, schoolId), eq(boardingRollCalls.date, today), eq(boardingRollCalls.session, 'evening')));
 
-        const totalBeds = bedsCount[0]?.count || 0;
-        const occupied = occupiedBedsCount[0]?.count || 0;
+        // Count students marked as "present" in today's roll calls
+        const morningRollCalls = await db.select({ count: sql<number>`count(*)` })
+            .from(boardingRollCalls)
+            .where(and(eq(boardingRollCalls.schoolId, schoolId), eq(boardingRollCalls.date, today), eq(boardingRollCalls.session, 'morning'), eq(boardingRollCalls.status, 'present')));
+        const eveningRollCalls = await db.select({ count: sql<number>`count(*)` })
+            .from(boardingRollCalls)
+            .where(and(eq(boardingRollCalls.schoolId, schoolId), eq(boardingRollCalls.date, today), eq(boardingRollCalls.session, 'evening'), eq(boardingRollCalls.status, 'present')));
+
+        // Parse all counts — PostgreSQL count() returns strings, not JS numbers
+        const totalDorms = parseInt(String(dormsCount[0]?.count ?? 0), 10);
+        const totalBeds = parseInt(String(bedsCount[0]?.count ?? 0), 10);
+        const occupied = parseInt(String(occupiedBedsCount[0]?.count ?? 0), 10);
+        const totalBoarders = parseInt(String(boardersCount[0]?.count ?? 0), 10);
+        const pending = parseInt(String(pendingLeaves[0]?.count ?? 0), 10);
+        const studOnLeave = parseInt(String(onLeave[0]?.count ?? 0), 10);
+        const morning = parseInt(String(morningRollCalls[0]?.count ?? 0), 10);
+        const evening = parseInt(String(eveningRollCalls[0]?.count ?? 0), 10);
 
         return {
-            totalDorms: dormsCount[0]?.count || 0, dormitories: dormsCount[0]?.count || 0,
-            totalRooms: 0, totalBeds: totalBeds, occupiedBeds: occupied,
-            availableBeds: totalBeds - occupied, totalBoarders: boardersCount[0]?.count || 0,
+            totalDorms, dormitories: totalDorms,
+            totalRooms: 0,
+            totalBeds,
+            occupiedBeds: occupied,
+            availableBeds: totalBeds - occupied,
+            totalBoarders,
             occupancyRate: totalBeds > 0 ? Math.round((occupied / totalBeds) * 100) : 0,
-            pendingLeaveRequests: pendingLeaves[0]?.count || 0, studentsOnLeave: onLeave[0]?.count || 0,
-            todayRollCalls: { morning: morningRollCalls[0]?.count || 0, evening: eveningRollCalls[0]?.count || 0 }
+            pendingLeaveRequests: pending,
+            studentsOnLeave: studOnLeave,
+            todayRollCalls: { morning, evening },
         };
     }
+
 
     // Roll Calls
     async submitBulkRollCall(schoolId: number, userId: number, data: any) {
