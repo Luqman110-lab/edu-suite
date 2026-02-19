@@ -382,8 +382,33 @@ export const Students: React.FC = () => {
 
   // CSV Logic
   const normalizeClassInput = (rawClass: string): ClassLevel => {
-    const cleaned = rawClass.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const cleaned = rawClass.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const cleanedOriginal = rawClass.trim().toUpperCase();
+
+    // 1. Direct enum match (e.g. N1, P3, etc.)
     if (Object.values(ClassLevel).includes(cleaned as ClassLevel)) return cleaned as ClassLevel;
+
+    // 2. Reverse-lookup school classAliases (e.g. school named N1 → "Baby")
+    //    classAliases = { N1: 'Baby', N2: 'Middle', N3: 'Top' }
+    if (settings?.classAliases) {
+      for (const [level, alias] of Object.entries(settings.classAliases)) {
+        if (alias && alias.toUpperCase() === cleanedOriginal) {
+          if (Object.values(ClassLevel).includes(level as ClassLevel)) return level as ClassLevel;
+        }
+      }
+    }
+
+    // 3. Common nursery name patterns (case-insensitive)
+    if (/^BABY$/.test(cleanedOriginal)) return ClassLevel.N1;
+    if (/^NURSERY\s*1$|^N\s*1$/.test(cleanedOriginal)) return ClassLevel.N1;
+    if (/^MIDDLE$/.test(cleanedOriginal)) return ClassLevel.N2;
+    if (/^NURSERY\s*2$|^N\s*2$/.test(cleanedOriginal)) return ClassLevel.N2;
+    if (/^TOP$/.test(cleanedOriginal)) return ClassLevel.N3;
+    if (/^NURSERY\s*3$|^N\s*3$/.test(cleanedOriginal)) return ClassLevel.N3;
+    if (/^NURSERY$/.test(cleanedOriginal)) return ClassLevel.N1;
+    if (/^RECEPTION$/.test(cleanedOriginal)) return ClassLevel.N1;
+
+    // 4. "Primary X" or bare digit
     if (cleaned.startsWith('PRIMARY')) {
       const num = cleaned.replace('PRIMARY', '');
       if (Object.values(ClassLevel).includes(('P' + num) as ClassLevel)) return ('P' + num) as ClassLevel;
@@ -391,6 +416,7 @@ export const Students: React.FC = () => {
     if (/^\d$/.test(cleaned) && Object.values(ClassLevel).includes(('P' + cleaned) as ClassLevel)) {
       return ('P' + cleaned) as ClassLevel;
     }
+
     return ClassLevel.P1;
   };
 
