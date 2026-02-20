@@ -172,17 +172,28 @@ export class AccountingService {
     // ==========================================
 
     async getBudgets(schoolId: number, term: number, year: number) {
-        try {
-            return await db.query.budgets.findMany({
-                where: and(eq(budgets.schoolId, schoolId), eq(budgets.term, term), eq(budgets.year, year)),
-                with: { category: true }
-            });
-        } catch (err: any) {
-            // Fallback if relational query fails (e.g. no expense categories)
-            console.warn('[Budgets] findMany with relations failed, falling back:', err.message);
-            return await db.select().from(budgets)
-                .where(and(eq(budgets.schoolId, schoolId), eq(budgets.term, term), eq(budgets.year, year)));
-        }
+        const results = await db.select({
+            id: budgets.id,
+            schoolId: budgets.schoolId,
+            categoryId: budgets.categoryId,
+            term: budgets.term,
+            year: budgets.year,
+            amountAllocated: budgets.amountAllocated,
+            amountSpent: budgets.amountSpent,
+            isLocked: budgets.isLocked,
+            notes: budgets.notes,
+            category: expenseCategories
+        })
+            .from(budgets)
+            .leftJoin(expenseCategories, eq(budgets.categoryId, expenseCategories.id))
+            .where(
+                and(
+                    eq(budgets.schoolId, schoolId),
+                    eq(budgets.term, term),
+                    eq(budgets.year, year)
+                )
+            );
+        return results;
     }
 
     async setBudget(schoolId: number, data: any) {
@@ -207,10 +218,27 @@ export class AccountingService {
     // ==========================================
 
     async getPettyCashAccounts(schoolId: number) {
-        return await db.query.pettyCashAccounts.findMany({
-            where: and(eq(pettyCashAccounts.schoolId, schoolId), eq(pettyCashAccounts.isActive, true)),
-            with: { custodian: { columns: { name: true } } }
-        });
+        const results = await db.select({
+            id: pettyCashAccounts.id,
+            schoolId: pettyCashAccounts.schoolId,
+            custodianId: pettyCashAccounts.custodianId,
+            floatAmount: pettyCashAccounts.floatAmount,
+            currentBalance: pettyCashAccounts.currentBalance,
+            isActive: pettyCashAccounts.isActive,
+            custodian: {
+                name: users.name
+            }
+        })
+            .from(pettyCashAccounts)
+            .leftJoin(users, eq(pettyCashAccounts.custodianId, users.id))
+            .where(
+                and(
+                    eq(pettyCashAccounts.schoolId, schoolId),
+                    eq(pettyCashAccounts.isActive, true)
+                )
+            );
+
+        return results;
     }
 
     async createPettyCashAccount(schoolId: number, custodianId: number, floatAmount: number) {
