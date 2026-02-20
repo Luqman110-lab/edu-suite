@@ -11,6 +11,7 @@ const FeeStructuresTab = lazy(() => import('./finance/FeeStructuresTab'));
 const ExpensesTab = lazy(() => import('./finance/ExpensesTab'));
 const ScholarshipsTab = lazy(() => import('./finance/ScholarshipsTab'));
 const ReportsTab = lazy(() => import('./finance/ReportsTab'));
+const FinancialStatementsTab = lazy(() => import('./finance/FinancialStatements'));
 
 interface FinanceContextValue {
     term: number;
@@ -35,7 +36,7 @@ const formatCurrency = (amount: number) =>
         minimumFractionDigits: 0,
     }).format(amount);
 
-type TabKey = 'dashboard' | 'accounts' | 'payments' | 'invoices' | 'debtors' | 'structures' | 'expenses' | 'scholarships' | 'reports';
+type TabKey = 'dashboard' | 'accounts' | 'payments' | 'invoices' | 'debtors' | 'structures' | 'expenses' | 'scholarships' | 'reports' | 'statements';
 
 const TABS: { key: TabKey; label: string }[] = [
     { key: 'dashboard', label: 'Dashboard' },
@@ -47,6 +48,7 @@ const TABS: { key: TabKey; label: string }[] = [
     { key: 'expenses', label: 'Expenses' },
     { key: 'scholarships', label: 'Scholarships' },
     { key: 'reports', label: 'Reports' },
+    { key: 'statements', label: 'Statements' },
 ];
 
 export default function FinancialHub() {
@@ -80,6 +82,7 @@ export default function FinancialHub() {
             case 'expenses': return <ExpensesTab />;
             case 'scholarships': return <ScholarshipsTab />;
             case 'reports': return <ReportsTab />;
+            case 'statements': return <FinancialStatementsTab />;
         }
     };
 
@@ -120,11 +123,10 @@ export default function FinancialHub() {
                         <button
                             key={tab.key}
                             onClick={() => setActiveTab(tab.key)}
-                            className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors whitespace-nowrap ${
-                                activeTab === tab.key
+                            className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors whitespace-nowrap ${activeTab === tab.key
                                     ? 'border-blue-500 text-blue-500'
                                     : `border-transparent ${textSecondary} hover:text-blue-500`
-                            }`}
+                                }`}
                         >
                             {tab.label}
                         </button>

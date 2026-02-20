@@ -908,7 +908,8 @@ export const expenses = pgTable("expenses", {
   paymentMethod: text("payment_method"),
   term: integer("term"),
   year: integer("year"),
-  approvedBy: text("approved_by"),
+  status: text("status").default("pending"), // 'pending', 'approved', 'rejected', 'paid'
+  approvedBy: integer("approved_by").references(() => users.id),
   receiptUrl: text("receipt_url"),
   notes: text("notes"),
   createdBy: integer("created_by").references(() => users.id),
@@ -918,6 +919,7 @@ export const expenses = pgTable("expenses", {
   schoolIdx: index("expenses_school_idx").on(table.schoolId),
   categoryIdx: index("expenses_category_idx").on(table.categoryId),
   dateIdx: index("expenses_date_idx").on(table.expenseDate),
+  statusIdx: index("expenses_status_idx").on(table.status),
 }));
 
 export const expensesRelations = relations(expenses, ({ one }) => ({
@@ -931,6 +933,10 @@ export const expensesRelations = relations(expenses, ({ one }) => ({
   }),
   creator: one(users, {
     fields: [expenses.createdBy],
+    references: [users.id],
+  }),
+  approver: one(users, {
+    fields: [expenses.approvedBy],
     references: [users.id],
   }),
 }));
@@ -2424,4 +2430,204 @@ export const studentYearSnapshotsRelations = relations(studentYearSnapshots, ({ 
 export const insertStudentYearSnapshotSchema = createInsertSchema(studentYearSnapshots);
 export type StudentYearSnapshot = typeof studentYearSnapshots.$inferSelect;
 
+// ==================== DOUBLE-ENTRY ACCOUNTING & FINANCE ====================
 
+// Chart of Accounts
+export const accounts = pgTable("accounts", {
+  id: serial("id").primaryKey(),
+  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
+  accountCode: text("account_code").notNull(),
+  accountName: text("account_name").notNull(),
+  accountType: text("account_type").notNull(), // 'Asset', 'Liability', 'Equity', 'Revenue', 'Expense'
+  parentAccountId: integer("parent_account_id"), // Self-referencing for hierarchy
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  schoolIdx: index("accounts_school_idx").on(table.schoolId),
+  codeUnique: unique().on(table.schoolId, table.accountCode),
+}));
+
+export const accountsRelations = relations(accounts, ({ one, many }) => ({
+  school: one(schools, {
+    fields: [accounts.schoolId],
+    references: [schools.id],
+  }),
+  parentAccount: one(accounts, {
+    fields: [accounts.parentAccountId],
+    references: [accounts.id],
+  }),
+  subAccounts: many(accounts),
+  journalLines: many(journalLines),
+}));
+
+export const insertAccountSchema = createInsertSchema(accounts, {
+  accountCode: z.string().min(1, "Account code is required"),
+  accountName: z.string().min(1, "Account name is required"),
+  accountType: z.enum(["Asset", "Liability", "Equity", "Revenue", "Expense"]),
+});
+export const selectAccountSchema = createSelectSchema(accounts);
+export type Account = typeof accounts.$inferSelect;
+export type InsertAccount = typeof accounts.$inferInsert;
+
+// Journal Entries (Headers)
+export const journalEntries = pgTable("journal_entries", {
+  id: serial("id").primaryKey(),
+  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
+  entryDate: text("entry_date").notNull(),
+  reference: text("reference"), // Receipt No, Invoice No, or manual ref
+  description: text("description").notNull(),
+  status: text("status").default("draft"), // 'draft', 'posted', 'reversed'
+  createdById: integer("created_by_id").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  schoolIdx: index("journal_entries_school_idx").on(table.schoolId),
+  dateIdx: index("journal_entries_date_idx").on(table.entryDate),
+}));
+
+// Journal Lines (Details)
+export const journalLines = pgTable("journal_lines", {
+  id: serial("id").primaryKey(),
+  journalEntryId: integer("journal_entry_id").notNull().references(() => journalEntries.id, { onDelete: "cascade" }),
+  accountId: integer("account_id").notNull().references(() => accounts.id, { onDelete: "restrict" }),
+  studentId: integer("student_id").references(() => students.id, { onDelete: "set null" }), // Sub-ledger tracking
+  debit: integer("debit").notNull().default(0),
+  credit: integer("credit").notNull().default(0),
+}, (table) => ({
+  entryIdx: index("journal_lines_entry_idx").on(table.journalEntryId),
+  accountIdx: index("journal_lines_account_idx").on(table.accountId),
+}));
+
+export const journalEntriesRelations = relations(journalEntries, ({ one, many }) => ({
+  school: one(schools, {
+    fields: [journalEntries.schoolId],
+    references: [schools.id],
+  }),
+  createdBy: one(users, {
+    fields: [journalEntries.createdById],
+    references: [users.id],
+  }),
+  lines: many(journalLines),
+}));
+
+export const journalLinesRelations = relations(journalLines, ({ one }) => ({
+  journalEntry: one(journalEntries, {
+    fields: [journalLines.journalEntryId],
+    references: [journalEntries.id],
+  }),
+  account: one(accounts, {
+    fields: [journalLines.accountId],
+    references: [accounts.id],
+  }),
+  student: one(students, {
+    fields: [journalLines.studentId],
+    references: [students.id],
+  }),
+}));
+
+export const insertJournalEntrySchema = createInsertSchema(journalEntries);
+export const selectJournalEntrySchema = createSelectSchema(journalEntries);
+export type JournalEntry = typeof journalEntries.$inferSelect;
+export type InsertJournalEntry = typeof journalEntries.$inferInsert;
+
+export const insertJournalLineSchema = createInsertSchema(journalLines);
+export const selectJournalLineSchema = createSelectSchema(journalLines);
+export type JournalLine = typeof journalLines.$inferSelect;
+export type InsertJournalLine = typeof journalLines.$inferInsert;
+
+// Budgets
+export const budgets = pgTable("budgets", {
+  id: serial("id").primaryKey(),
+  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
+  categoryId: integer("category_id").notNull().references(() => expenseCategories.id, { onDelete: "cascade" }),
+  term: integer("term").notNull(),
+  year: integer("year").notNull(),
+  amountAllocated: integer("amount_allocated").notNull(),
+  amountSpent: integer("amount_spent").default(0),
+  isLocked: boolean("is_locked").default(false),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  schoolIdx: index("budgets_school_idx").on(table.schoolId),
+  categoryIdx: index("budgets_category_idx").on(table.categoryId),
+  termYearCategoryUnique: unique().on(table.schoolId, table.categoryId, table.term, table.year),
+}));
+
+export const budgetsRelations = relations(budgets, ({ one }) => ({
+  school: one(schools, {
+    fields: [budgets.schoolId],
+    references: [schools.id],
+  }),
+  category: one(expenseCategories, {
+    fields: [budgets.categoryId],
+    references: [expenseCategories.id],
+  }),
+}));
+
+export const insertBudgetSchema = createInsertSchema(budgets);
+export const selectBudgetSchema = createSelectSchema(budgets);
+export type Budget = typeof budgets.$inferSelect;
+export type InsertBudget = typeof budgets.$inferInsert;
+
+// Petty Cash Accounts
+export const pettyCashAccounts = pgTable("petty_cash_accounts", {
+  id: serial("id").primaryKey(),
+  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
+  custodianId: integer("custodian_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+  floatAmount: integer("float_amount").notNull(),
+  currentBalance: integer("current_balance").notNull(),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  schoolIdx: index("petty_cash_accounts_school_idx").on(table.schoolId),
+}));
+
+export const pettyCashTransactions = pgTable("petty_cash_transactions", {
+  id: serial("id").primaryKey(),
+  accountId: integer("account_id").notNull().references(() => pettyCashAccounts.id, { onDelete: "cascade" }),
+  transactionType: text("transaction_type").notNull(), // 'replenish', 'disburse'
+  amount: integer("amount").notNull(),
+  description: text("description").notNull(),
+  reference: text("reference"),
+  transactionDate: text("transaction_date").notNull(),
+  createdById: integer("created_by_id").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  accountIdx: index("petty_cash_transactions_account_idx").on(table.accountId),
+}));
+
+export const pettyCashAccountsRelations = relations(pettyCashAccounts, ({ one, many }) => ({
+  school: one(schools, {
+    fields: [pettyCashAccounts.schoolId],
+    references: [schools.id],
+  }),
+  custodian: one(users, {
+    fields: [pettyCashAccounts.custodianId],
+    references: [users.id],
+  }),
+  transactions: many(pettyCashTransactions),
+}));
+
+export const pettyCashTransactionsRelations = relations(pettyCashTransactions, ({ one }) => ({
+  account: one(pettyCashAccounts, {
+    fields: [pettyCashTransactions.accountId],
+    references: [pettyCashAccounts.id],
+  }),
+  createdBy: one(users, {
+    fields: [pettyCashTransactions.createdById],
+    references: [users.id],
+  }),
+}));
+
+export const insertPettyCashAccountSchema = createInsertSchema(pettyCashAccounts);
+export const selectPettyCashAccountSchema = createSelectSchema(pettyCashAccounts);
+export type PettyCashAccount = typeof pettyCashAccounts.$inferSelect;
+export type InsertPettyCashAccount = typeof pettyCashAccounts.$inferInsert;
+
+export const insertPettyCashTransactionSchema = createInsertSchema(pettyCashTransactions);
+export const selectPettyCashTransactionSchema = createSelectSchema(pettyCashTransactions);
+export type PettyCashTransaction = typeof pettyCashTransactions.$inferSelect;
+export type InsertPettyCashTransaction = typeof pettyCashTransactions.$inferInsert;

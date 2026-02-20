@@ -6,7 +6,7 @@ import { useSettings } from '../client/src/hooks/useSettings';
 import { useStudents } from '../client/src/hooks/useStudents';
 
 
-export function ClassManagement() {
+export default function ClassManagement() {
   const { toast } = useToast();
 
   const { settings, refetch: refetchSettings, updateSettings } = useSettings();

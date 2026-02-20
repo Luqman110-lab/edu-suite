@@ -8,6 +8,8 @@ export interface Expense {
     expenseDate: string;
     vendorName?: string;
     receiptNumber?: string;
+    status: 'pending' | 'approved' | 'rejected' | 'paid';
+    approvedBy?: number;
 }
 
 export interface ExpenseCategory {
@@ -40,4 +42,52 @@ export interface FinancialReportFilters {
     dateFrom?: string;
     dateTo?: string;
     paymentId?: number | null;
+}
+
+export interface Account {
+    id: number;
+    accountCode: string;
+    accountName: string;
+    accountType: 'Asset' | 'Liability' | 'Equity' | 'Revenue' | 'Expense';
+    parentAccountId?: number;
+    isActive: boolean;
+}
+
+export interface JournalLine {
+    id: number;
+    journalEntryId: number;
+    accountId: number;
+    studentId?: number;
+    debit: number;
+    credit: number;
+    account?: Account;
+}
+
+export interface JournalEntry {
+    id: number;
+    entryDate: string;
+    reference: string;
+    description: string;
+    status: 'draft' | 'posted' | 'reversed';
+    lines?: JournalLine[];
+}
+
+export interface Budget {
+    id: number;
+    categoryId: number;
+    term: number;
+    year: number;
+    amountAllocated: number;
+    amountSpent: number;
+    isLocked: boolean;
+    category?: ExpenseCategory;
+}
+
+export interface PettyCashAccount {
+    id: number;
+    custodianId: number;
+    floatAmount: number;
+    currentBalance: number;
+    isActive: boolean;
+    custodian?: { name: string };
 }

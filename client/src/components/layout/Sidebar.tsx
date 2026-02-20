@@ -137,7 +137,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, sidebarOpen, setSid
                 { path: '/app/parents', label: 'Parent Access', icon: UserRound, allowedRoles: ['admin'] },
             ]
         },
-        { path: '/app/finance-hub', label: 'Finance', icon: BadgeDollarSign, allowedRoles: ['admin'] },
+        {
+            id: 'finance',
+            label: 'Finance',
+            icon: BadgeDollarSign,
+            items: [
+                { path: '/app/finance-hub', label: 'Finance Hub', icon: BadgeDollarSign, allowedRoles: ['admin'] },
+                { path: '/app/finance-accounting', label: 'Accounting', icon: FileText, allowedRoles: ['admin'] },
+                { path: '/app/finance-budgets', label: 'Budgets', icon: Layers, allowedRoles: ['admin'] },
+                { path: '/app/finance-petty-cash', label: 'Petty Cash', icon: ClipboardList, allowedRoles: ['admin'] },
+            ]
+        },
         { path: '/app/archive', label: 'Archive', icon: Archive, allowedRoles: ['admin'] },
         { path: '/app/analytics', label: 'Analytics', icon: BarChart3, allowedRoles: ['admin'] },
         { path: '/app/settings', label: 'Settings', icon: Settings, allowedRoles: ['admin'] },

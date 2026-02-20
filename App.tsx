@@ -41,8 +41,11 @@ import { VisitorLog } from './pages/VisitorLog';
 import { Messages, ConversationView } from './pages/Messages';
 import { Supervision } from './pages/Supervision';
 import { Planning } from './pages/Planning';
-import { ClassManagement } from './pages/ClassManagement';
+import ClassManagement from './pages/ClassManagement';
 import FinancialHub from './pages/FinancialHub';
+import FinanceAccounting from './pages/finance/Accounting';
+import FinanceBudgets from './pages/finance/Budgets';
+import FinancePettyCash from './pages/finance/PettyCash';
 import { ArchivePage } from './pages/Archive';
 import ParentLayout from './pages/parent/ParentLayout';
 import ParentDashboard from './pages/parent/ParentDashboard';
@@ -129,40 +132,43 @@ export default function App() {
                 element={
                   <ProtectedRoute>
                     <AcademicYearProvider>
-                    <Layout>
-                      <Routes>
-                        <Route index element={<Dashboard />} />
-                        <Route path="classes" element={<ClassManagement />} />
-                        <Route path="students" element={<Students />} />
-                        <Route path="teachers" element={<Teachers />} />
-                        <Route path="marks" element={<MarksEntry />} />
-                        <Route path="reports" element={<Reports />} />
-                        <Route path="assessments" element={<Assessments />} />
-                        <Route path="tests" element={<Tests />} />
-                        <Route path="p7" element={<P7ExamSets />} />
-                        <Route path="archive" element={<ArchivePage />} />
-                        <Route path="analytics" element={<Analytics />} />
+                      <Layout>
+                        <Routes>
+                          <Route index element={<Dashboard />} />
+                          <Route path="classes" element={<ClassManagement />} />
+                          <Route path="students" element={<Students />} />
+                          <Route path="teachers" element={<Teachers />} />
+                          <Route path="marks" element={<MarksEntry />} />
+                          <Route path="reports" element={<Reports />} />
+                          <Route path="assessments" element={<Assessments />} />
+                          <Route path="tests" element={<Tests />} />
+                          <Route path="p7" element={<P7ExamSets />} />
+                          <Route path="archive" element={<ArchivePage />} />
+                          <Route path="analytics" element={<Analytics />} />
 
 
-                        <Route path="finance-hub" element={<FinancialHub />} />
-                        <Route path="gate-attendance" element={<GateAttendance />} />
-                        <Route path="class-attendance" element={<ClassAttendance />} />
-                        <Route path="teacher-attendance" element={<TeacherAttendance />} />
-                        <Route path="attendance-settings" element={<AttendanceSettings />} />
-                        <Route path="boarding" element={<BoardingDashboard />} />
-                        <Route path="dormitory-manager" element={<DormitoryManager />} />
-                        <Route path="boarding-attendance" element={<BoardingAttendance />} />
-                        <Route path="leave-management" element={<LeaveManagement />} />
-                        <Route path="visitor-log" element={<VisitorLog />} />
-                        <Route path="messages" element={<Messages />} />
-                        <Route path="messages/:id" element={<ConversationView />} />
-                        <Route path="supervision" element={<Supervision />} />
-                        <Route path="planning" element={<Planning />} />
-                        <Route path="parents" element={<ParentManagement />} />
-                        <Route path="settings" element={<Settings />} />
-                        <Route path="*" element={<Navigate to="/app" replace />} />
-                      </Routes>
-                    </Layout>
+                          <Route path="finance-hub" element={<FinancialHub />} />
+                          <Route path="finance-accounting" element={<FinanceAccounting />} />
+                          <Route path="finance-budgets" element={<FinanceBudgets />} />
+                          <Route path="finance-petty-cash" element={<FinancePettyCash />} />
+                          <Route path="gate-attendance" element={<GateAttendance />} />
+                          <Route path="class-attendance" element={<ClassAttendance />} />
+                          <Route path="teacher-attendance" element={<TeacherAttendance />} />
+                          <Route path="attendance-settings" element={<AttendanceSettings />} />
+                          <Route path="boarding" element={<BoardingDashboard />} />
+                          <Route path="dormitory-manager" element={<DormitoryManager />} />
+                          <Route path="boarding-attendance" element={<BoardingAttendance />} />
+                          <Route path="leave-management" element={<LeaveManagement />} />
+                          <Route path="visitor-log" element={<VisitorLog />} />
+                          <Route path="messages" element={<Messages />} />
+                          <Route path="messages/:id" element={<ConversationView />} />
+                          <Route path="supervision" element={<Supervision />} />
+                          <Route path="planning" element={<Planning />} />
+                          <Route path="parents" element={<ParentManagement />} />
+                          <Route path="settings" element={<Settings />} />
+                          <Route path="*" element={<Navigate to="/app" replace />} />
+                        </Routes>
+                      </Layout>
                     </AcademicYearProvider>
                   </ProtectedRoute>
                 }
