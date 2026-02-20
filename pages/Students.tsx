@@ -221,16 +221,42 @@ export const Students: React.FC = () => {
       } as Student;
 
       try {
+        let savedStudentId = formData.id;
         if (studentToSave.id) {
           await updateStudent.mutateAsync(studentToSave);
           if (selectedStudent && selectedStudent.id === studentToSave.id) {
             setSelectedStudent(studentToSave);
           }
-          showToast('Student updated successfully', 'success');
         } else {
-          await addStudent.mutateAsync(studentToSave);
-          showToast('Student added successfully', 'success');
+          const addedStudent = await addStudent.mutateAsync(studentToSave);
+          savedStudentId = addedStudent.id;
         }
+
+        // Handle Dormitory Assignment
+        if (savedStudentId) {
+          try {
+            if ((formData as any).unassignBedId) {
+              await fetch(`/api/beds/${(formData as any).unassignBedId}/unassign`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+              });
+            }
+            if ((formData as any).assignedBedId) {
+              await fetch(`/api/beds/${(formData as any).assignedBedId}/assign`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ studentId: savedStudentId }),
+              });
+            }
+          } catch (bedError: any) {
+            console.error('Failed to update bed assignment:', bedError);
+            showToast(`Student saved, but bed assignment failed: ${bedError.message}`, 'warning');
+          }
+        }
+
+        showToast(studentToSave.id ? 'Student updated successfully' : 'Student added successfully', 'success');
         setIsModalOpen(false);
         // Reset form
         setFormData({

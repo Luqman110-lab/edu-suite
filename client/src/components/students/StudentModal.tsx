@@ -11,7 +11,7 @@ interface StudentModalProps {
     onClose: () => void;
     onSubmit: (e: React.FormEvent) => Promise<void>;
     formData: Partial<Student>;
-    setFormData: (data: Partial<Student>) => void;
+    setFormData: (data: Partial<Student> & { assignedBedId?: number; unassignBedId?: number }) => void;
     isEdit: boolean;
     settings: SchoolSettings | null;
     isDark: boolean;
@@ -100,25 +100,9 @@ export const StudentModal: React.FC<StudentModalProps> = ({ isOpen, onClose, onS
 
     const handleUnassignBed = async () => {
         if (!currentAssignment?.bed?.id) return;
-        setIsAssigning(true);
-        setBedActionError(null);
-        setBedActionSuccess(null);
-        try {
-            const res = await fetch(`/api/beds/${currentAssignment.bed.id}/unassign`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.message || 'Failed to unassign bed');
-            setBedActionSuccess('Removed from dormitory.');
-            setSelectedDormId(null);
-            setSelectedBedId(null);
-            refetchAssignment();
-        } catch (e: any) {
-            setBedActionError(e.message);
-        }
-        setIsAssigning(false);
+        setFormData({ ...formData, unassignBedId: currentAssignment.bed.id, assignedBedId: undefined });
+        setSelectedDormId(null);
+        setSelectedBedId(null);
     };
 
     const inputClasses = `mt-1 block w-full rounded-lg border px-4 py-3 shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/50 focus:outline-none text-base transition-all duration-200 ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`;
@@ -246,6 +230,7 @@ export const StudentModal: React.FC<StudentModalProps> = ({ isOpen, onClose, onS
                                             onChange={e => {
                                                 setSelectedDormId(e.target.value ? parseInt(e.target.value) : null);
                                                 setSelectedBedId(null);
+                                                setFormData({ ...formData, assignedBedId: undefined });
                                             }}
                                         >
                                             <option value="">Select dormitory...</option>
@@ -263,7 +248,15 @@ export const StudentModal: React.FC<StudentModalProps> = ({ isOpen, onClose, onS
                                         <select
                                             className={inputClasses}
                                             value={selectedBedId ?? ''}
-                                            onChange={e => setSelectedBedId(e.target.value ? parseInt(e.target.value) : null)}
+                                            onChange={e => {
+                                                const bedId = e.target.value ? parseInt(e.target.value) : null;
+                                                setSelectedBedId(bedId);
+                                                if (bedId && bedId !== currentAssignment?.bed?.id) {
+                                                    setFormData({ ...formData, assignedBedId: bedId, unassignBedId: undefined });
+                                                } else {
+                                                    setFormData({ ...formData, assignedBedId: undefined });
+                                                }
+                                            }}
                                             disabled={!selectedDormId}
                                         >
                                             <option value="">{selectedDormId ? 'Select bed...' : 'Select dormitory first'}</option>
@@ -281,30 +274,12 @@ export const StudentModal: React.FC<StudentModalProps> = ({ isOpen, onClose, onS
                                     </div>
                                 </div>
 
-                                {/* Assign button - only shown when editing an existing student and bed has changed */}
-                                {isEdit && studentId && selectedBedId && bedChanged && (
-                                    <button
-                                        type="button"
-                                        onClick={handleAssignBed}
-                                        disabled={isAssigning}
-                                        className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 ${isDark ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
-                                    >
-                                        {isAssigning ? 'Assigning...' : `Assign to ${currentDorm?.name ?? 'Dormitory'}, Bed ${beds.find(b => b.id === selectedBedId)?.bedNumber ?? ''}`}
-                                    </button>
-                                )}
-
-                                {!isEdit && (
-                                    <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                                        💡 Save the student first, then edit their profile to assign a bed.
-                                    </p>
-                                )}
-
                                 {/* Feedback messages */}
-                                {bedActionSuccess && (
-                                    <p className="text-sm text-green-600 dark:text-green-400 font-medium">{bedActionSuccess}</p>
+                                {formData.unassignBedId && (
+                                    <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">Pending removal on save.</p>
                                 )}
-                                {bedActionError && (
-                                    <p className="text-sm text-red-600 dark:text-red-400 font-medium">{bedActionError}</p>
+                                {formData.assignedBedId && (
+                                    <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">Pending assignment on save.</p>
                                 )}
                             </div>
                         </div>
