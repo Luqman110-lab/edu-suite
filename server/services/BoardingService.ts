@@ -118,8 +118,22 @@ export class BoardingService {
         let currentNumber = parseInt(String(startNumber));
         if (isNaN(currentNumber)) currentNumber = 1;
 
+        // Fetch existing bed numbers to avoid unique constraint crashes
+        const existingBeds = await db.select({ bedNumber: beds.bedNumber })
+            .from(beds)
+            .where(and(eq(beds.schoolId, schoolId), eq(beds.dormitoryId, dormitoryId)));
+
+        const existingNumbers = new Set(existingBeds.map(b => b.bedNumber));
+
         for (let i = 0; i < count; i++) {
+            // Find the next available number
+            while (existingNumbers.has(currentNumber.toString())) {
+                currentNumber++;
+            }
+
             const bedIdentifier = currentNumber.toString();
+            existingNumbers.add(bedIdentifier); // Add to set so we don't reuse it in this loop
+
             if (type === 'single') {
                 createdBeds.push({ schoolId, dormitoryId, bedNumber: bedIdentifier, level: 'Single', status: 'vacant' });
             } else if (type === 'double') {
@@ -130,7 +144,6 @@ export class BoardingService {
                 createdBeds.push({ schoolId, dormitoryId, bedNumber: bedIdentifier, level: 'Middle', status: 'vacant' });
                 createdBeds.push({ schoolId, dormitoryId, bedNumber: bedIdentifier, level: 'Top', status: 'vacant' });
             }
-            currentNumber++;
         }
 
         if (createdBeds.length > 0) {
