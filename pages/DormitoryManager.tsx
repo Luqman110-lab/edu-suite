@@ -87,11 +87,12 @@ export const DormitoryManager: React.FC = () => {
     try {
       const url = editingDorm ? `/api/dormitories/${editingDorm.id}` : '/api/dormitories';
       const method = editingDorm ? 'PUT' : 'POST';
+      const { id, schoolId, createdAt, updatedAt, ...payload } = dormForm as any;
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify(dormForm),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
         loadData();
