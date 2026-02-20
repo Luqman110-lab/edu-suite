@@ -172,10 +172,17 @@ export class AccountingService {
     // ==========================================
 
     async getBudgets(schoolId: number, term: number, year: number) {
-        return await db.query.budgets.findMany({
-            where: and(eq(budgets.schoolId, schoolId), eq(budgets.term, term), eq(budgets.year, year)),
-            with: { category: true }
-        });
+        try {
+            return await db.query.budgets.findMany({
+                where: and(eq(budgets.schoolId, schoolId), eq(budgets.term, term), eq(budgets.year, year)),
+                with: { category: true }
+            });
+        } catch (err: any) {
+            // Fallback if relational query fails (e.g. no expense categories)
+            console.warn('[Budgets] findMany with relations failed, falling back:', err.message);
+            return await db.select().from(budgets)
+                .where(and(eq(budgets.schoolId, schoolId), eq(budgets.term, term), eq(budgets.year, year)));
+        }
     }
 
     async setBudget(schoolId: number, data: any) {

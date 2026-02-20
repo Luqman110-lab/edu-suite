@@ -2540,7 +2540,7 @@ export type InsertJournalLine = typeof journalLines.$inferInsert;
 export const budgets = pgTable("budgets", {
   id: serial("id").primaryKey(),
   schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
-  categoryId: integer("category_id").notNull().references(() => expenseCategories.id, { onDelete: "cascade" }),
+  categoryId: integer("category_id").references(() => expenseCategories.id, { onDelete: "set null" }),
   term: integer("term").notNull(),
   year: integer("year").notNull(),
   amountAllocated: integer("amount_allocated").notNull(),
