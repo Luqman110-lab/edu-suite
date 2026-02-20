@@ -182,10 +182,62 @@ export const DormitoryManager: React.FC = () => {
   const deleteBed = async (id: number) => {
     if (!confirm("Delete this bed slot?")) return;
     try {
-      await fetch(`/api/beds/${id}`, { method: 'DELETE', credentials: 'include' });
+      const res = await fetch(`/api/beds/${id}`, { method: 'DELETE', credentials: 'include' });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message);
+      }
       loadData();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to delete bed", err);
+      alert(err.message || "Failed to delete bed");
+    }
+  };
+
+  const deleteStructure = async (structureKey: string, bedsInStructure: Bed[]) => {
+    const vacantBeds = bedsInStructure.filter(b => b.status === 'vacant');
+    if (vacantBeds.length === 0) {
+      alert("Cannot delete structure. All beds are occupied. Unassign students first.");
+      return;
+    }
+    if (vacantBeds.length < bedsInStructure.length) {
+      if (!confirm(`Warning: Some beds are occupied. Only ${vacantBeds.length} vacant bed(s) in Structure #${structureKey} will be deleted. Continue?`)) return;
+    } else {
+      if (!confirm(`Delete all ${vacantBeds.length} bed(s) in Structure #${structureKey}?`)) return;
+    }
+
+    try {
+      const res = await fetch('/api/beds/bulk-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ bedIds: vacantBeds.map(b => b.id) })
+      });
+      if (res.ok) loadData();
+    } catch (err) {
+      console.error("Failed to delete structure", err);
+    }
+  };
+
+  const clearAllVacantBeds = async () => {
+    if (!selectedDorm) return;
+    const vacantBeds = filteredBeds.filter(b => b.status === 'vacant');
+    if (vacantBeds.length === 0) {
+      alert("No vacant beds to clear.");
+      return;
+    }
+    if (!confirm(`Are you sure you want to permanently delete ALL ${vacantBeds.length} vacant bed slots in ${selectedDorm.name}?`)) return;
+
+    try {
+      const res = await fetch('/api/beds/bulk-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ bedIds: vacantBeds.map(b => b.id) })
+      });
+      if (res.ok) loadData();
+    } catch (err) {
+      console.error("Failed to clear vacant beds", err);
     }
   };
 
@@ -286,9 +338,14 @@ export const DormitoryManager: React.FC = () => {
                     <span>Vacant: {filteredBeds.filter(b => b.status === 'vacant').length}</span>
                   </div>
                 </div>
-                <button onClick={() => setShowBedModal(true)} className="px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700">
-                  + Add Beds
-                </button>
+                <div className="flex gap-2">
+                  <button onClick={clearAllVacantBeds} className="px-3 py-1.5 bg-red-100 text-red-700 text-sm font-medium rounded-lg hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50">
+                    Clear Vacant Beds
+                  </button>
+                  <button onClick={() => setShowBedModal(true)} className="px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700">
+                    + Add Beds
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -302,7 +359,12 @@ export const DormitoryManager: React.FC = () => {
                     <div key={key} className="border dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-700/50">
                       <div className="flex justify-between items-center mb-2">
                         <span className="font-bold text-gray-700 dark:text-gray-300">Structure #{key}</span>
-                        <span className="text-xs text-gray-500 uppercase">{structureBeds.length > 1 ? (structureBeds.length === 3 ? 'Triple Decker' : 'Decker') : 'Bed'}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-500 uppercase">{structureBeds.length > 1 ? (structureBeds.length === 3 ? 'Triple Decker' : 'Decker') : 'Bed'}</span>
+                          <button onClick={() => deleteStructure(key, structureBeds)} className="text-gray-400 hover:text-red-500 p-1 rounded" title={`Delete Structure #${key}`}>
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                          </button>
+                        </div>
                       </div>
                       <div className="space-y-2">
                         {sortedBeds.map(bed => (

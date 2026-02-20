@@ -206,6 +206,40 @@ boardingRoutes.post("/beds/:id/unassign", requireAdmin, async (req, res) => {
     }
 });
 
+// DELETE /api/beds/:id
+boardingRoutes.delete("/beds/:id", requireAdmin, async (req, res) => {
+    try {
+        const schoolId = getActiveSchoolId(req);
+        if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+        const bedId = parseInt(param(req, 'id'));
+
+        await boardingService.deleteBed(bedId, schoolId);
+        res.json({ message: "Bed deleted successfully" });
+    } catch (error: any) {
+        res.status(error.message.includes("occupied") ? 400 : 500).json({ message: "Failed to delete bed: " + error.message });
+    }
+});
+
+// POST /api/beds/bulk-delete
+boardingRoutes.post("/beds/bulk-delete", requireAdmin, async (req, res) => {
+    try {
+        const schoolId = getActiveSchoolId(req);
+        if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+        const bulkDeleteSchema = z.object({
+            bedIds: z.array(z.number())
+        });
+
+        const result = bulkDeleteSchema.safeParse(req.body);
+        if (!result.success) return res.status(400).json({ message: "Invalid data", errors: result.error.issues });
+
+        const deletedCount = await boardingService.bulkDeleteBeds(schoolId, result.data.bedIds);
+        res.json({ deletedCount });
+    } catch (error: any) {
+        res.status(500).json({ message: "Failed to bulk delete beds: " + error.message });
+    }
+});
+
 // GET /api/leave-requests
 boardingRoutes.get("/leave-requests", requireAuth, async (req, res) => {
     try {

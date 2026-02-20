@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, inArray, not } from "drizzle-orm";
 import {
     dormitories, beds, students, leaveRequests, boardingRollCalls,
     visitorLogs, boardingSettings
@@ -162,6 +162,36 @@ export class BoardingService {
 
         const updatedBed = await db.update(beds).set({ status: 'vacant', currentStudentId: null, mattressNumber: null }).where(eq(beds.id, bedId)).returning();
         return updatedBed[0];
+    }
+
+    async deleteBed(bedId: number, schoolId: number) {
+        // Ensure bed isn't occupied before delete
+        const bed = await db.select().from(beds).where(and(eq(beds.id, bedId), eq(beds.schoolId, schoolId))).limit(1);
+        if (bed.length === 0) throw new Error("Bed not found");
+        if (bed[0].status === 'occupied') throw new Error("Cannot delete an occupied bed. Unassign the student first.");
+
+        await db.delete(beds).where(eq(beds.id, bedId));
+        return true;
+    }
+
+    async bulkDeleteBeds(schoolId: number, bedIds: number[]) {
+        if (bedIds.length === 0) return 0;
+
+        // Skip occupied beds
+        const bedsToDelete = await db.select().from(beds).where(
+            and(
+                eq(beds.schoolId, schoolId),
+                inArray(beds.id, bedIds),
+                not(eq(beds.status, 'occupied'))
+            )
+        );
+
+        if (bedsToDelete.length === 0) return 0;
+
+        const idsToDelete = bedsToDelete.map(b => b.id);
+
+        await db.delete(beds).where(inArray(beds.id, idsToDelete));
+        return idsToDelete.length;
     }
 
     // Leave Requests
