@@ -3,6 +3,7 @@ import { SchoolSettings } from '../../../../types';
 import { Button } from '../../../../components/Button';
 import { useClassNames } from '../../../../hooks/use-class-names';
 import { useTheme } from '../../../../contexts/ThemeContext';
+import { useStreams } from '../../hooks/useClassAssignments';
 
 interface PromotionSummary {
     [key: string]: { count: number; targetClass: string };
@@ -29,6 +30,7 @@ export const PromoteStudentsModal: React.FC<PromoteStudentsModalProps> = ({
 }) => {
     const { isDark } = useTheme();
     const { getDisplayName } = useClassNames();
+    const { streams } = useStreams();
     const [targetStream, setTargetStream] = useState<string>('');
 
     if (!isOpen) return null;
@@ -70,9 +72,15 @@ export const PromoteStudentsModal: React.FC<PromoteStudentsModalProps> = ({
                         className={`w-full rounded-lg border px-3 py-2 text-sm ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                     >
                         <option value="">Keep existing stream</option>
-                        {settings?.streams && Object.entries(settings.streams).map(([cls, streams]) => (
+                        {streams && Object.entries(
+                            streams.reduce((acc, s) => {
+                                if (!acc[s.classLevel]) acc[s.classLevel] = [];
+                                acc[s.classLevel].push(s.streamName);
+                                return acc;
+                            }, {} as Record<string, string[]>)
+                        ).map(([cls, classStreams]) => (
                             <optgroup key={cls} label={cls}>
-                                {(streams as string[]).map((stream: string) => (
+                                {classStreams.map((stream: string) => (
                                     <option key={`${cls}-${stream}`} value={stream}>{stream}</option>
                                 ))}
                             </optgroup>

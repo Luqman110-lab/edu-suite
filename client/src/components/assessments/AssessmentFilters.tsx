@@ -4,6 +4,7 @@ import { useClassNames } from '../../../../hooks/use-class-names';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { Button } from '../../../../components/Button';
 import { FileText, Download, User } from 'lucide-react';
+import { useStreams } from '../../hooks/useClassAssignments';
 
 interface AssessmentFiltersProps {
     selectedClass: ClassLevel;
@@ -38,8 +39,9 @@ export const AssessmentFilters: React.FC<AssessmentFiltersProps> = ({
 }) => {
     const { isDark } = useTheme();
     const { getAllClasses, getDisplayName } = useClassNames();
+    const { streams } = useStreams();
 
-    const availableStreams = settings?.streams[selectedClass] || [];
+    const availableStreams = streams?.filter(s => s.classLevel === selectedClass).map(s => s.streamName) || [];
 
     const inputClasses = `block w-full rounded-lg border ${isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-white text-gray-900'} px-3 py-2.5 shadow-sm focus:border-[#7B1113] focus:ring-2 focus:ring-[#7B1113]/30 focus:outline-none text-sm transition-all duration-200`;
 

@@ -1,7 +1,7 @@
 import { db } from "../db";
 import { eq, and, desc, asc, sql, inArray } from "drizzle-orm";
 import {
-    students, promotionHistory, studentYearSnapshots, auditLogs, schools
+    students, promotionHistory, studentYearSnapshots, auditLogs, schools, classStreams
 } from "../../shared/schema";
 
 export class StudentService {
@@ -44,6 +44,31 @@ export class StudentService {
     }
 
     async createStudent(schoolId: number, userId: number, userName: string, data: any) {
+        if (data.classLevel && data.stream && !data.forceCapacityOverride) {
+            const streamInfo = await db.query.classStreams.findFirst({
+                where: and(
+                    eq(classStreams.schoolId, schoolId),
+                    eq(classStreams.classLevel, data.classLevel),
+                    eq(classStreams.streamName, data.stream)
+                )
+            });
+
+            if (streamInfo) {
+                const currentCount = await db.select({ count: sql<number>`count(*)::int` })
+                    .from(students)
+                    .where(and(
+                        eq(students.schoolId, schoolId),
+                        eq(students.classLevel, data.classLevel),
+                        eq(students.stream, data.stream),
+                        eq(students.isActive, true)
+                    ));
+
+                if (currentCount[0].count >= streamInfo.maxCapacity) {
+                    throw new Error(`CAPACITY_WARNING: Stream ${data.stream} is at maximum capacity (${streamInfo.maxCapacity}).`);
+                }
+            }
+        }
+
         const autoIndex = `STU-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
         const record: Record<string, unknown> = {
             indexNumber: autoIndex,
@@ -83,6 +108,35 @@ export class StudentService {
     }
 
     async updateStudent(id: number, schoolId: number, userId: number, userName: string, data: any) {
+        if (data.classLevel && data.stream && !data.forceCapacityOverride) {
+            const streamInfo = await db.query.classStreams.findFirst({
+                where: and(
+                    eq(classStreams.schoolId, schoolId),
+                    eq(classStreams.classLevel, data.classLevel),
+                    eq(classStreams.streamName, data.stream)
+                )
+            });
+
+            if (streamInfo) {
+                // Check if student is already in this stream, if so skip count
+                const existing = await this.getStudentById(id, schoolId);
+                if (!existing || existing.classLevel !== data.classLevel || existing.stream !== data.stream) {
+                    const currentCount = await db.select({ count: sql<number>`count(*)::int` })
+                        .from(students)
+                        .where(and(
+                            eq(students.schoolId, schoolId),
+                            eq(students.classLevel, data.classLevel),
+                            eq(students.stream, data.stream),
+                            eq(students.isActive, true)
+                        ));
+
+                    if (currentCount[0].count >= streamInfo.maxCapacity) {
+                        throw new Error(`CAPACITY_WARNING: Stream ${data.stream} is at maximum capacity (${streamInfo.maxCapacity}).`);
+                    }
+                }
+            }
+        }
+
         const updated = await db.update(students).set({ ...data, schoolId }).where(eq(students.id, id)).returning();
 
         if (updated.length > 0) {

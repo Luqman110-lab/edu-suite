@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Student, ClassLevel, Gender, SchoolSettings } from '../../../../types';
 import { Button } from '../../../../components/Button';
 import { useQuery } from '@tanstack/react-query';
+import { useStreams } from '../../hooks/useClassAssignments';
 
 interface Dormitory { id: number; name: string; gender?: string; capacity?: number; }
 interface Bed { id: number; dormitoryId: number; bedNumber: string; level: string; status: string; currentStudentId: number | null; studentName: string | null; }
@@ -10,7 +11,7 @@ interface StudentModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSubmit: (e: React.FormEvent) => Promise<void>;
-    formData: Partial<Student>;
+    formData: Partial<Student> & { assignedBedId?: number; unassignBedId?: number };
     setFormData: (data: Partial<Student> & { assignedBedId?: number; unassignBedId?: number }) => void;
     isEdit: boolean;
     settings: SchoolSettings | null;
@@ -106,7 +107,8 @@ export const StudentModal: React.FC<StudentModalProps> = ({ isOpen, onClose, onS
     };
 
     const inputClasses = `mt-1 block w-full rounded-lg border px-4 py-3 shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/50 focus:outline-none text-base transition-all duration-200 ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`;
-    const currentStreams = settings?.streams[formData.classLevel || ClassLevel.P1] || [];
+    const { streams } = useStreams();
+    const currentStreams = streams?.filter(s => s.classLevel === (formData.classLevel || ClassLevel.P1)).map(s => s.streamName) || [];
 
     const bedChanged = selectedBedId !== (currentAssignment?.bed?.id ?? null);
     const currentDorm = dormitories.find(d => d.id === selectedDormId);
@@ -140,7 +142,7 @@ export const StudentModal: React.FC<StudentModalProps> = ({ isOpen, onClose, onS
                                 <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Class</label>
                                 <select className={inputClasses} value={formData.classLevel} onChange={e => {
                                     const newClass = e.target.value as ClassLevel;
-                                    const newStreams = settings?.streams[newClass] || [];
+                                    const newStreams = streams?.filter(s => s.classLevel === newClass).map(s => s.streamName) || [];
                                     setFormData({ ...formData, classLevel: newClass, stream: newStreams.length > 0 ? newStreams[0] : '' });
                                 }}>
                                     {Object.values(ClassLevel).map(c => <option key={c} value={c}>{c}</option>)}

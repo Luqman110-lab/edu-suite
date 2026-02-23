@@ -435,6 +435,8 @@ export const schoolsRelations = relations(schools, ({ many }) => ({
   activityLogs: many(activityLogs),
   testSessions: many(testSessions),
   testScores: many(testScores),
+  teacherAssignments: many(teacherAssignments),
+  classStreams: many(classStreams),
 }));
 
 export const usersRelations = relations(users, ({ many, one }) => ({
@@ -496,11 +498,12 @@ export const studentGuardiansRelations = relations(studentGuardians, ({ one }) =
   }),
 }));
 
-export const teachersRelations = relations(teachers, ({ one }) => ({
+export const teachersRelations = relations(teachers, ({ one, many }) => ({
   school: one(schools, {
     fields: [teachers.schoolId],
     references: [schools.id],
   }),
+  assignments: many(teacherAssignments),
 }));
 
 export const insertSchoolSchema = createInsertSchema(schools, {
@@ -2631,3 +2634,64 @@ export const insertPettyCashTransactionSchema = createInsertSchema(pettyCashTran
 export const selectPettyCashTransactionSchema = createSelectSchema(pettyCashTransactions);
 export type PettyCashTransaction = typeof pettyCashTransactions.$inferSelect;
 export type InsertPettyCashTransaction = typeof pettyCashTransactions.$inferInsert;
+
+// ==================== CLASS MANAGEMENT ====================
+
+export const teacherAssignments = pgTable("teacher_assignments", {
+  id: serial("id").primaryKey(),
+  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
+  teacherId: integer("teacher_id").notNull().references(() => teachers.id, { onDelete: "cascade" }),
+  classLevel: text("class_level").notNull(),
+  stream: text("stream"),
+  subject: text("subject"), // null for class_teacher
+  role: text("role").notNull(), // 'class_teacher' or 'subject_teacher'
+  term: integer("term").notNull(),
+  year: integer("year").notNull(),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  schoolIdx: index("teacher_assignments_school_idx").on(table.schoolId),
+  teacherIdx: index("teacher_assignments_teacher_idx").on(table.teacherId),
+  uniqueAssignment: unique().on(table.schoolId, table.classLevel, table.stream, table.role, table.term, table.year)
+}));
+
+export const teacherAssignmentsRelations = relations(teacherAssignments, ({ one }) => ({
+  school: one(schools, {
+    fields: [teacherAssignments.schoolId],
+    references: [schools.id],
+  }),
+  teacher: one(teachers, {
+    fields: [teacherAssignments.teacherId],
+    references: [teachers.id],
+  }),
+}));
+
+export const insertTeacherAssignmentSchema = createInsertSchema(teacherAssignments);
+export const selectTeacherAssignmentSchema = createSelectSchema(teacherAssignments);
+export type TeacherAssignment = typeof teacherAssignments.$inferSelect;
+export type InsertTeacherAssignment = typeof teacherAssignments.$inferInsert;
+
+export const classStreams = pgTable("class_streams", {
+  id: serial("id").primaryKey(),
+  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
+  classLevel: text("class_level").notNull(),
+  streamName: text("stream_name").notNull(),
+  maxCapacity: integer("max_capacity").default(60),
+  isActive: boolean("is_active").default(true),
+  sortOrder: integer("sort_order").default(0),
+}, (table) => ({
+  schoolIdx: index("class_streams_school_idx").on(table.schoolId),
+  uniqueStream: unique().on(table.schoolId, table.classLevel, table.streamName)
+}));
+
+export const classStreamsRelations = relations(classStreams, ({ one }) => ({
+  school: one(schools, {
+    fields: [classStreams.schoolId],
+    references: [schools.id],
+  }),
+}));
+
+export const insertClassStreamSchema = createInsertSchema(classStreams);
+export const selectClassStreamSchema = createSelectSchema(classStreams);
+export type ClassStream = typeof classStreams.$inferSelect;
+export type InsertClassStream = typeof classStreams.$inferInsert;

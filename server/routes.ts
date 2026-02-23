@@ -20,6 +20,7 @@ import { biometricRoutes } from "./routes/biometrics";   // absolute paths: /fac
 import { conversationRoutes } from "./routes/conversations"; // absolute paths: /conversations, /messaging/users, /upload
 import { archiveRoutes } from "./routes/archive";         // absolute paths: /archive/years, /archive/students
 import { accountingRoutes } from "./routes/accounting";
+import { classesRoutes } from "./routes/classes";
 
 export function registerRoutes(app: Express): Server {
     // Setup authentication routes (login, logout, session, etc.)
@@ -43,6 +44,7 @@ export function registerRoutes(app: Express): Server {
     app.use("/api", conversationRoutes);
     app.use("/api", archiveRoutes);
     app.use("/api/accounting", accountingRoutes);
+    app.use("/api", classesRoutes);
     // ─────────────────────────────────────────────────────────────────────────
 
 

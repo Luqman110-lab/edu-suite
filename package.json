@@ -52,6 +52,8 @@
     "html5-qrcode": "^2.3.8",
     "idb": "^8.0.0",
     "idb-keyval": "^6.2.2",
+    "jspdf": "^4.2.0",
+    "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.344.0",
     "papaparse": "^5.5.3",
     "passport": "^0.7.0",

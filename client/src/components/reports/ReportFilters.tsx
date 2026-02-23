@@ -3,6 +3,7 @@ import { ClassLevel, AssessmentType, SchoolSettings } from '../../../../types';
 import { useClassNames } from '../../../../hooks/use-class-names';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { Filter } from 'lucide-react';
+import { useStreams } from '../../hooks/useClassAssignments';
 
 interface ReportFiltersProps {
     selectedClass: ClassLevel;
@@ -29,8 +30,9 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
 }) => {
     const { isDark } = useTheme();
     const { getAllClasses } = useClassNames();
+    const { streams } = useStreams();
 
-    const availableStreams = settings?.streams[selectedClass] || [];
+    const availableStreams = streams?.filter(s => s.classLevel === selectedClass).map(s => s.streamName) || [];
 
     const inputClasses = `block w-full rounded-lg border ${isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-white text-gray-900'} px-3 py-2.5 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none text-sm transition-all duration-200`;
 

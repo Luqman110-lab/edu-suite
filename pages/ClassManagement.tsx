@@ -1,9 +1,11 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Check, X, Edit2, RotateCcw, Loader2, AlertCircle, Layers, Users, Hash, BookOpen } from 'lucide-react';
+import { Plus, Check, X, Edit2, RotateCcw, Loader2, AlertCircle, Layers, Users, Hash, BookOpen, BookMarked, UsersRound } from 'lucide-react';
 import { useToast } from '../hooks/use-toast';
 import { useSettings } from '../client/src/hooks/useSettings';
 import { useStudents } from '../client/src/hooks/useStudents';
+import { SubjectTeachersModal } from '../client/src/components/classes/SubjectTeachersModal';
+import { ClassRegisterModal } from '../client/src/components/classes/ClassRegisterModal';
 
 
 export default function ClassManagement() {
@@ -17,8 +19,17 @@ export default function ClassManagement() {
   const [editingStream, setEditingStream] = useState<{ level: string; oldName: string; value: string } | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ level: string; stream: string } | null>(null);
+
+  // Modals state
+  const [subjectTeachersModal, setSubjectTeachersModal] = useState<{ isOpen: boolean; classLevel: string; stream: string } | null>(null);
+  const [registerModal, setRegisterModal] = useState<{ isOpen: boolean; classLevel: string; stream: string } | null>(null);
+
   const aliasInputRef = useRef<HTMLInputElement>(null);
   const streamInputRef = useRef<HTMLInputElement>(null);
+
+  // Hardcode active term and year for now, typically this comes from global settings
+  const ACTIVE_TERM = 1;
+  const ACTIVE_YEAR = new Date().getFullYear();
 
   useEffect(() => {
     if (editingAlias && aliasInputRef.current) aliasInputRef.current.focus();
@@ -258,6 +269,22 @@ export default function ClassManagement() {
         >
           <X className="w-3.5 h-3.5" />
         </button>
+        <div className="flex gap-1 ml-1 pl-1 border-l border-gray-200 dark:border-gray-600 opacity-0 group-hover:opacity-100 transition-all">
+          <button
+            onClick={() => setSubjectTeachersModal({ isOpen: true, classLevel: level, stream })}
+            className="text-gray-400 hover:text-blue-500 p-0.5"
+            title="Subject Teachers"
+          >
+            <BookMarked className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => setRegisterModal({ isOpen: true, classLevel: level, stream })}
+            className="text-gray-400 hover:text-green-500 p-0.5"
+            title="View Register"
+          >
+            <UsersRound className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
     );
   };
@@ -483,6 +510,29 @@ export default function ClassManagement() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modals */}
+      {subjectTeachersModal?.isOpen && (
+        <SubjectTeachersModal
+          isOpen={subjectTeachersModal.isOpen}
+          onClose={() => setSubjectTeachersModal(null)}
+          classLevel={subjectTeachersModal.classLevel}
+          stream={subjectTeachersModal.stream}
+          term={ACTIVE_TERM}
+          year={ACTIVE_YEAR}
+        />
+      )}
+
+      {registerModal?.isOpen && (
+        <ClassRegisterModal
+          isOpen={registerModal.isOpen}
+          onClose={() => setRegisterModal(null)}
+          classLevel={registerModal.classLevel}
+          stream={registerModal.stream}
+          term={ACTIVE_TERM}
+          year={ACTIVE_YEAR}
+        />
       )}
     </div>
   );
