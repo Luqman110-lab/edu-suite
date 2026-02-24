@@ -1,6 +1,6 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
-import { setupAuth } from "./auth";
+import { setupAuth, requireAuth } from "./auth";
 
 
 import { setupPublicRoutes } from "./publicRoutes";
@@ -46,7 +46,7 @@ export function registerRoutes(app: Express): Server {
     app.use("/api", archiveRoutes);
     app.use("/api/accounting", accountingRoutes);
     app.use("/api", classesRoutes);
-    app.use("/api/hr", hrRoutes);
+    app.use("/api/hr", requireAuth, hrRoutes);
     // ─────────────────────────────────────────────────────────────────────────
 
 
