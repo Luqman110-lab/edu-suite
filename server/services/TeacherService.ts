@@ -16,7 +16,27 @@ export class TeacherService {
     }
 
     async createTeacher(schoolId: number, data: any, userId?: number, userName?: string) {
-        const newTeacher = await db.insert(teachers).values({ ...data, schoolId, isActive: true }).returning();
+        // Clean up data before inserting
+        const cleanedData = { ...data };
+
+        // Convert empty strings to null for optional schema fields to prevent type errors
+        const optionalFields = ['dateOfBirth', 'nationalId', 'religion', 'maritalStatus', 'homeAddress', 'districtOfOrigin', 'emergencyContactName', 'emergencyContactPhone', 'emergencyContactRelationship', 'teachingRegNumber', 'bankName', 'bankAccountNumber', 'bankBranch', 'nssfNumber', 'tinNumber', 'specialization', 'photoUrl'];
+        optionalFields.forEach(field => {
+            if (cleanedData[field] === '') {
+                cleanedData[field] = null;
+            }
+        });
+
+        // Ensure JSON arrays are properly formatted arrays and not strings
+        if (typeof cleanedData.educationHistory === 'string') {
+            try {
+                cleanedData.educationHistory = JSON.parse(cleanedData.educationHistory);
+            } catch (e) {
+                cleanedData.educationHistory = [];
+            }
+        }
+
+        const newTeacher = await db.insert(teachers).values({ ...cleanedData, schoolId, isActive: true }).returning();
 
         if (userId && userName) {
             await db.insert(auditLogs).values({
@@ -33,7 +53,24 @@ export class TeacherService {
         const existing = await this.getTeacherById(id, schoolId);
         if (!existing) return null;
 
-        const updated = await db.update(teachers).set({ ...data, schoolId })
+        // Clean up data before updating
+        const cleanedData = { ...data };
+        const optionalFields = ['dateOfBirth', 'nationalId', 'religion', 'maritalStatus', 'homeAddress', 'districtOfOrigin', 'emergencyContactName', 'emergencyContactPhone', 'emergencyContactRelationship', 'teachingRegNumber', 'bankName', 'bankAccountNumber', 'bankBranch', 'nssfNumber', 'tinNumber', 'specialization', 'photoUrl'];
+        optionalFields.forEach(field => {
+            if (cleanedData[field] === '') {
+                cleanedData[field] = null;
+            }
+        });
+
+        if (typeof cleanedData.educationHistory === 'string') {
+            try {
+                cleanedData.educationHistory = JSON.parse(cleanedData.educationHistory);
+            } catch (e) {
+                cleanedData.educationHistory = [];
+            }
+        }
+
+        const updated = await db.update(teachers).set({ ...cleanedData, schoolId })
             .where(eq(teachers.id, id)).returning();
 
         if (updated.length > 0 && userId && userName) {
