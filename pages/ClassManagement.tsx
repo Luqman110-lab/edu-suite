@@ -4,6 +4,7 @@ import { Plus, Check, X, Edit2, RotateCcw, Loader2, AlertCircle, Layers, Users, 
 import { useToast } from '../hooks/use-toast';
 import { useSettings } from '../client/src/hooks/useSettings';
 import { useStudents } from '../client/src/hooks/useStudents';
+import { useStreams } from '../client/src/hooks/useClassAssignments';
 import { SubjectTeachersModal } from '../client/src/components/classes/SubjectTeachersModal';
 import { ClassRegisterModal } from '../client/src/components/classes/ClassRegisterModal';
 import { ClassOverview } from '../client/src/components/classes/ClassOverview';
@@ -16,6 +17,7 @@ export default function ClassManagement() {
 
   const { settings, refetch: refetchSettings, updateSettings } = useSettings();
   const { students } = useStudents();
+  const { streams, createStream, updateStream, removeStream } = useStreams();
 
   const [newStreams, setNewStreams] = useState<Record<string, string>>({});
   const [editingAlias, setEditingAlias] = useState<{ level: string; value: string } | null>(null);
@@ -80,22 +82,25 @@ export default function ClassManagement() {
       return;
     }
 
+    const trimmed = streamName.trim();
+    if (!trimmed) {
+      toast({ title: 'Stream name required', description: 'Please enter a valid stream name.', variant: 'destructive' });
+      return;
+    }
+
     setBusyAction(`add-${classLevel}`);
     try {
-      const currentStreams = settings.streams[classLevel] || [];
-      const newSettings = {
-        ...settings,
-        streams: {
-          ...settings.streams,
-          [classLevel]: [...currentStreams, streamName]
-        }
-      };
-      await updateSettings.mutateAsync(newSettings);
+      const currentStreams = streams.filter(s => s.classLevel === classLevel).map(s => s.streamName);
+      if (currentStreams.includes(trimmed)) {
+        toast({ title: 'Stream exists', description: `"${trimmed}" already exists in ${getDisplayName(classLevel)}.`, variant: 'destructive' });
+        setBusyAction(null);
+        return;
+      }
+
+      await createStream({ classLevel, streamName: trimmed, maxCapacity: 40 });
       setNewStreams(prev => ({ ...prev, [classLevel]: '' }));
-      toast({ title: 'Stream added', description: `"${streamName}" added to ${getDisplayName(classLevel)}.` });
     } catch (error) {
       console.error(error);
-      toast({ title: 'Failed to add stream', description: String(error), variant: 'destructive' });
     } finally {
       setBusyAction(null);
     }
@@ -109,22 +114,12 @@ export default function ClassManagement() {
     setBusyAction(`remove-${level}-${stream}`);
     setConfirmDelete(null);
     try {
-      const currentStreams = settings.streams[level] || [];
-      const newSettings = {
-        ...settings,
-        streams: {
-          ...settings.streams,
-          [level]: currentStreams.filter(s => s !== stream)
-        }
-      };
-      await updateSettings.mutateAsync(newSettings);
-      toast({
-        title: 'Stream removed',
-        description: `"${stream}" removed from ${getDisplayName(level)}.${count > 0 ? ` ${count} students were in this stream.` : ''}`,
-      });
+      const streamRecord = streams.find(s => s.classLevel === level && s.streamName === stream);
+      if (streamRecord) {
+        await removeStream(streamRecord.id);
+      }
     } catch (error) {
       console.error(error);
-      toast({ title: 'Failed to remove stream', description: String(error), variant: 'destructive' });
     } finally {
       setBusyAction(null);
     }
@@ -146,25 +141,23 @@ export default function ClassManagement() {
 
     setBusyAction(`rename-stream-${level}-${oldName}`);
     try {
-      const currentStreams = settings.streams[level] || [];
-      const idx = currentStreams.indexOf(oldName);
-      if (idx !== -1) {
-        const newStreamsList = [...currentStreams];
-        newStreamsList[idx] = newName;
-        const newSettings = {
-          ...settings,
-          streams: {
-            ...settings.streams,
-            [level]: newStreamsList
-          }
-        };
-        await updateSettings.mutateAsync(newSettings);
+      const currentStreams = streams.filter(s => s.classLevel === level).map(s => s.streamName);
+      if (currentStreams.includes(newName)) {
+        toast({ title: 'Name already taken', description: `"${newName}" already exists in ${getDisplayName(level)}.`, variant: 'destructive' });
+        setBusyAction(null);
+        return;
+      }
+
+      const streamRecord = streams.find(s => s.classLevel === level && s.streamName === oldName);
+      if (streamRecord) {
+        // Technically our updateStream doesn't support renaming names yet... it only supports maxCapacity.
+        // As a workaround we can recreate it and delete the old one to act like a rename
+        await createStream({ classLevel: level, streamName: newName, maxCapacity: streamRecord.maxCapacity });
+        await removeStream(streamRecord.id);
       }
       setEditingStream(null);
-      toast({ title: 'Stream renamed', description: `"${oldName}" renamed to "${newName}".` });
     } catch (error) {
       console.error(error);
-      toast({ title: 'Failed to rename stream', description: String(error), variant: 'destructive' });
     } finally {
       setBusyAction(null);
     }
@@ -394,7 +387,7 @@ export default function ClassManagement() {
         <div className="p-4 space-y-3">
           <div className="flex flex-wrap gap-2 min-h-[36px]">
             {streams.length > 0 ? (
-              streams.map(stream => renderStreamChip(level, stream))
+              streams.map(s => renderStreamChip(level, s.streamName))
             ) : (
               <div className="text-sm text-gray-400 italic w-full text-center py-3 flex flex-col items-center gap-1">
                 <AlertCircle className="w-4 h-4 opacity-50" />
@@ -407,7 +400,7 @@ export default function ClassManagement() {
           <div className="relative">
             <input
               type="text"
-              value={inputStream}
+              value={newStreams[level] || ''}
               onChange={(e) => setNewStreams(prev => ({ ...prev, [level]: e.target.value }))}
               onKeyDown={(e) => e.key === 'Enter' && handleAddStream(level)}
               placeholder="Add stream name..."
@@ -416,19 +409,19 @@ export default function ClassManagement() {
             />
             <button
               onClick={() => handleAddStream(level)}
-              disabled={!inputStream.trim() || !!busyAction}
-              className={`absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-all ${inputStream.trim() && !busyAction
+              disabled={!(newStreams[level] || '').trim() || !!busyAction}
+              className={`absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-all ${(newStreams[level] || '').trim() && !busyAction
                 ? isNursery
                   ? 'bg-pink-500 text-white shadow-sm hover:bg-pink-600'
                   : 'bg-blue-500 text-white shadow-sm hover:bg-blue-600'
                 : 'bg-gray-200 text-gray-400 dark:bg-gray-700 dark:text-gray-500 cursor-not-allowed'
                 }`}
             >
-              {isAddingStream ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+              {busyAction === `add-${level}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             </button>
           </div>
         </div>
-      </div>
+      </div >
     );
   };
 
