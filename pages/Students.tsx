@@ -9,6 +9,7 @@ import { useClassNames } from '../hooks/use-class-names';
 import { useAcademicYear } from '../contexts/AcademicYearContext';
 import { useStudents } from '../client/src/hooks/useStudents';
 import { useSettings } from '../client/src/hooks/useSettings';
+import { useStreams } from '../client/src/hooks/useClassAssignments';
 import { Button } from '../components/Button';
 import { Toast } from '../client/src/components/Toast';
 import { StudentIDCard } from '../components/StudentIDCard';
@@ -72,6 +73,7 @@ export const Students: React.FC = () => {
   // Hooks
   const { students, isLoading: studentsLoading, addStudent, updateStudent, deleteStudent, deleteStudents, importStudents, refetch: refetchStudents } = useStudents(isArchiveMode && selectedYear ? selectedYear.toString() : undefined);
   const { settings, isLoading: settingsLoading, updateSettings, refetch: refetchSettings } = useSettings();
+  const { streams } = useStreams();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -91,11 +93,11 @@ export const Students: React.FC = () => {
   const availableStreams = useMemo(() => {
     if (filterClass === 'All') {
       const allStreams = new Set<string>();
-      students.forEach(s => s.stream && allStreams.add(s.stream));
+      streams?.forEach(s => s.streamName && allStreams.add(s.streamName));
       return Array.from(allStreams).sort();
     }
-    return settings?.streams[filterClass] || [];
-  }, [filterClass, settings, students]);
+    return streams?.filter(s => s.classLevel === filterClass).map(s => s.streamName).sort() || [];
+  }, [filterClass, streams]);
 
   const filteredStudents = useMemo(() => {
     let filtered = students.filter(s =>
@@ -208,6 +210,8 @@ export const Students: React.FC = () => {
       const str = formData.stream || '';
 
       if (str && settings) {
+        // Streams are now managed in the DB, so we don't strictly need to back-update settings.streams
+        // But keeping this logic in case it's used elsewhere as a fallback
         const classStreams = settings.streams[cls] || [];
         if (!classStreams.includes(str)) {
           const newStreams = { ...settings.streams, [cls]: [...classStreams, str] };
@@ -618,7 +622,7 @@ export const Students: React.FC = () => {
           <Button variant="outline" onClick={exportStudentsCSV}>Export CSV</Button>
           <Button disabled={isArchiveMode} onClick={() => {
             const defaultClass = ClassLevel.P1;
-            const defaultStream = settings?.streams[defaultClass]?.[0] || '';
+            const defaultStream = availableStreams[0] || '';
             setFormData({
               name: '', classLevel: defaultClass, stream: defaultStream, gender: Gender.Male, paycode: '', parentName: '', parentContact: '',
               specialCases: { absenteeism: false, sickness: false, fees: false }
