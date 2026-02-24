@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useStudents } from '../../hooks/useStudents';
-import { useSettings } from '../../hooks/useSettings';
+import { useStreams } from '../../hooks/useClassAssignments';
 import { X, ArrowRight, ArrowLeft, Loader2, Users } from 'lucide-react';
 import { useToast } from '../../../../hooks/use-toast';
 
@@ -11,7 +11,7 @@ interface StreamBalancerProps {
 
 export function StreamBalancer({ isOpen, onClose }: StreamBalancerProps) {
     const { students, bulkTransferStudents } = useStudents();
-    const { settings } = useSettings();
+    const { streams } = useStreams();
     const { toast } = useToast();
 
     const [classLevel, setClassLevel] = useState<string>('');
@@ -25,16 +25,25 @@ export function StreamBalancer({ isOpen, onClose }: StreamBalancerProps) {
 
     // Derived data
     const classesWithStreams = useMemo(() => {
-        if (!settings?.streams) return [];
-        return Object.entries(settings.streams)
-            .filter(([_, streams]) => streams.length > 1) // Only classes with at least 2 streams can be balanced
-            .map(([level]) => level);
-    }, [settings?.streams]);
+        if (!streams || streams.length === 0) return [];
+        const classMap = new Map<string, number>();
+        streams.forEach(s => {
+            classMap.set(s.classLevel, (classMap.get(s.classLevel) || 0) + 1);
+        });
+
+        return Array.from(classMap.entries())
+            .filter(([_, count]) => count > 1) // Only classes with at least 2 streams can be balanced
+            .map(([level]) => level)
+            .sort();
+    }, [streams]);
 
     const availableStreams = useMemo(() => {
-        if (!classLevel || !settings?.streams) return [];
-        return settings.streams[classLevel] || [];
-    }, [classLevel, settings?.streams]);
+        if (!classLevel || !streams) return [];
+        return streams
+            .filter(s => s.classLevel === classLevel)
+            .map(s => s.streamName)
+            .sort();
+    }, [classLevel, streams]);
 
     const sourceStudents = useMemo(() => {
         if (!students) return [];
