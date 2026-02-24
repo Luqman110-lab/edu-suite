@@ -207,3 +207,37 @@ classesRoutes.delete("/class-assignments/:id", requireAuth, async (req, res) => 
         res.status(500).json({ message: error.message || "Failed to delete assignment" });
     }
 });
+
+// ==========================================
+// CLASS OVERVIEW (FEATURE 5)
+// ==========================================
+
+// Get class overview statistics
+classesRoutes.get("/:classLevel/:stream/stats", requireAuth, async (req, res) => {
+    try {
+        const schoolId = req.session.schoolId;
+        if (!schoolId) {
+            return res.status(400).json({ message: "School ID not found in session" });
+        }
+
+        const { classLevel, stream } = req.params;
+        const { term, year } = req.query;
+
+        if (!classLevel || !stream || !term || !year) {
+            return res.status(400).json({ message: "classLevel, stream, term, and year are required" });
+        }
+
+        const stats = await ClassService.getClassStats(
+            schoolId,
+            classLevel,
+            stream,
+            Number(term),
+            Number(year)
+        );
+
+        res.json(stats);
+    } catch (error: any) {
+        console.error("Error fetching class stats:", error);
+        res.status(500).json({ message: error.message || "Failed to fetch class stats" });
+    }
+});

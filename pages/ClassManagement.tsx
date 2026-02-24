@@ -1,12 +1,12 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Check, X, Edit2, RotateCcw, Loader2, AlertCircle, Layers, Users, Hash, BookOpen, BookMarked, UsersRound } from 'lucide-react';
+import { Plus, Check, X, Edit2, RotateCcw, Loader2, AlertCircle, Layers, Users, Hash, BookOpen, BookMarked, UsersRound, Activity } from 'lucide-react';
 import { useToast } from '../hooks/use-toast';
 import { useSettings } from '../client/src/hooks/useSettings';
 import { useStudents } from '../client/src/hooks/useStudents';
 import { SubjectTeachersModal } from '../client/src/components/classes/SubjectTeachersModal';
 import { ClassRegisterModal } from '../client/src/components/classes/ClassRegisterModal';
-
+import { ClassOverview } from '../client/src/components/classes/ClassOverview';
 
 export default function ClassManagement() {
   const { toast } = useToast();
@@ -23,6 +23,7 @@ export default function ClassManagement() {
   // Modals state
   const [subjectTeachersModal, setSubjectTeachersModal] = useState<{ isOpen: boolean; classLevel: string; stream: string } | null>(null);
   const [registerModal, setRegisterModal] = useState<{ isOpen: boolean; classLevel: string; stream: string } | null>(null);
+  const [overviewModal, setOverviewModal] = useState<{ isOpen: boolean; classLevel: string; stream: string } | null>(null);
 
   const aliasInputRef = useRef<HTMLInputElement>(null);
   const streamInputRef = useRef<HTMLInputElement>(null);
@@ -270,6 +271,13 @@ export default function ClassManagement() {
           <X className="w-3.5 h-3.5" />
         </button>
         <div className="flex gap-1 ml-1 pl-1 border-l border-gray-200 dark:border-gray-600 opacity-0 group-hover:opacity-100 transition-all">
+          <button
+            onClick={() => setOverviewModal({ isOpen: true, classLevel: level, stream })}
+            className="text-gray-400 hover:text-purple-500 p-0.5"
+            title="Overview Dashboard"
+          >
+            <Activity className="w-3.5 h-3.5" />
+          </button>
           <button
             onClick={() => setSubjectTeachersModal({ isOpen: true, classLevel: level, stream })}
             className="text-gray-400 hover:text-blue-500 p-0.5"
@@ -530,6 +538,17 @@ export default function ClassManagement() {
           onClose={() => setRegisterModal(null)}
           classLevel={registerModal.classLevel}
           stream={registerModal.stream}
+          term={ACTIVE_TERM}
+          year={ACTIVE_YEAR}
+        />
+      )}
+
+      {overviewModal?.isOpen && (
+        <ClassOverview
+          isOpen={overviewModal.isOpen}
+          onClose={() => setOverviewModal(null)}
+          classLevel={overviewModal.classLevel}
+          stream={overviewModal.stream}
           term={ACTIVE_TERM}
           year={ACTIVE_YEAR}
         />

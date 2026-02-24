@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { eq, and } from "drizzle-orm";
-import { teacherAssignments, classStreams, teachers } from "../../shared/schema";
+import { teacherAssignments, classStreams, teachers, students, marks, gateAttendance } from "../../shared/schema";
 
 export class ClassService {
     // ==========================================
@@ -171,5 +171,107 @@ export class ClassService {
         }
 
         return deleted;
+    }
+
+    // ==========================================
+    // CLASS OVERVIEW (FEATURE 5)
+    // ==========================================
+
+    static async getClassStats(schoolId: number, classLevel: string, stream: string, term: number, year: number) {
+        // 1. Enrollment stats
+        const allStudents = await db.select({
+            gender: students.gender
+        }).from(students).where(
+            and(
+                eq(students.schoolId, schoolId),
+                eq(students.classLevel, classLevel),
+                eq(students.stream, stream),
+                eq(students.isActive, true)
+            )
+        );
+
+        const totalStudents = allStudents.length;
+        const boys = allStudents.filter(s => s.gender === 'M').length;
+        const girls = allStudents.filter(s => s.gender === 'F').length;
+
+        // 2. Academic Performance (Average per subject for this class)
+        const classMarks = await db.select({
+            marks: marks.marks
+        }).from(marks).where(
+            and(
+                eq(marks.schoolId, schoolId),
+                eq(marks.classLevel, classLevel),
+                eq(marks.stream, stream),
+                eq(marks.term, term),
+                eq(marks.year, year)
+            )
+        );
+
+        const subjects = ['english', 'maths', 'science', 'sst', 'literacy1', 'literacy2'];
+        const totals: Record<string, { sum: number, count: number }> = {};
+        subjects.forEach(sub => totals[sub] = { sum: 0, count: 0 });
+
+        classMarks.forEach(record => {
+            const m = record.marks as any;
+            if (m) {
+                subjects.forEach(sub => {
+                    const val = m[sub];
+                    if (typeof val === 'number') {
+                        totals[sub].sum += val;
+                        totals[sub].count++;
+                    }
+                });
+            }
+        });
+
+        const academicAverages = subjects.map(sub => ({
+            subject: sub.charAt(0).toUpperCase() + sub.slice(1),
+            average: totals[sub].count > 0 ? Math.round(totals[sub].sum / totals[sub].count) : 0
+        })).filter(d => d.count > 0 || d.average > 0);
+
+        // 3. Today's Attendance
+        const today = new Date().toISOString().split('T')[0];
+        // We need student IDs to check attendance
+        const studentIds = await db.select({ id: students.id }).from(students).where(
+            and(
+                eq(students.schoolId, schoolId),
+                eq(students.classLevel, classLevel),
+                eq(students.stream, stream),
+                eq(students.isActive, true)
+            )
+        );
+
+        let presentCount = 0;
+        if (studentIds.length > 0) {
+            const ids = studentIds.map(s => s.id);
+            // Since Drizzle 'inArray' can be tricky, let's fetch all attendance for the school today and filter
+            const todayAttendance = await db.select({
+                studentId: gateAttendance.studentId,
+                status: gateAttendance.status
+            }).from(gateAttendance).where(
+                and(
+                    eq(gateAttendance.schoolId, schoolId),
+                    eq(gateAttendance.date, today)
+                )
+            );
+
+            presentCount = todayAttendance.filter(a => ids.includes(a.studentId) && a.status === 'present').length;
+        }
+
+        const attendanceRate = totalStudents > 0 ? Math.round((presentCount / totalStudents) * 100) : 0;
+
+        return {
+            enrollment: {
+                total: totalStudents,
+                boys,
+                girls
+            },
+            academic: academicAverages,
+            attendance: {
+                presentToday: presentCount,
+                absentToday: totalStudents - presentCount,
+                rate: attendanceRate
+            }
+        };
     }
 }
