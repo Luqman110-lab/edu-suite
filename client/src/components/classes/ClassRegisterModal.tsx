@@ -28,7 +28,7 @@ export function ClassRegisterModal({ isOpen, onClose, classLevel, stream, term, 
 
     // Filter students for this specific class and stream
     const classStudents = students.filter(
-        (s: any) => s.classLevel === classLevel && s.stream === stream && s.status === "active"
+        (s: any) => s.classLevel === classLevel && s.stream === stream && s.isActive === true
     ).sort((a: any, b: any) => a.name.localeCompare(b.name));
 
     const handleExportCSV = () => {
@@ -43,7 +43,7 @@ export function ClassRegisterModal({ isOpen, onClose, classLevel, stream, term, 
                     s.admissionNumber || "",
                     `"${s.name}"`, // Quote names in case of commas
                     s.gender || "",
-                    s.status
+                    s.isActive ? "Active" : "Inactive"
                 ].join(",")
             )
         ].join("\n");
