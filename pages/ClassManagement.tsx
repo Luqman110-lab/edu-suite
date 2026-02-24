@@ -134,10 +134,7 @@ export default function ClassManagement() {
       return;
     }
 
-    if (settings.streams[level]?.includes(newName)) {
-      toast({ title: 'Name already taken', description: `"${newName}" already exists in ${getDisplayName(level)}.`, variant: 'destructive' });
-      return;
-    }
+
 
     setBusyAction(`rename-stream-${level}-${oldName}`);
     try {
@@ -297,7 +294,7 @@ export default function ClassManagement() {
   };
 
   const renderClassCard = (level: string) => {
-    const streams = settings?.streams[level] || [];
+    const classStreams = streams.filter(s => s.classLevel === level).map(s => s.streamName) || [];
     const inputStream = newStreams[level] || '';
     const isNursery = nurseryLevels.includes(level);
     const studentCount = getStudentCount(level);
@@ -371,7 +368,7 @@ export default function ClassManagement() {
                 <div className="flex items-center gap-3 mt-0.5">
                   <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
                     <Layers className="w-3 h-3" />
-                    {streams.length} {streams.length === 1 ? 'Stream' : 'Streams'}
+                    {classStreams.length} {classStreams.length === 1 ? 'Stream' : 'Streams'}
                   </span>
                   <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
                     <Users className="w-3 h-3" />
@@ -386,8 +383,8 @@ export default function ClassManagement() {
         {/* Streams */}
         <div className="p-4 space-y-3">
           <div className="flex flex-wrap gap-2 min-h-[36px]">
-            {streams.length > 0 ? (
-              streams.map(s => renderStreamChip(level, s.streamName))
+            {classStreams.length > 0 ? (
+              classStreams.map(streamName => renderStreamChip(level, streamName))
             ) : (
               <div className="text-sm text-gray-400 italic w-full text-center py-3 flex flex-col items-center gap-1">
                 <AlertCircle className="w-4 h-4 opacity-50" />
