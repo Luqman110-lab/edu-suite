@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { StaffLeave, DutyRoster } from "../../../types";
+import type { StaffLeave, DutyRoster, TeacherContract, TeacherDocument } from "../../../types";
 
 export function useStaffLeave(teacherId?: number) {
     const queryClient = useQueryClient();
@@ -103,5 +103,111 @@ export function useDutyRoster(teacherId?: number) {
         deleteDuty: deleteDutyMutation.mutate,
         isAssigning: createDutyMutation.isPending,
         isDeleting: deleteDutyMutation.isPending
+    };
+}
+
+export function useTeacherContracts(teacherId?: number) {
+    const queryClient = useQueryClient();
+
+    const query = useQuery<TeacherContract[]>({
+        queryKey: teacherId ? ["/api/hr/contracts", teacherId] : ["/api/hr/contracts"],
+        queryFn: async () => {
+            const url = teacherId ? `/api/hr/contracts?teacherId=${teacherId}` : "/api/hr/contracts";
+            const res = await fetch(url);
+            if (!res.ok) throw new Error("Failed to fetch contracts");
+            return res.json();
+        }
+    });
+
+    const createContractMutation = useMutation({
+        mutationFn: async (data: Partial<TeacherContract>) => {
+            const res = await fetch("/api/hr/contracts", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data)
+            });
+            if (!res.ok) throw new Error("Failed to create contract");
+            return res.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["/api/hr/contracts"] });
+        }
+    });
+
+    const updateStatusMutation = useMutation({
+        mutationFn: async ({ id, status }: { id: number; status: 'Active' | 'Expired' | 'Terminated' }) => {
+            const res = await fetch(`/api/hr/contracts/${id}/status`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status })
+            });
+            if (!res.ok) throw new Error("Failed to update contract status");
+            return res.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["/api/hr/contracts"] });
+        }
+    });
+
+    return {
+        contracts: query.data || [],
+        isLoading: query.isLoading,
+        error: query.error,
+        createContract: createContractMutation.mutate,
+        updateStatus: updateStatusMutation.mutate,
+        isCreating: createContractMutation.isPending,
+        isUpdating: updateStatusMutation.isPending
+    };
+}
+
+
+export function useTeacherDocuments(teacherId?: number) {
+    const queryClient = useQueryClient();
+
+    const query = useQuery<TeacherDocument[]>({
+        queryKey: teacherId ? ["/api/hr/documents", teacherId] : ["/api/hr/documents"],
+        queryFn: async () => {
+            const url = teacherId ? `/api/hr/documents?teacherId=${teacherId}` : "/api/hr/documents";
+            const res = await fetch(url);
+            if (!res.ok) throw new Error("Failed to fetch documents");
+            return res.json();
+        }
+    });
+
+    const createDocumentMutation = useMutation({
+        mutationFn: async (data: Partial<TeacherDocument>) => {
+            const res = await fetch("/api/hr/documents", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data)
+            });
+            if (!res.ok) throw new Error("Failed to upload document");
+            return res.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["/api/hr/documents"] });
+        }
+    });
+
+    const deleteDocumentMutation = useMutation({
+        mutationFn: async (id: number) => {
+            const res = await fetch(`/api/hr/documents/${id}`, {
+                method: "DELETE"
+            });
+            if (!res.ok) throw new Error("Failed to delete document");
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["/api/hr/documents"] });
+        }
+    });
+
+    return {
+        documents: query.data || [],
+        isLoading: query.isLoading,
+        error: query.error,
+        uploadDocument: createDocumentMutation.mutate,
+        deleteDocument: deleteDocumentMutation.mutate,
+        isUploading: createDocumentMutation.isPending,
+        isDeleting: deleteDocumentMutation.isPending
     };
 }

@@ -548,3 +548,27 @@ export interface DutyRoster {
   notes?: string;
   createdAt?: string;
 }
+
+export interface TeacherContract {
+  id?: number;
+  schoolId?: number;
+  teacherId: number;
+  contractType: 'Full-time' | 'Part-time' | 'Contract' | 'Temporary' | 'Other';
+  startDate: string;
+  endDate?: string;
+  baseSalary?: number;
+  status: 'Active' | 'Expired' | 'Terminated';
+  documentUrl?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface TeacherDocument {
+  id?: number;
+  schoolId?: number;
+  teacherId: number;
+  documentType: 'CV' | 'National ID' | 'Academic Certificate' | 'Teaching License' | 'Other';
+  title: string;
+  fileUrl: string;
+  uploadedAt?: string;
+}

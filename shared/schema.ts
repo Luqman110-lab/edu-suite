@@ -2786,3 +2786,69 @@ export const insertDutyRosterSchema = createInsertSchema(dutyRoster);
 export const selectDutyRosterSchema = createSelectSchema(dutyRoster);
 export type DutyRoster = typeof dutyRoster.$inferSelect;
 export type InsertDutyRoster = typeof dutyRoster.$inferInsert;
+
+// ==================== HR: CONTRACT MANAGEMENT ====================
+
+export const teacherContracts = pgTable("teacher_contracts", {
+  id: serial("id").primaryKey(),
+  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
+  teacherId: integer("teacher_id").notNull().references(() => teachers.id, { onDelete: "cascade" }),
+  contractType: text("contract_type").notNull(), // 'Full-time', 'Part-time', 'Contract', 'Temporary'
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date"), // Nullable for permanent contracts
+  baseSalary: integer("base_salary"),
+  status: text("status").default('Active'), // 'Active', 'Expired', 'Terminated'
+  documentUrl: text("document_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  schoolIdx: index("teacher_contracts_school_idx").on(table.schoolId),
+  teacherIdx: index("teacher_contracts_teacher_idx").on(table.teacherId),
+}));
+
+export const teacherContractsRelations = relations(teacherContracts, ({ one }) => ({
+  school: one(schools, {
+    fields: [teacherContracts.schoolId],
+    references: [schools.id],
+  }),
+  teacher: one(teachers, {
+    fields: [teacherContracts.teacherId],
+    references: [teachers.id],
+  }),
+}));
+
+export const insertTeacherContractSchema = createInsertSchema(teacherContracts);
+export const selectTeacherContractSchema = createSelectSchema(teacherContracts);
+export type TeacherContract = typeof teacherContracts.$inferSelect;
+export type InsertTeacherContract = typeof teacherContracts.$inferInsert;
+
+// ==================== HR: DOCUMENT MANAGEMENT ====================
+
+export const teacherDocuments = pgTable("teacher_documents", {
+  id: serial("id").primaryKey(),
+  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
+  teacherId: integer("teacher_id").notNull().references(() => teachers.id, { onDelete: "cascade" }),
+  documentType: text("document_type").notNull(), // 'CV', 'National ID', 'Academic Certificate', 'Teaching License', 'Other'
+  title: text("title").notNull(),
+  fileUrl: text("file_url").notNull(),
+  uploadedAt: timestamp("uploaded_at").defaultNow(),
+}, (table) => ({
+  schoolIdx: index("teacher_documents_school_idx").on(table.schoolId),
+  teacherIdx: index("teacher_documents_teacher_idx").on(table.teacherId),
+}));
+
+export const teacherDocumentsRelations = relations(teacherDocuments, ({ one }) => ({
+  school: one(schools, {
+    fields: [teacherDocuments.schoolId],
+    references: [schools.id],
+  }),
+  teacher: one(teachers, {
+    fields: [teacherDocuments.teacherId],
+    references: [teachers.id],
+  }),
+}));
+
+export const insertTeacherDocumentSchema = createInsertSchema(teacherDocuments);
+export const selectTeacherDocumentSchema = createSelectSchema(teacherDocuments);
+export type TeacherDocument = typeof teacherDocuments.$inferSelect;
+export type InsertTeacherDocument = typeof teacherDocuments.$inferInsert;

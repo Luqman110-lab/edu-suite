@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useStaffLeave, useDutyRoster } from '../../hooks/useHR';
+import { useStaffLeave, useDutyRoster, useTeacherContracts, useTeacherDocuments } from '../../hooks/useHR';
 import { Icons } from '../../lib/icons';
 import { Button } from '../../../../components/Button';
 import { format } from 'date-fns';
@@ -111,6 +111,107 @@ export const TeacherDutyCard: React.FC<HRCardProps> = ({ teacherId, isDark }) =>
 
                 {duties.length === 0 && (
                     <p className={`text-sm text-center py-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>No assigned duties.</p>
+                )}
+            </div>
+        </div>
+    );
+};
+
+export const TeacherContractCard: React.FC<HRCardProps> = ({ teacherId, isDark }) => {
+    const { contracts, isLoading } = useTeacherContracts(teacherId);
+
+    if (isLoading) {
+        return <div className={`animate-pulse h-32 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-gray-100'}`} />;
+    }
+
+    return (
+        <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg shadow-sm border overflow-hidden`}>
+            <div className={`px-4 py-3 border-b ${isDark ? 'border-gray-700 bg-gray-750' : 'border-gray-100 bg-gray-50'} flex items-center justify-between`}>
+                <div className="flex items-center gap-2">
+                    <Icons.Briefcase className={`w-5 h-5 ${isDark ? 'text-emerald-400' : 'text-emerald-500'}`} />
+                    <h3 className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>Contracts & Employment</h3>
+                </div>
+                <Button variant="outline" size="sm">Add Contract</Button>
+            </div>
+            <div className="p-4">
+                {contracts.length === 0 ? (
+                    <p className={`text-sm text-center py-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>No contracts on record.</p>
+                ) : (
+                    <div className="space-y-3">
+                        {contracts.map(contract => (
+                            <div key={contract.id} className={`p-3 rounded-lg border ${isDark ? 'bg-gray-750 border-gray-700' : 'bg-gray-50 border-gray-100'} flex flex-col gap-2`}>
+                                <div className="flex justify-between items-center">
+                                    <span className="font-semibold text-sm">{contract.contractType}</span>
+                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${contract.status === 'Active' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                            contract.status === 'Terminated' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                                                'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
+                                        }`}>
+                                        {contract.status}
+                                    </span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                    <div>
+                                        <span className={isDark ? 'text-gray-400' : 'text-gray-500'}>Start Date:</span>
+                                        <span className={`ml-1 font-medium ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>{format(new Date(contract.startDate), 'MMM d, yyyy')}</span>
+                                    </div>
+                                    <div>
+                                        <span className={isDark ? 'text-gray-400' : 'text-gray-500'}>End Date:</span>
+                                        <span className={`ml-1 font-medium ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>{contract.endDate ? format(new Date(contract.endDate), 'MMM d, yyyy') : 'Indefinite'}</span>
+                                    </div>
+                                    {contract.baseSalary && (
+                                        <div className="col-span-2 mt-1">
+                                            <span className={isDark ? 'text-gray-400' : 'text-gray-500'}>Base Salary:</span>
+                                            <span className={`ml-1 font-mono font-medium ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>{contract.baseSalary.toLocaleString()} UGX</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+export const TeacherDocumentCard: React.FC<HRCardProps> = ({ teacherId, isDark }) => {
+    const { documents, isLoading } = useTeacherDocuments(teacherId);
+
+    if (isLoading) {
+        return <div className={`animate-pulse h-32 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-gray-100'}`} />;
+    }
+
+    return (
+        <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg shadow-sm border overflow-hidden`}>
+            <div className={`px-4 py-3 border-b ${isDark ? 'border-gray-700 bg-gray-750' : 'border-gray-100 bg-gray-50'} flex items-center justify-between`}>
+                <div className="flex items-center gap-2">
+                    <Icons.FileCheck className={`w-5 h-5 ${isDark ? 'text-amber-400' : 'text-amber-500'}`} />
+                    <h3 className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>Compliance Documents</h3>
+                </div>
+                <Button variant="outline" size="sm">Upload Document</Button>
+            </div>
+            <div className="p-4">
+                {documents.length === 0 ? (
+                    <p className={`text-sm text-center py-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>No documents uploaded.</p>
+                ) : (
+                    <div className="space-y-2">
+                        {documents.map(doc => (
+                            <div key={doc.id} className={`p-2.5 rounded border flex justify-between items-center ${isDark ? 'bg-gray-750 border-gray-700 hover:bg-gray-700' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'} transition-colors cursor-pointer`}>
+                                <div className="flex items-center gap-3">
+                                    <div className={`p-1.5 rounded-full ${isDark ? 'bg-gray-800' : 'bg-white'} border ${isDark ? 'border-gray-600' : 'border-gray-200'}`}>
+                                        <Icons.FileText className={`w-4 h-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium leading-tight">{doc.title}</p>
+                                        <p className={`text-[10px] uppercase font-semibold mt-0.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{doc.documentType}</p>
+                                    </div>
+                                </div>
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={(e) => { e.stopPropagation(); window.open(doc.fileUrl, '_blank'); }}>
+                                    <Icons.ExternalLink className="w-4 h-4" />
+                                </Button>
+                            </div>
+                        ))}
+                    </div>
                 )}
             </div>
         </div>
