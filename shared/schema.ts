@@ -304,6 +304,27 @@ export const teachers = pgTable("teachers", {
   dateJoined: text("date_joined"),
   initials: text("initials"),
   isActive: boolean("is_active").default(true),
+
+  // HR & Compliance Fields Phase 1
+  dateOfBirth: text("date_of_birth"),
+  nationalId: text("national_id"),
+  religion: text("religion"),
+  maritalStatus: text("marital_status"),
+  homeAddress: text("home_address"),
+  districtOfOrigin: text("district_of_origin"),
+  emergencyContactName: text("emergency_contact_name"),
+  emergencyContactPhone: text("emergency_contact_phone"),
+  emergencyContactRelationship: text("emergency_contact_relationship"),
+  teachingRegNumber: text("teaching_reg_number"),
+  bankName: text("bank_name"),
+  bankAccountNumber: text("bank_account_number"),
+  bankBranch: text("bank_branch"),
+  nssfNumber: text("nssf_number"),
+  tinNumber: text("tin_number"),
+  specialization: text("specialization"),
+  educationHistory: json("education_history").$type<any[]>().default([]),
+  photoUrl: text("photo_url"),
+
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => ({
   schoolIdx: index("teachers_school_idx").on(table.schoolId),

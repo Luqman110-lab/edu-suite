@@ -180,6 +180,27 @@ export const TeacherFormWizard: React.FC<TeacherFormWizardProps> = ({
         initials: '',
         isActive: true,
         photoBase64: undefined,
+        photoUrl: undefined,
+
+        // HR Phase 1 Defaults
+        dateOfBirth: '',
+        nationalId: '',
+        religion: '',
+        maritalStatus: '',
+        homeAddress: '',
+        districtOfOrigin: '',
+        emergencyContactName: '',
+        emergencyContactPhone: '',
+        emergencyContactRelationship: '',
+        teachingRegNumber: '',
+        bankName: '',
+        bankAccountNumber: '',
+        bankBranch: '',
+        nssfNumber: '',
+        tinNumber: '',
+        specialization: '',
+        educationHistory: [],
+
         ...initialData,
     });
 
@@ -357,6 +378,109 @@ export const TeacherFormWizard: React.FC<TeacherFormWizardProps> = ({
                         <option value={Gender.Female}>Female</option>
                     </select>
                 </div>
+                <div>
+                    <label className={labelClasses}>Date of Birth</label>
+                    <input
+                        type="date"
+                        className={inputClasses}
+                        value={formData.dateOfBirth || ''}
+                        onChange={e => updateField('dateOfBirth', e.target.value)}
+                    />
+                </div>
+                <div>
+                    <label className={labelClasses}>National ID (NIN)</label>
+                    <input
+                        type="text"
+                        className={inputClasses}
+                        value={formData.nationalId || ''}
+                        onChange={e => updateField('nationalId', e.target.value.toUpperCase())}
+                        placeholder="e.g. CM90..."
+                    />
+                </div>
+                <div>
+                    <label className={labelClasses}>Religion</label>
+                    <select
+                        className={inputClasses}
+                        value={formData.religion || ''}
+                        onChange={e => updateField('religion', e.target.value)}
+                    >
+                        <option value="">Select Religion</option>
+                        <option value="Catholic">Catholic</option>
+                        <option value="Anglican">Anglican / Protestant</option>
+                        <option value="Muslim">Muslim</option>
+                        <option value="Born Again">Born Again</option>
+                        <option value="SDA">SDA</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div>
+                    <label className={labelClasses}>Marital Status</label>
+                    <select
+                        className={inputClasses}
+                        value={formData.maritalStatus || ''}
+                        onChange={e => updateField('maritalStatus', e.target.value)}
+                    >
+                        <option value="">Select Status</option>
+                        <option value="Single">Single</option>
+                        <option value="Married">Married</option>
+                        <option value="Divorced">Divorced</option>
+                        <option value="Widowed">Widowed</option>
+                    </select>
+                </div>
+                <div className="md:col-span-2">
+                    <label className={labelClasses}>Home Address</label>
+                    <input
+                        type="text"
+                        className={inputClasses}
+                        value={formData.homeAddress || ''}
+                        onChange={e => updateField('homeAddress', e.target.value)}
+                        placeholder="e.g. Nansana, Wakiso"
+                    />
+                </div>
+                <div>
+                    <label className={labelClasses}>District of Origin</label>
+                    <input
+                        type="text"
+                        className={inputClasses}
+                        value={formData.districtOfOrigin || ''}
+                        onChange={e => updateField('districtOfOrigin', e.target.value)}
+                        placeholder="e.g. Masaka"
+                    />
+                </div>
+
+                <div className="md:col-span-2 mt-4 mb-2">
+                    <h4 className={`text-sm font-semibold uppercase ${isDark ? 'text-gray-400' : 'text-gray-500'} border-b ${isDark ? 'border-gray-700' : 'border-gray-200'} pb-2`}>Emergency Contact</h4>
+                </div>
+                <div>
+                    <label className={labelClasses}>Contact Name</label>
+                    <input
+                        type="text"
+                        className={inputClasses}
+                        value={formData.emergencyContactName || ''}
+                        onChange={e => updateField('emergencyContactName', e.target.value)}
+                        placeholder="e.g. Sarah Okello"
+                    />
+                </div>
+                <div>
+                    <label className={labelClasses}>Contact Phone</label>
+                    <input
+                        type="tel"
+                        className={inputClasses}
+                        value={formData.emergencyContactPhone || ''}
+                        onChange={e => updateField('emergencyContactPhone', e.target.value)}
+                        placeholder="e.g. 0770 000 000"
+                    />
+                </div>
+                <div>
+                    <label className={labelClasses}>Relationship</label>
+                    <input
+                        type="text"
+                        className={inputClasses}
+                        value={formData.emergencyContactRelationship || ''}
+                        onChange={e => updateField('emergencyContactRelationship', e.target.value)}
+                        placeholder="e.g. Spouse / Sibling"
+                    />
+                </div>
             </div>
         </div>
     );
@@ -385,13 +509,33 @@ export const TeacherFormWizard: React.FC<TeacherFormWizardProps> = ({
                     />
                 </div>
                 <div className="md:col-span-2">
-                    <label className={labelClasses}>Qualifications</label>
+                    <label className={labelClasses}>General Qualifications</label>
                     <input
                         type="text"
                         className={inputClasses}
                         value={formData.qualifications || ''}
                         onChange={e => updateField('qualifications', e.target.value)}
                         placeholder="e.g. B.Ed, Diploma in Education"
+                    />
+                </div>
+                <div>
+                    <label className={labelClasses}>Specialization</label>
+                    <input
+                        type="text"
+                        className={inputClasses}
+                        value={formData.specialization || ''}
+                        onChange={e => updateField('specialization', e.target.value)}
+                        placeholder="e.g. Special Needs, Early Childhood"
+                    />
+                </div>
+                <div>
+                    <label className={labelClasses}>Primary Teaching Reg No. (TSC)</label>
+                    <input
+                        type="text"
+                        className={inputClasses}
+                        value={formData.teachingRegNumber || ''}
+                        onChange={e => updateField('teachingRegNumber', e.target.value)}
+                        placeholder="e.g. GT/20... or V/..."
                     />
                 </div>
                 <div>
@@ -414,6 +558,60 @@ export const TeacherFormWizard: React.FC<TeacherFormWizardProps> = ({
                     <label htmlFor="isActive" className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'} cursor-pointer`}>
                         Active Employee
                     </label>
+                </div>
+
+                <div className="md:col-span-2 mt-4 mb-2">
+                    <h4 className={`text-sm font-semibold uppercase ${isDark ? 'text-gray-400' : 'text-gray-500'} border-b ${isDark ? 'border-gray-700' : 'border-gray-200'} pb-2`}>Financial & Compliance</h4>
+                </div>
+                <div>
+                    <label className={labelClasses}>Bank Name</label>
+                    <input
+                        type="text"
+                        className={inputClasses}
+                        value={formData.bankName || ''}
+                        onChange={e => updateField('bankName', e.target.value)}
+                        placeholder="e.g. Centenary Bank"
+                    />
+                </div>
+                <div>
+                    <label className={labelClasses}>Account Number</label>
+                    <input
+                        type="text"
+                        className={inputClasses}
+                        value={formData.bankAccountNumber || ''}
+                        onChange={e => updateField('bankAccountNumber', e.target.value)}
+                        placeholder="e.g. 31000..."
+                    />
+                </div>
+                <div>
+                    <label className={labelClasses}>Bank Branch</label>
+                    <input
+                        type="text"
+                        className={inputClasses}
+                        value={formData.bankBranch || ''}
+                        onChange={e => updateField('bankBranch', e.target.value)}
+                        placeholder="e.g. Kampala Road"
+                    />
+                </div>
+                <div>
+                    <label className={labelClasses}>NSSF Number</label>
+                    <input
+                        type="text"
+                        className={inputClasses}
+                        value={formData.nssfNumber || ''}
+                        onChange={e => updateField('nssfNumber', e.target.value)}
+                        placeholder="e.g...."
+                    />
+                </div>
+                <div>
+                    <label className={labelClasses}>TIN Number</label>
+                    <input
+                        type="text"
+                        className={inputClasses}
+                        value={formData.tinNumber || ''}
+                        onChange={e => updateField('tinNumber', e.target.value)}
+                        placeholder="e.g. 10..."
+                    />
                 </div>
             </div>
         </div>

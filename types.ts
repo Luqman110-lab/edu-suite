@@ -136,6 +136,26 @@ export interface Teacher {
   initials?: string;
   isActive?: boolean;
   photoBase64?: string;
+
+  // HR & Compliance Fields Phase 1
+  dateOfBirth?: string;
+  nationalId?: string;
+  religion?: string;
+  maritalStatus?: string;
+  homeAddress?: string;
+  districtOfOrigin?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  emergencyContactRelationship?: string;
+  teachingRegNumber?: string;
+  bankName?: string;
+  bankAccountNumber?: string;
+  bankBranch?: string;
+  nssfNumber?: string;
+  tinNumber?: string;
+  specialization?: string;
+  educationHistory?: any[];
+  photoUrl?: string;
 }
 
 export interface SubjectMarks {

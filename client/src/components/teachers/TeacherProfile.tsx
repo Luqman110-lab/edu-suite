@@ -132,6 +132,50 @@ export const TeacherProfile: React.FC<TeacherProfileProps> = ({
                                 </span>
                             </div>
                         </div>
+                        <div className="grid grid-cols-2 gap-4 mt-2">
+                            <div>
+                                <label className={`text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase`}>Date of Birth</label>
+                                <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{teacher.dateOfBirth || '—'}</p>
+                            </div>
+                            <div>
+                                <label className={`text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase`}>National ID (NIN)</label>
+                                <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{teacher.nationalId || '—'}</p>
+                            </div>
+                            <div>
+                                <label className={`text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase`}>Religion</label>
+                                <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{teacher.religion || '—'}</p>
+                            </div>
+                            <div>
+                                <label className={`text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase`}>Marital Status</label>
+                                <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{teacher.maritalStatus || '—'}</p>
+                            </div>
+                            <div className="col-span-2">
+                                <label className={`text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase`}>Home Address / District</label>
+                                <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                                    {[teacher.homeAddress, teacher.districtOfOrigin].filter(Boolean).join(' - ') || '—'}
+                                </p>
+                            </div>
+                        </div>
+
+                        {(teacher.emergencyContactName || teacher.emergencyContactPhone) && (
+                            <div className={`mt-4 pt-4 border-t ${isDark ? 'border-gray-700' : 'border-gray-100'}`}>
+                                <h4 className={`text-xs font-bold uppercase ${isDark ? 'text-red-400' : 'text-red-600'} mb-2`}>Emergency Contact</h4>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className={`text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase`}>Name</label>
+                                        <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{teacher.emergencyContactName || '—'}</p>
+                                    </div>
+                                    <div>
+                                        <label className={`text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase`}>Phone</label>
+                                        <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{teacher.emergencyContactPhone || '—'}</p>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <label className={`text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase`}>Relationship</label>
+                                        <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{teacher.emergencyContactRelationship || '—'}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -142,9 +186,17 @@ export const TeacherProfile: React.FC<TeacherProfileProps> = ({
                     </div>
                     <div className="p-6 space-y-4">
                         <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className={`text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase`}>Qualifications</label>
+                            <div className="col-span-2">
+                                <label className={`text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase`}>General Qualifications</label>
                                 <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{teacher.qualifications || '—'}</p>
+                            </div>
+                            <div className="col-span-2">
+                                <label className={`text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase`}>Specialization</label>
+                                <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{teacher.specialization || '—'}</p>
+                            </div>
+                            <div>
+                                <label className={`text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase`}>Reg. Number (TSC)</label>
+                                <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{teacher.teachingRegNumber || '—'}</p>
                             </div>
                             <div>
                                 <label className={`text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase`}>Date Joined</label>
@@ -158,6 +210,35 @@ export const TeacherProfile: React.FC<TeacherProfileProps> = ({
                                 <label className={`text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase`}>Initials</label>
                                 <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{teacher.initials || '—'}</p>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className={`mb-6 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg shadow-sm border overflow-hidden`}>
+                <div className={`px-6 py-4 border-b ${isDark ? 'border-gray-700 bg-gray-750' : 'border-gray-100 bg-gray-50'} flex items-center gap-2`}>
+                    <Icons.FileCheck className={`w-5 h-5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
+                    <h3 className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>Financial & Compliance</h3>
+                </div>
+                <div className="p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div>
+                            <label className={`text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase`}>Bank Name & Branch</label>
+                            <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                                {[teacher.bankName, teacher.bankBranch].filter(Boolean).join(' - ') || '—'}
+                            </p>
+                        </div>
+                        <div>
+                            <label className={`text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase`}>Account Number</label>
+                            <p className={`text-sm font-medium font-mono ${isDark ? 'text-white' : 'text-gray-900'}`}>{teacher.bankAccountNumber || '—'}</p>
+                        </div>
+                        <div>
+                            <label className={`text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase`}>TIN Number</label>
+                            <p className={`text-sm font-medium font-mono ${isDark ? 'text-white' : 'text-gray-900'}`}>{teacher.tinNumber || '—'}</p>
+                        </div>
+                        <div>
+                            <label className={`text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase`}>NSSF Number</label>
+                            <p className={`text-sm font-medium font-mono ${isDark ? 'text-white' : 'text-gray-900'}`}>{teacher.nssfNumber || '—'}</p>
                         </div>
                     </div>
                 </div>
