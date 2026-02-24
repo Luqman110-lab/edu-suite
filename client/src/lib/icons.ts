@@ -45,7 +45,9 @@ import {
     Briefcase,
     TrendingUp,
     TrendingDown,
-    ExternalLink
+    ExternalLink,
+    Camera,
+    FileCheck
 } from 'lucide-react';
 
 export const Icons = {
@@ -95,5 +97,7 @@ export const Icons = {
     Briefcase,
     TrendingUp,
     TrendingDown,
-    ExternalLink
+    ExternalLink,
+    Camera,
+    FileCheck
 };

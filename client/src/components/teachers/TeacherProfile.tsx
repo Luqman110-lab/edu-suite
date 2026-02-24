@@ -3,6 +3,7 @@ import { Teacher, Student } from '../../../../types';
 import { Icons } from '../../lib/icons';
 import { Button } from '../../../../components/Button';
 import { TeacherAttendanceSummaryCard, TeacherPerformanceMetricsCard, TeacherQuickStatsCard } from '../../../../components/TeacherProfileCards';
+import { TeacherLeaveCard, TeacherDutyCard } from './HRProfileCards';
 
 interface TeacherProfileProps {
     teacher: Teacher;
@@ -351,6 +352,11 @@ export const TeacherProfile: React.FC<TeacherProfileProps> = ({
                     />
                 </div>
             )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <TeacherLeaveCard teacherId={teacher.id!} isDark={isDark} />
+                <TeacherDutyCard teacherId={teacher.id!} isDark={isDark} />
+            </div>
 
             <div className={`flex justify-end border-t ${isDark ? 'border-gray-700' : 'border-gray-200'} pt-6`}>
                 <Button variant="danger" onClick={onDelete}>

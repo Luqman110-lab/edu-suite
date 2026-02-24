@@ -21,6 +21,7 @@ import { conversationRoutes } from "./routes/conversations"; // absolute paths: 
 import { archiveRoutes } from "./routes/archive";         // absolute paths: /archive/years, /archive/students
 import { accountingRoutes } from "./routes/accounting";
 import { classesRoutes } from "./routes/classes";
+import hrRoutes from "./routes/hr";              // absolute paths: /leave, /duty-roster
 
 export function registerRoutes(app: Express): Server {
     // Setup authentication routes (login, logout, session, etc.)
@@ -45,6 +46,7 @@ export function registerRoutes(app: Express): Server {
     app.use("/api", archiveRoutes);
     app.use("/api/accounting", accountingRoutes);
     app.use("/api", classesRoutes);
+    app.use("/api/hr", hrRoutes);
     // ─────────────────────────────────────────────────────────────────────────
 
 

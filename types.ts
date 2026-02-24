@@ -524,3 +524,27 @@ export interface TestScore {
   aggregate?: number;
   division?: string;
 }
+
+export interface StaffLeave {
+  id?: number;
+  schoolId?: number;
+  teacherId: number;
+  leaveType: 'Sick' | 'Maternity' | 'Paternity' | 'Annual' | 'Casual' | 'Other';
+  startDate: string;
+  endDate: string;
+  status?: 'Pending' | 'Approved' | 'Rejected';
+  reason: string;
+  approvedBy?: number;
+  createdAt?: string;
+}
+
+export interface DutyRoster {
+  id?: number;
+  schoolId?: number;
+  teacherId: number;
+  dutyType: 'Teacher on Duty' | 'Prep Supervision' | 'Break Duty' | 'Exam Invigilation' | 'Other';
+  startDate: string;
+  endDate: string;
+  notes?: string;
+  createdAt?: string;
+}

@@ -2716,3 +2716,73 @@ export const insertClassStreamSchema = createInsertSchema(classStreams);
 export const selectClassStreamSchema = createSelectSchema(classStreams);
 export type ClassStream = typeof classStreams.$inferSelect;
 export type InsertClassStream = typeof classStreams.$inferInsert;
+
+// ==================== HR: STAFF LEAVE ====================
+
+export const staffLeave = pgTable("staff_leave", {
+  id: serial("id").primaryKey(),
+  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
+  teacherId: integer("teacher_id").notNull().references(() => teachers.id, { onDelete: "cascade" }),
+  leaveType: text("leave_type").notNull(), // 'Sick', 'Maternity', 'Paternity', 'Annual', 'Casual', 'Other'
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  status: text("status").default('Pending'), // 'Pending', 'Approved', 'Rejected'
+  reason: text("reason").notNull(),
+  approvedBy: integer("approved_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  schoolIdx: index("staff_leave_school_idx").on(table.schoolId),
+  teacherIdx: index("staff_leave_teacher_idx").on(table.teacherId),
+}));
+
+export const staffLeaveRelations = relations(staffLeave, ({ one }) => ({
+  school: one(schools, {
+    fields: [staffLeave.schoolId],
+    references: [schools.id],
+  }),
+  teacher: one(teachers, {
+    fields: [staffLeave.teacherId],
+    references: [teachers.id],
+  }),
+  approver: one(users, {
+    fields: [staffLeave.approvedBy],
+    references: [users.id],
+  }),
+}));
+
+export const insertStaffLeaveSchema = createInsertSchema(staffLeave);
+export const selectStaffLeaveSchema = createSelectSchema(staffLeave);
+export type StaffLeave = typeof staffLeave.$inferSelect;
+export type InsertStaffLeave = typeof staffLeave.$inferInsert;
+
+// ==================== HR: DUTY ROSTER ====================
+
+export const dutyRoster = pgTable("duty_roster", {
+  id: serial("id").primaryKey(),
+  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
+  teacherId: integer("teacher_id").notNull().references(() => teachers.id, { onDelete: "cascade" }),
+  dutyType: text("duty_type").notNull(), // 'Teacher on Duty', 'Prep Supervision', 'Break Duty', 'Exam Invigilation', 'Other'
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  schoolIdx: index("duty_roster_school_idx").on(table.schoolId),
+  teacherIdx: index("duty_roster_teacher_idx").on(table.teacherId),
+}));
+
+export const dutyRosterRelations = relations(dutyRoster, ({ one }) => ({
+  school: one(schools, {
+    fields: [dutyRoster.schoolId],
+    references: [schools.id],
+  }),
+  teacher: one(teachers, {
+    fields: [dutyRoster.teacherId],
+    references: [teachers.id],
+  }),
+}));
+
+export const insertDutyRosterSchema = createInsertSchema(dutyRoster);
+export const selectDutyRosterSchema = createSelectSchema(dutyRoster);
+export type DutyRoster = typeof dutyRoster.$inferSelect;
+export type InsertDutyRoster = typeof dutyRoster.$inferInsert;
