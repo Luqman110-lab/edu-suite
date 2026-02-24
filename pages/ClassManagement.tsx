@@ -69,18 +69,13 @@ export default function ClassManagement() {
   };
 
   const totalStudents = students?.length || 0;
-  const totalStreams = Object.values(settings?.streams || {}).reduce((sum, arr) => sum + arr.length, 0);
+  const totalStreams = streams?.length || 0;
 
   // --- Handlers ---
 
   const handleAddStream = async (classLevel: string) => {
     const streamName = newStreams[classLevel]?.trim();
     if (!streamName || !settings) return;
-
-    if (settings.streams[classLevel]?.includes(streamName)) {
-      toast({ title: 'Stream already exists', description: `"${streamName}" is already in ${getDisplayName(classLevel)}.`, variant: 'destructive' });
-      return;
-    }
 
     const trimmed = streamName.trim();
     if (!trimmed) {

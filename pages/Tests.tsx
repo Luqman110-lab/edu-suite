@@ -4,6 +4,7 @@ import { calculateAggregate, calculateDivision } from '../services/grading';
 import { useAcademicYear } from '../contexts/AcademicYearContext';
 import { useStudents } from '../client/src/hooks/useStudents';
 import { useSettings } from '../client/src/hooks/useSettings';
+import { useStreams } from '../client/src/hooks/useClassAssignments';
 import { Toast } from '../client/src/components/Toast';
 import { TestList } from '../client/src/components/tests/TestList';
 import { TestModal } from '../client/src/components/tests/TestModal';
@@ -17,7 +18,18 @@ export const Tests: React.FC = () => {
   const { isArchiveMode, selectedYear } = useAcademicYear();
 
   const { settings, isLoading: settingsLoading } = useSettings();
+  const { streams } = useStreams();
   const { students: allStudents, isLoading: studentsLoading } = useStudents(isArchiveMode ? String(selectedYear) : undefined);
+
+  const streamsRecord = useMemo(() => {
+    if (!streams) return {};
+    const record: Record<string, string[]> = {};
+    streams.forEach(s => {
+      if (!record[s.classLevel]) record[s.classLevel] = [];
+      record[s.classLevel].push(s.streamName);
+    });
+    return record;
+  }, [streams]);
 
   const [viewMode, setViewMode] = useState<ViewMode>('sessions');
   const [testSessions, setTestSessions] = useState<TestSession[]>([]);
@@ -421,7 +433,7 @@ export const Tests: React.FC = () => {
           setEditingSession(null);
         }}
         onSave={editingSession ? handleUpdateSession : handleCreateSession}
-        streams={settings?.streams}
+        streams={streamsRecord}
       />
     </div>
   );

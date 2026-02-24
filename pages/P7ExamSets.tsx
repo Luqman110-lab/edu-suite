@@ -6,6 +6,7 @@ import { useAcademicYear } from '../contexts/AcademicYearContext';
 import { Button } from '../components/Button';
 import { useStudents } from '../client/src/hooks/useStudents';
 import { useSettings } from '../client/src/hooks/useSettings';
+import { useStreams } from '../client/src/hooks/useClassAssignments';
 import { FileText, Edit, BarChart, Download } from 'lucide-react';
 import { Toast } from '../client/src/components/Toast';
 
@@ -24,6 +25,7 @@ export const P7ExamSets: React.FC = () => {
   const { isArchiveMode, selectedYear: archiveYear } = useAcademicYear();
 
   const { settings, isLoading: settingsLoading } = useSettings();
+  const { streams } = useStreams();
   const { students: allStudents, isLoading: studentsLoading } = useStudents(isArchiveMode ? String(archiveYear) : undefined);
 
   const [examSets, setExamSets] = useState<P7ExamSet[]>([]);
@@ -55,7 +57,10 @@ export const P7ExamSets: React.FC = () => {
   const [selectedStudentIds, setSelectedStudentIds] = useState<Set<number>>(new Set());
   const [generatingPDF, setGeneratingPDF] = useState(false);
 
-  const availableStreams = settings?.streams?.['P7'] || [];
+  const availableStreams = useMemo(() => {
+    if (!streams) return [];
+    return streams.filter(s => s.classLevel === 'P7').map(s => s.streamName).sort();
+  }, [streams]);
 
   const showMessageFn = (msg: string, type: 'success' | 'error' | 'info' = 'success') => {
     setMessage(msg);

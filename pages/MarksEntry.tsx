@@ -8,6 +8,7 @@ import { useStudents } from '../client/src/hooks/useStudents';
 import { useMarks } from '../client/src/hooks/useMarks';
 import { useSettings } from '../client/src/hooks/useSettings';
 import { useTheme } from '../contexts/ThemeContext';
+import { useStreams } from '../client/src/hooks/useClassAssignments';
 import { Toast } from '../client/src/components/Toast';
 
 // Extracted Components
@@ -38,6 +39,7 @@ export const MarksEntry: React.FC = () => {
   const { students: allStudents, isLoading: studentsLoading, importStudents } = useStudents(isArchiveMode ? String(selectedYear) : undefined);
   const { marks: allMarks, isLoading: marksLoading, saveMarks, deleteMarks } = useMarks(isArchiveMode ? selectedYear : undefined);
   const { settings, isLoading: settingsLoading } = useSettings();
+  const { streams } = useStreams();
 
   const [students, setStudents] = useState<Student[]>([]);
   const [marksData, setMarksData] = useState<{ [studentId: number]: SubjectMarks }>({});
@@ -87,7 +89,10 @@ export const MarksEntry: React.FC = () => {
   const inputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
 
   const subjects = ['N1', 'N2', 'N3', 'P1', 'P2', 'P3'].includes(selectedClass) ? SUBJECTS_LOWER : SUBJECTS_UPPER;
-  const availableStreams = settings?.streams[selectedClass] || [];
+  const availableStreams = useMemo(() => {
+    if (!streams) return [];
+    return streams.filter(s => s.classLevel === selectedClass).map(s => s.streamName).sort();
+  }, [streams, selectedClass]);
 
   const filteredStudents = useMemo(() => {
     if (!searchQuery.trim()) return students;

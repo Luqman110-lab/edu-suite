@@ -73,7 +73,7 @@ export const Students: React.FC = () => {
   // Hooks
   const { students, isLoading: studentsLoading, addStudent, updateStudent, deleteStudent, deleteStudents, importStudents, refetch: refetchStudents } = useStudents(isArchiveMode && selectedYear ? selectedYear.toString() : undefined);
   const { settings, isLoading: settingsLoading, updateSettings, refetch: refetchSettings } = useSettings();
-  const { streams } = useStreams();
+  const { streams, createStream } = useStreams();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -209,13 +209,12 @@ export const Students: React.FC = () => {
       const cls = formData.classLevel as string;
       const str = formData.stream || '';
 
-      if (str && settings) {
-        // Streams are now managed in the DB, so we don't strictly need to back-update settings.streams
-        // But keeping this logic in case it's used elsewhere as a fallback
-        const classStreams = settings.streams[cls] || [];
+      if (str && streams) {
+        const classStreams = streams.filter(s => s.classLevel === cls).map(s => s.streamName);
         if (!classStreams.includes(str)) {
-          const newStreams = { ...settings.streams, [cls]: [...classStreams, str] };
-          await updateSettings.mutateAsync({ ...settings, streams: newStreams });
+          try {
+            await createStream({ classLevel: cls, streamName: str, maxCapacity: 60 });
+          } catch (e) { console.error("Could not auto-create stream", e) }
         }
       }
 
@@ -494,13 +493,17 @@ export const Students: React.FC = () => {
           }
 
           if (newStudents.length > 0) {
-            if (settings) {
-              const updatedStreams = { ...settings.streams };
+            if (streams) {
               for (const [classLevel, streamSet] of Object.entries(detectedStreams)) {
-                const existing = updatedStreams[classLevel] || [];
-                updatedStreams[classLevel] = [...new Set([...existing, ...Array.from(streamSet)])];
+                const existing = streams.filter(s => s.classLevel === classLevel).map(s => s.streamName);
+                for (const str of Array.from(streamSet)) {
+                  if (!existing.includes(str as string)) {
+                    try {
+                      await createStream({ classLevel, streamName: str as string, maxCapacity: 60 });
+                    } catch (e) { console.error("Could not auto-create stream", e) }
+                  }
+                }
               }
-              await updateSettings.mutateAsync({ ...settings, streams: updatedStreams });
             }
             const inserted = await importStudents.mutateAsync(newStudents);
             showToast(`Imported ${inserted ? inserted.length : 0} students. ${duplicates} skipped.`, 'success');

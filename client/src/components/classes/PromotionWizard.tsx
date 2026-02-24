@@ -31,19 +31,20 @@ export function PromotionWizard({ isOpen, onClose }: PromotionWizardProps) {
 
     // Derived data
     const availableClasses = useMemo(() => {
-        if (!settings?.streams) return [];
-        return Object.keys(settings.streams).sort((a, b) => CLASS_ORDER.indexOf(a) - CLASS_ORDER.indexOf(b));
-    }, [settings?.streams]);
+        if (!streams || streams.length === 0) return [];
+        const classMap = new Set(streams.map(s => s.classLevel));
+        return Array.from(classMap).sort((a, b) => CLASS_ORDER.indexOf(a) - CLASS_ORDER.indexOf(b));
+    }, [streams]);
 
     const sourceAvailableStreams = useMemo(() => {
-        if (!sourceClass || !settings?.streams) return [];
-        return settings.streams[sourceClass] || [];
-    }, [sourceClass, settings?.streams]);
+        if (!sourceClass || !streams) return [];
+        return streams.filter(s => s.classLevel === sourceClass).map(s => s.streamName).sort();
+    }, [sourceClass, streams]);
 
     const targetAvailableStreams = useMemo(() => {
-        if (!targetClass || !settings?.streams || targetClass === 'Alumni') return [];
-        return settings.streams[targetClass] || [];
-    }, [targetClass, settings?.streams]);
+        if (!targetClass || !streams || targetClass === 'Alumni') return [];
+        return streams.filter(s => s.classLevel === targetClass).map(s => s.streamName).sort();
+    }, [targetClass, streams]);
 
     const sourceStudents = useMemo(() => {
         if (!students || !sourceClass || !sourceStream) return [];

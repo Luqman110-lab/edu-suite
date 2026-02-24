@@ -5,6 +5,7 @@ import { useMarks } from '../client/src/hooks/useMarks';
 import { useSettings } from '../client/src/hooks/useSettings';
 import { useTeachers } from '../client/src/hooks/useTeachers';
 import { useTheme } from '../contexts/ThemeContext';
+import { useStreams } from '../client/src/hooks/useClassAssignments';
 import { useAcademicYear } from '../contexts/AcademicYearContext';
 import { Toast } from '../client/src/components/Toast';
 
@@ -31,6 +32,7 @@ export const Reports: React.FC = () => {
   const { marks: allMarks, isLoading: marksLoading } = useMarks(isArchiveMode ? selectedYear : undefined);
   const { teachers: allTeachers, isLoading: teachersLoading } = useTeachers();
   const { settings, isLoading: settingsLoading } = useSettings();
+  const { streams } = useStreams();
 
   const loading = studentsLoading || marksLoading || teachersLoading || settingsLoading;
   const [message, setMessage] = useState('');
@@ -50,13 +52,13 @@ export const Reports: React.FC = () => {
   }, [settings]);
 
   useEffect(() => {
-    if (settings && selectedStream !== 'All') {
-      const streams = settings.streams[selectedClass] || [];
-      if (!streams.includes(selectedStream)) {
+    if (streams && selectedStream !== 'All') {
+      const classStreams = streams.filter(s => s.classLevel === selectedClass).map(s => s.streamName);
+      if (!classStreams.includes(selectedStream)) {
         setSelectedStream('All');
       }
     }
-  }, [selectedClass, settings]);
+  }, [selectedClass, streams]);
 
   // Data Processing
   const studentPreviews = useMemo(() => {
