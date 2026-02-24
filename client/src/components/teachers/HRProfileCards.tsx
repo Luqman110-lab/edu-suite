@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { useStaffLeave, useDutyRoster, useTeacherContracts, useTeacherDocuments } from '../../hooks/useHR';
+import { useStaffLeave, useDutyRoster, useTeacherContracts, useTeacherDocuments, useTeacherAppraisals, useTeacherDisciplinaryRecords } from '../../hooks/useHR';
 import { Icons } from '../../lib/icons';
 import { Button } from '../../../../components/Button';
 import { format } from 'date-fns';
-import { StaffLeave, DutyRoster } from '../../../../types';
+import { StaffLeave, DutyRoster, Teacher } from '../../../../types';
 
 interface HRCardProps {
     teacherId: number;
@@ -143,8 +143,8 @@ export const TeacherContractCard: React.FC<HRCardProps> = ({ teacherId, isDark }
                                 <div className="flex justify-between items-center">
                                     <span className="font-semibold text-sm">{contract.contractType}</span>
                                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${contract.status === 'Active' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                                            contract.status === 'Terminated' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
-                                                'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
+                                        contract.status === 'Terminated' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                                            'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
                                         }`}>
                                         {contract.status}
                                     </span>
@@ -209,6 +209,196 @@ export const TeacherDocumentCard: React.FC<HRCardProps> = ({ teacherId, isDark }
                                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={(e) => { e.stopPropagation(); window.open(doc.fileUrl, '_blank'); }}>
                                     <Icons.ExternalLink className="w-4 h-4" />
                                 </Button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+export const TeacherTimetableCard: React.FC<{ teacher: Teacher; isDark: boolean }> = ({ teacher, isDark }) => {
+    // Generate a mock timetable relying on teacher's subjects and classes
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+    const periods = ['08:00 - 09:30', '09:30 - 11:00', '11:00 - 11:30', '11:30 - 13:00', '13:00 - 14:00', '14:00 - 15:30'];
+
+    const getSlotDetails = (dayIdx: number, periodIdx: number) => {
+        // Break times
+        if (periodIdx === 2) return { isBreak: true, label: 'Break Time' };
+        if (periodIdx === 4) return { isBreak: true, label: 'Lunch Break' };
+
+        // Simple pseudo-random allocation based on class and subject arrays
+        if (!teacher.teachingClasses || teacher.teachingClasses.length === 0) return null;
+
+        // Create some determinism based on day/period
+        const seed = dayIdx * 10 + periodIdx;
+        if (seed % 3 === 0) return null; // Free period
+
+        const classIdx = seed % teacher.teachingClasses.length;
+        const subjectIdx = seed % (teacher.subjects?.length || 1);
+
+        return {
+            isBreak: false,
+            className: teacher.teachingClasses[classIdx] || 'General',
+            subject: teacher.subjects?.[subjectIdx] || 'General'
+        };
+    };
+
+    return (
+        <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg shadow-sm border overflow-hidden mt-6`}>
+            <div className={`px-4 py-3 border-b ${isDark ? 'border-gray-700 bg-gray-750' : 'border-gray-100 bg-gray-50'} flex items-center justify-between`}>
+                <div className="flex items-center gap-2">
+                    <Icons.Clock className={`w-5 h-5 ${isDark ? 'text-indigo-400' : 'text-indigo-500'}`} />
+                    <h3 className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>Weekly Timetable</h3>
+                </div>
+                <Button variant="outline" size="sm">Edit Timetable</Button>
+            </div>
+            <div className="p-4 overflow-x-auto">
+                <table className="w-full text-sm text-left min-w-[700px]">
+                    <thead className={`text-xs uppercase ${isDark ? 'bg-gray-700 text-gray-400' : 'bg-gray-50 text-gray-600'}`}>
+                        <tr>
+                            <th className="px-3 py-2 border-r border-b dark:border-gray-600">Period</th>
+                            {days.map(day => (
+                                <th key={day} className="px-3 py-2 border-r border-b dark:border-gray-600 text-center">{day}</th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {periods.map((period, pIdx) => (
+                            <tr key={period} className={`border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+                                <td className={`px-3 py-2 font-medium border-r ${isDark ? 'border-gray-700 text-gray-300' : 'border-gray-200 bg-gray-50'}`}>
+                                    {period}
+                                </td>
+                                {days.map((day, dIdx) => {
+                                    const slot = getSlotDetails(dIdx, pIdx);
+
+                                    if (slot?.isBreak) {
+                                        // Only render break label on the first td and make it span across if needed (simplified here)
+                                        return (
+                                            <td key={dIdx} className={`px-2 py-1 text-center font-medium opacity-50 border-r ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                                                {dIdx === 2 ? slot.label : ''}
+                                            </td>
+                                        );
+                                    }
+
+                                    return (
+                                        <td key={dIdx} className={`px-2 py-2 border-r ${isDark ? 'border-gray-700' : 'border-gray-200'} text-center h-16`}>
+                                            {slot ? (
+                                                <div className={`flex flex-col justify-center h-full rounded ${isDark ? 'bg-indigo-900/40 border border-indigo-800' : 'bg-indigo-50 border border-indigo-100'} p-1`}>
+                                                    <span className={`font-bold text-[11px] ${isDark ? 'text-indigo-300' : 'text-indigo-700'}`}>{slot.className}</span>
+                                                    <span className={`text-[10px] truncate ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{slot.subject}</span>
+                                                </div>
+                                            ) : (
+                                                <span className={`text-[10px] ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>Free</span>
+                                            )}
+                                        </td>
+                                    );
+                                })}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+};
+
+export const TeacherAppraisalCard: React.FC<HRCardProps> = ({ teacherId, isDark }) => {
+    const { appraisals, isLoading } = useTeacherAppraisals(teacherId);
+
+    if (isLoading) {
+        return <div className={`animate-pulse h-32 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-gray-100'}`} />;
+    }
+
+    return (
+        <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg shadow-sm border overflow-hidden`}>
+            <div className={`px-4 py-3 border-b ${isDark ? 'border-gray-700 bg-gray-750' : 'border-gray-100 bg-gray-50'} flex items-center justify-between`}>
+                <div className="flex items-center gap-2">
+                    <Icons.Award className={`w-5 h-5 ${isDark ? 'text-yellow-400' : 'text-yellow-500'}`} />
+                    <h3 className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>Performance Appraisals</h3>
+                </div>
+                <Button variant="outline" size="sm">Add Appraisal</Button>
+            </div>
+            <div className="p-4">
+                {appraisals.length === 0 ? (
+                    <p className={`text-sm text-center py-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>No performance appraisals found.</p>
+                ) : (
+                    <div className="space-y-3">
+                        {appraisals.map(appraisal => (
+                            <div key={appraisal.id} className={`p-3 rounded-lg border ${isDark ? 'bg-gray-750 border-gray-700' : 'bg-gray-50 border-gray-100'} flex flex-col gap-2`}>
+                                <div className="flex justify-between items-center">
+                                    <span className={`font-semibold text-sm ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>Score: {appraisal.score !== undefined ? `${appraisal.score}/100` : 'N/A'}</span>
+                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${appraisal.status === 'Completed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                        appraisal.status === 'Draft' ? 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400' :
+                                            'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                        }`}>
+                                        {appraisal.status}
+                                    </span>
+                                </div>
+                                <div className="grid grid-cols-1 gap-1 text-xs mt-1">
+                                    <div>
+                                        <span className={isDark ? 'text-gray-400' : 'text-gray-500'}>Date:</span>
+                                        <span className={`ml-1 font-medium ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>{format(new Date(appraisal.appraisalDate), 'MMM d, yyyy')}</span>
+                                    </div>
+                                    {appraisal.feedback && (
+                                        <div className="mt-1">
+                                            <span className={`font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Feedback: </span>
+                                            <span className={`${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{appraisal.feedback}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+export const TeacherDisciplinaryCard: React.FC<HRCardProps> = ({ teacherId, isDark }) => {
+    const { records, isLoading } = useTeacherDisciplinaryRecords(teacherId);
+
+    if (isLoading) {
+        return <div className={`animate-pulse h-32 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-gray-100'}`} />;
+    }
+
+    return (
+        <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg shadow-sm border overflow-hidden`}>
+            <div className={`px-4 py-3 border-b ${isDark ? 'border-gray-700 bg-gray-750' : 'border-gray-100 bg-gray-50'} flex items-center justify-between`}>
+                <div className="flex items-center gap-2">
+                    <Icons.AlertTriangle className={`w-5 h-5 ${isDark ? 'text-red-400' : 'text-red-500'}`} />
+                    <h3 className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>Disciplinary Records</h3>
+                </div>
+                <Button variant="outline" size="sm" className="text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300">File Report</Button>
+            </div>
+            <div className="p-4">
+                {records.length === 0 ? (
+                    <p className={`text-sm text-center py-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>No disciplinary records found.</p>
+                ) : (
+                    <div className="space-y-3">
+                        {records.map(record => (
+                            <div key={record.id} className={`p-3 rounded-lg border-l-4 ${isDark ? 'bg-gray-750 border-gray-700 border-l-red-500' : 'bg-red-50 border-gray-200 border-l-red-500'} flex flex-col gap-2`}>
+                                <div className="flex justify-between items-center">
+                                    <span className="font-semibold text-sm text-red-600 dark:text-red-400">{record.actionTaken}</span>
+                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${record.status === 'Resolved' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                        record.status === 'Under Investigation' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                                            'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                        }`}>
+                                        {record.status}
+                                    </span>
+                                </div>
+                                <div className="grid grid-cols-1 gap-1 text-xs mt-1">
+                                    <div>
+                                        <span className={isDark ? 'text-gray-400' : 'text-gray-500'}>Date:</span>
+                                        <span className={`ml-1 font-medium ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>{format(new Date(record.incidentDate), 'MMM d, yyyy')}</span>
+                                    </div>
+                                    <div className="mt-1">
+                                        <span className={`font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Incident: </span>
+                                        <span className={`${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{record.incidentDescription}</span>
+                                    </div>
+                                </div>
                             </div>
                         ))}
                     </div>

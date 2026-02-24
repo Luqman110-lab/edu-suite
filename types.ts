@@ -572,3 +572,43 @@ export interface TeacherDocument {
   fileUrl: string;
   uploadedAt?: string;
 }
+
+export interface StaffAttendance {
+  id?: number;
+  schoolId?: number;
+  teacherId: number;
+  date: string;
+  status: 'Present' | 'Absent' | 'Late' | 'Half-day';
+  checkInTime?: string;
+  checkOutTime?: string;
+  remarks?: string;
+  recordedBy?: number;
+  createdAt?: string;
+}
+
+export interface TeacherAppraisal {
+  id?: number;
+  schoolId?: number;
+  teacherId: number;
+  appraisalDate: string;
+  evaluatorId?: number;
+  score?: number;
+  feedback?: string;
+  areasOfImprovement?: string;
+  status?: 'Draft' | 'Completed' | 'Acknowledged';
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface TeacherDisciplinaryRecord {
+  id?: number;
+  schoolId?: number;
+  teacherId: number;
+  incidentDate: string;
+  incidentDescription: string;
+  actionTaken: 'Verbal Warning' | 'Written Warning' | 'Suspension' | 'Dismissal' | 'Other';
+  status?: 'Open' | 'Under Investigation' | 'Resolved';
+  reportedBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}

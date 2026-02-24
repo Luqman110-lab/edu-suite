@@ -15,6 +15,7 @@ import { TeacherFilters } from '../client/src/components/teachers/TeacherFilters
 import { TeacherList } from '../client/src/components/teachers/TeacherList';
 import { TeacherProfile } from '../client/src/components/teachers/TeacherProfile';
 import { TeacherModal } from '../client/src/components/teachers/TeacherModal';
+import { StaffRollCallModal } from '../client/src/components/teachers/StaffRollCallModal';
 
 const ROLES = ['Class Teacher', 'Subject Teacher', 'Headteacher', 'DOS'];
 const ITEMS_PER_PAGE = 20;
@@ -27,6 +28,7 @@ export const Teachers: React.FC = () => {
   const [viewMode, setViewMode] = useState<'list' | 'profile'>('list');
   const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isRollCallOpen, setIsRollCallOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' | 'warning' } | null>(null);
 
@@ -258,6 +260,35 @@ export const Teachers: React.FC = () => {
     showToastMsg(`Exported ${teachers.length} teachers`, 'success');
   };
 
+  const handleExportPayroll = async () => {
+    try {
+      const res = await fetch('/api/hr/payroll-export');
+      if (!res.ok) throw new Error("Failed to fetch payroll data");
+      const data = await res.json();
+
+      if (!data || data.length === 0) {
+        showToastMsg("No payroll data to export", "warning");
+        return;
+      }
+
+      const headers = Object.keys(data[0]);
+      const rows = data.map((row: any) => headers.map(h => `"${row[h] || ''}"`).join(','));
+      const csv = [headers.join(','), ...rows].join('\n');
+
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `payroll_export_${new Date().toISOString().substring(0, 7)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToastMsg("Payroll data exported successfully", "success");
+    } catch (err: any) {
+      console.error(err);
+      showToastMsg(`Failed to export payroll: ${err.message}`, "error");
+    }
+  };
+
   const handleDownloadTemplate = () => {
     const headers = ['Employee ID', 'Name', 'Gender', 'Phone', 'Email', 'Roles', 'Assigned Class', 'Assigned Stream', 'Subjects', 'Teaching Classes', 'Qualifications', 'Date Joined', 'Initials', 'Active'];
     const example = ['T001', 'MR. JOHN OKELLO', 'M', '0700123456', 'john@school.com', 'Class Teacher;Subject Teacher', 'P5', 'EAST', 'MATHS;SCIENCE', 'P3-DILIGENT;P6-WISDOM', 'Diploma in Education', '2020-01-15', 'JO', 'Yes'];
@@ -452,7 +483,9 @@ export const Teachers: React.FC = () => {
         onDownloadTemplate={handleDownloadTemplate}
         onImport={() => fileInputRef.current?.click()}
         onExport={handleExportCSV}
+        onExportPayroll={handleExportPayroll}
         onAddTeacher={() => handleOpenModal()}
+        onStaffRollCall={() => setIsRollCallOpen(true)}
         fileInputRef={fileInputRef}
         handleImportCSV={handleImportCSV}
       />
@@ -482,6 +515,15 @@ export const Teachers: React.FC = () => {
           formData={formData}
           setFormData={setFormData}
           isEdit={!!editingId} // Use editingId to determine if edit mode
+          isDark={isDark}
+        />
+      )}
+
+      {isRollCallOpen && (
+        <StaffRollCallModal
+          isOpen={isRollCallOpen}
+          onClose={() => setIsRollCallOpen(false)}
+          teachers={teachers}
           isDark={isDark}
         />
       )}

@@ -2852,3 +2852,81 @@ export const insertTeacherDocumentSchema = createInsertSchema(teacherDocuments);
 export const selectTeacherDocumentSchema = createSelectSchema(teacherDocuments);
 export type TeacherDocument = typeof teacherDocuments.$inferSelect;
 export type InsertTeacherDocument = typeof teacherDocuments.$inferInsert;
+
+// ==================== HR: STAFF ATTENDANCE & TIMETABLE ====================
+
+export const staffAttendance = pgTable("staff_attendance", {
+  id: serial("id").primaryKey(),
+  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
+  teacherId: integer("teacher_id").notNull().references(() => teachers.id, { onDelete: "cascade" }),
+  date: timestamp("date").notNull(),
+  status: text("status").notNull(), // 'Present', 'Absent', 'Late', 'Half-day'
+  checkInTime: timestamp("check_in_time"),
+  checkOutTime: timestamp("check_out_time"),
+  remarks: text("remarks"),
+  recordedBy: integer("recorded_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  schoolIdx: index("staff_attendance_school_idx").on(table.schoolId),
+  teacherIdx: index("staff_attendance_teacher_idx").on(table.teacherId),
+  dateIdx: index("staff_attendance_date_idx").on(table.date),
+}));
+
+export const staffAttendanceRelations = relations(staffAttendance, ({ one }) => ({
+  school: one(schools, {
+    fields: [staffAttendance.schoolId],
+    references: [schools.id],
+  }),
+  teacher: one(teachers, {
+    fields: [staffAttendance.teacherId],
+    references: [teachers.id],
+  }),
+  recorder: one(users, {
+    fields: [staffAttendance.recordedBy],
+    references: [users.id],
+  })
+}));
+
+export const insertStaffAttendanceSchema = createInsertSchema(staffAttendance);
+export const selectStaffAttendanceSchema = createSelectSchema(staffAttendance);
+
+export const teacherAppraisals = pgTable("teacher_appraisals", {
+  id: serial("id").primaryKey(),
+  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
+  teacherId: integer("teacher_id").notNull().references(() => teachers.id, { onDelete: "cascade" }),
+  appraisalDate: timestamp("appraisal_date").notNull(),
+  evaluatorId: integer("evaluator_id"),
+  score: integer("score"),
+  feedback: text("feedback"),
+  areasOfImprovement: text("areas_of_improvement"),
+  status: text("status").notNull().default('Draft'),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  schoolIdx: index("teacher_appraisals_school_idx").on(table.schoolId),
+  teacherIdx: index("teacher_appraisals_teacher_idx").on(table.teacherId),
+}));
+
+export const teacherDisciplinaryRecords = pgTable("teacher_disciplinary_records", {
+  id: serial("id").primaryKey(),
+  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
+  teacherId: integer("teacher_id").notNull().references(() => teachers.id, { onDelete: "cascade" }),
+  incidentDate: timestamp("incident_date").notNull(),
+  incidentDescription: text("incident_description").notNull(),
+  actionTaken: text("action_taken").notNull(),
+  status: text("status").notNull().default('Open'),
+  reportedBy: text("reported_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  schoolIdx: index("teacher_disciplinary_school_idx").on(table.schoolId),
+  teacherIdx: index("teacher_disciplinary_teacher_idx").on(table.teacherId),
+}));
+
+export const insertTeacherAppraisalSchema = createInsertSchema(teacherAppraisals);
+export const selectTeacherAppraisalSchema = createSelectSchema(teacherAppraisals);
+
+export const insertTeacherDisciplinaryRecordSchema = createInsertSchema(teacherDisciplinaryRecords);
+export const selectTeacherDisciplinaryRecordSchema = createSelectSchema(teacherDisciplinaryRecords);
+export type StaffAttendance = typeof staffAttendance.$inferSelect;
+export type InsertStaffAttendance = typeof staffAttendance.$inferInsert;

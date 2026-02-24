@@ -3,11 +3,17 @@ import { leaveService } from "../services/LeaveService";
 import { dutyRosterService } from "../services/DutyRosterService";
 import { contractService } from "../services/ContractService";
 import { documentService } from "../services/DocumentService";
+import { staffAttendanceService } from "../services/StaffAttendanceService";
+import { appraisalService } from "../services/AppraisalService";
+import { disciplinaryService } from "../services/DisciplinaryService";
 import {
   insertStaffLeaveSchema,
   insertDutyRosterSchema,
   insertTeacherContractSchema,
-  insertTeacherDocumentSchema
+  insertTeacherDocumentSchema,
+  insertStaffAttendanceSchema,
+  insertTeacherAppraisalSchema,
+  insertTeacherDisciplinaryRecordSchema
 } from "../../shared/schema";
 
 const router = Router();
@@ -237,6 +243,175 @@ router.delete("/documents/:id", async (req, res) => {
   } catch (error) {
     console.error("Error deleting document:", error);
     res.status(500).json({ message: "Failed to delete document" });
+  }
+});
+
+// ==================== ATTENDANCE ROUTES ====================
+
+router.get("/attendance", async (req, res) => {
+  try {
+    const schoolId = req.user?.schoolId;
+    if (!schoolId) return res.status(401).json({ message: "Not authenticated" });
+
+    const date = req.query.date as string;
+    if (!date) return res.status(400).json({ message: "Date is required" });
+
+    const attendance = await staffAttendanceService.getAttendanceByDate(schoolId, date);
+    res.json(attendance);
+  } catch (error) {
+    console.error("Error fetching attendance:", error);
+    res.status(500).json({ message: "Failed to fetch attendance" });
+  }
+});
+
+router.get("/attendance/teacher/:id", async (req, res) => {
+  try {
+    const schoolId = req.user?.schoolId;
+    if (!schoolId) return res.status(401).json({ message: "Not authenticated" });
+
+    const teacherId = parseInt(req.params.id);
+    const startDate = req.query.startDate ? new Date(req.query.startDate as string) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // Default last 30 days
+    const endDate = req.query.endDate ? new Date(req.query.endDate as string) : new Date();
+
+    const attendance = await staffAttendanceService.getTeacherAttendanceStats(schoolId, teacherId, startDate, endDate);
+    res.json(attendance);
+  } catch (error) {
+    console.error("Error fetching teacher attendance:", error);
+    res.status(500).json({ message: "Failed to fetch teacher attendance" });
+  }
+});
+
+router.post("/attendance", async (req, res) => {
+  try {
+    const schoolId = req.user?.schoolId;
+    if (!schoolId) return res.status(401).json({ message: "Not authenticated" });
+
+    // Validate body
+    const validatedData = insertStaffAttendanceSchema.parse({
+      ...req.body,
+      recordedBy: req.user?.id,
+      date: new Date(req.body.date),
+      checkInTime: req.body.checkInTime ? new Date(req.body.checkInTime) : null,
+      checkOutTime: req.body.checkOutTime ? new Date(req.body.checkOutTime) : null,
+    });
+
+    const record = await staffAttendanceService.recordAttendance(schoolId, validatedData);
+    res.status(201).json(record);
+  } catch (error) {
+    console.error("Error recording attendance:", error);
+    res.status(400).json({ message: "Invalid attendance data" });
+  }
+});
+
+// ==================== APPRAISAL ROUTES ====================
+
+router.get("/appraisals/:teacherId", async (req, res) => {
+  try {
+    const schoolId = req.user?.schoolId;
+    if (!schoolId) return res.status(401).json({ message: "Not authenticated" });
+
+    const teacherId = parseInt(req.params.teacherId);
+    const appraisals = await appraisalService.getAppraisals(schoolId, teacherId);
+    res.json(appraisals);
+  } catch (error) {
+    console.error("Error fetching appraisals:", error);
+    res.status(500).json({ message: "Failed to fetch appraisals" });
+  }
+});
+
+router.post("/appraisals", async (req, res) => {
+  try {
+    const schoolId = req.user?.schoolId;
+    if (!schoolId) return res.status(401).json({ message: "Not authenticated" });
+
+    const validatedData = insertTeacherAppraisalSchema.parse(req.body);
+    const appraisal = await appraisalService.createAppraisal(schoolId, validatedData as any);
+    res.status(201).json(appraisal);
+  } catch (error) {
+    console.error("Error creating appraisal:", error);
+    res.status(400).json({ message: "Invalid appraisal data" });
+  }
+});
+
+router.patch("/appraisals/:id", async (req, res) => {
+  try {
+    const schoolId = req.user?.schoolId;
+    if (!schoolId) return res.status(401).json({ message: "Not authenticated" });
+
+    const appraisalId = parseInt(req.params.id);
+    const updated = await appraisalService.updateAppraisal(appraisalId, schoolId, req.body);
+    res.json(updated);
+  } catch (error) {
+    console.error("Error updating appraisal:", error);
+    res.status(500).json({ message: "Failed to update appraisal" });
+  }
+});
+
+// ==================== DISCIPLINARY ROUTES ====================
+
+router.get("/disciplinary/:teacherId", async (req, res) => {
+  try {
+    const schoolId = req.user?.schoolId;
+    if (!schoolId) return res.status(401).json({ message: "Not authenticated" });
+
+    const teacherId = parseInt(req.params.teacherId);
+    const records = await disciplinaryService.getRecords(schoolId, teacherId);
+    res.json(records);
+  } catch (error) {
+    console.error("Error fetching disciplinary records:", error);
+    res.status(500).json({ message: "Failed to fetch records" });
+  }
+});
+
+router.post("/disciplinary", async (req, res) => {
+  try {
+    const schoolId = req.user?.schoolId;
+    if (!schoolId) return res.status(401).json({ message: "Not authenticated" });
+
+    const validatedData = insertTeacherDisciplinaryRecordSchema.parse(req.body);
+    const record = await disciplinaryService.createRecord(schoolId, validatedData as any);
+    res.status(201).json(record);
+  } catch (error) {
+    console.error("Error creating disciplinary record:", error);
+    res.status(400).json({ message: "Invalid disciplinary data" });
+  }
+});
+
+router.patch("/disciplinary/:id", async (req, res) => {
+  try {
+    const schoolId = req.user?.schoolId;
+    if (!schoolId) return res.status(401).json({ message: "Not authenticated" });
+
+    const recordId = parseInt(req.params.id);
+    const updated = await disciplinaryService.updateRecord(recordId, schoolId, req.body);
+    res.json(updated);
+  } catch (error) {
+    console.error("Error updating disciplinary record:", error);
+    res.status(500).json({ message: "Failed to update record" });
+  }
+});
+
+// ==================== PAYROLL ROUTE ====================
+
+router.get("/payroll-export", async (req, res) => {
+  try {
+    const schoolId = req.user?.schoolId;
+    if (!schoolId) return res.status(401).json({ message: "Not authenticated" });
+
+    // Mock implementation for Payroll Export.
+    // In reality, this would query active teachers, their current base salary from teacher_contracts,
+    // and deduct based on leave/attendance records for the given month.
+    const month = req.query.month as string || new Date().toISOString().substring(0, 7);
+
+    // For now, return a placeholder JSON that could be converted to CSV on the frontend or backend
+    const payrollData = [
+      { employeeId: 'Mock', name: 'Generated Payroll', baseSalary: 1000, deductions: 0, netPay: 1000, month }
+    ];
+
+    res.json(payrollData);
+  } catch (error) {
+    console.error("Error generating payroll:", error);
+    res.status(500).json({ message: "Failed to generate payroll" });
   }
 });
 

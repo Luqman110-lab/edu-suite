@@ -21,9 +21,10 @@ interface TeacherFiltersProps {
 
     // Actions
     onDownloadTemplate: () => void;
-    onImport: () => void;
     onExport: () => void;
+    onExportPayroll: () => void;
     onAddTeacher: () => void;
+    onStaffRollCall: () => void;
     fileInputRef: React.RefObject<HTMLInputElement>;
     handleImportCSV: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
@@ -33,13 +34,13 @@ export const TeacherFilters: React.FC<TeacherFiltersProps> = ({
     showFilters, setShowFilters,
     selectedRole, setSelectedRole,
     selectedGender, setSelectedGender,
-    selectedClass, setSelectedClass,
     ROLES,
-    isDark,
     onDownloadTemplate,
     onImport,
     onExport,
+    onExportPayroll,
     onAddTeacher,
+    onStaffRollCall,
     fileInputRef,
     handleImportCSV
 }) => {
@@ -59,9 +60,14 @@ export const TeacherFilters: React.FC<TeacherFiltersProps> = ({
                     <Button variant="outline" size="sm" onClick={onImport}>
                         <Icons.Upload className="w-4 h-4 mr-1.5" /> Import
                     </Button>
-                    <input ref={fileInputRef} type="file" accept=".csv" onChange={handleImportCSV} className="hidden" />
                     <Button variant="outline" size="sm" onClick={onExport}>
                         <Icons.Download className="w-4 h-4 mr-1.5" /> Export
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={onExportPayroll} className="border-indigo-600 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-500 dark:text-indigo-400 dark:hover:bg-indigo-900/40">
+                        <Icons.Briefcase className="w-4 h-4 mr-1.5" /> Payroll
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={onStaffRollCall} className="border-green-600 text-green-700 hover:bg-green-50 dark:border-green-500 dark:text-green-400 dark:hover:bg-green-900/40">
+                        <Icons.UserCheck className="w-4 h-4 mr-1.5" /> Roll Call
                     </Button>
                     <Button onClick={onAddTeacher}>Add Teacher</Button>
                 </div>

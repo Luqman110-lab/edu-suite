@@ -3,7 +3,7 @@ import { Teacher, Student } from '../../../../types';
 import { Icons } from '../../lib/icons';
 import { Button } from '../../../../components/Button';
 import { TeacherAttendanceSummaryCard, TeacherPerformanceMetricsCard, TeacherQuickStatsCard } from '../../../../components/TeacherProfileCards';
-import { TeacherLeaveCard, TeacherDutyCard, TeacherContractCard, TeacherDocumentCard } from './HRProfileCards';
+import { TeacherLeaveCard, TeacherDutyCard, TeacherContractCard, TeacherDocumentCard, TeacherTimetableCard } from './HRProfileCards';
 
 interface TeacherProfileProps {
     teacher: Teacher;
@@ -358,9 +358,13 @@ export const TeacherProfile: React.FC<TeacherProfileProps> = ({
                 <TeacherDutyCard teacherId={teacher.id!} isDark={isDark} />
                 <TeacherContractCard teacherId={teacher.id!} isDark={isDark} />
                 <TeacherDocumentCard teacherId={teacher.id!} isDark={isDark} />
+                <TeacherAppraisalCard teacherId={teacher.id!} isDark={isDark} />
+                <TeacherDisciplinaryCard teacherId={teacher.id!} isDark={isDark} />
             </div>
 
-            <div className={`flex justify-end border-t ${isDark ? 'border-gray-700' : 'border-gray-200'} pt-6`}>
+            <TeacherTimetableCard teacher={teacher} isDark={isDark} />
+
+            <div className={`flex justify-end border-t ${isDark ? 'border-gray-700' : 'border-gray-200'} pt-6 mt-6`}>
                 <Button variant="danger" onClick={onDelete}>
                     <Icons.Trash className="w-4 h-4 mr-1.5" /> Delete Teacher
                 </Button>

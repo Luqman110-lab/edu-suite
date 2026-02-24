@@ -47,7 +47,8 @@ import {
     TrendingDown,
     ExternalLink,
     Camera,
-    FileCheck
+    FileCheck,
+    UserCheck
 } from 'lucide-react';
 
 export const Icons = {
@@ -99,5 +100,6 @@ export const Icons = {
     TrendingDown,
     ExternalLink,
     Camera,
-    FileCheck
+    FileCheck,
+    UserCheck
 };

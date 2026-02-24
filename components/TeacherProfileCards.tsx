@@ -1,18 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 
 import { Icons } from '../client/src/lib/icons';
+import { useTeacherAttendance } from '../client/src/hooks/useHR';
 
 // ============ TYPES ============
-interface AttendanceRecord {
-    id: number;
-    teacherId: number;
-    date: string;
-    checkInTime?: string;
-    checkOutTime?: string;
-    status: string;
-    leaveType?: string;
-}
-
 interface ClassPerformance {
     classStream: string;
     subject: string;
@@ -33,27 +24,7 @@ export const TeacherAttendanceSummaryCard: React.FC<AttendanceSummaryCardProps> 
     isDark,
     onViewDetails,
 }) => {
-    const [loading, setLoading] = useState(true);
-    const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
-
-    useEffect(() => {
-        const fetchAttendance = async () => {
-            try {
-                const response = await fetch(`/api/teacher-attendance?teacherId=${teacherId}`, {
-                    credentials: 'include',
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    setAttendance(data);
-                }
-            } catch (error) {
-                console.error('Error fetching teacher attendance:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchAttendance();
-    }, [teacherId]);
+    const { attendanceHistory: attendance, isLoading: loading } = useTeacherAttendance(teacherId);
 
     const stats = useMemo(() => {
         const currentMonth = new Date().getMonth();
@@ -63,10 +34,10 @@ export const TeacherAttendanceSummaryCard: React.FC<AttendanceSummaryCardProps> 
             return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
         });
 
-        const present = monthRecords.filter(r => r.status === 'present' || r.status === 'late').length;
-        const late = monthRecords.filter(r => r.status === 'late').length;
-        const absent = monthRecords.filter(r => r.status === 'absent').length;
-        const onLeave = monthRecords.filter(r => r.status === 'leave').length;
+        const present = monthRecords.filter(r => ['Present', 'Late', 'Half-day'].includes(r.status)).length;
+        const late = monthRecords.filter(r => r.status === 'Late').length;
+        const absent = monthRecords.filter(r => r.status === 'Absent').length;
+        const halfDay = monthRecords.filter(r => r.status === 'Half-day').length;
         const total = monthRecords.length || 1;
         const rate = Math.round((present / total) * 100);
 
@@ -154,8 +125,8 @@ export const TeacherAttendanceSummaryCard: React.FC<AttendanceSummaryCardProps> 
                             <div className={`text-xs ${isDark ? 'text-red-400' : 'text-red-700'}`}>Absent</div>
                         </div>
                         <div className={`p-3 rounded-lg ${isDark ? 'bg-blue-900/30' : 'bg-blue-50'}`}>
-                            <div className="text-lg font-bold text-blue-500">{stats.onLeave}</div>
-                            <div className={`text-xs ${isDark ? 'text-blue-400' : 'text-blue-700'}`}>On Leave</div>
+                            <div className="text-lg font-bold text-blue-500">{stats.halfDay}</div>
+                            <div className={`text-xs ${isDark ? 'text-blue-400' : 'text-blue-700'}`}>Half-day</div>
                         </div>
                     </div>
                 </div>
