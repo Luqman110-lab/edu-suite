@@ -134,22 +134,56 @@ studentRoutes.post("/students/batch", requireAdmin, async (req, res) => {
     }
 });
 
+// POST /api/students/bulk-transfer
+studentRoutes.post("/students/bulk-transfer", requireAdmin, async (req, res) => {
+    try {
+        const schoolId = getActiveSchoolId(req);
+        if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+        const { studentIds, targetClassLevel, targetStream } = req.body;
+        if (!Array.isArray(studentIds) || studentIds.length === 0) return res.status(400).json({ message: "No students selected for transfer" });
+        if (!targetClassLevel || !targetStream) return res.status(400).json({ message: "Target class and stream are required" });
+
+        const result = await studentService.bulkTransferStudents(schoolId, studentIds, targetClassLevel, targetStream, req.user!.id);
+        res.json({ ...result, message: `Successfully transferred ${result.updatedCount} students.` });
+    } catch (error: any) {
+        console.error("Transfer error:", error);
+        res.status(500).json({ message: "Failed to transfer students: " + error.message });
+    }
+});
+
 // POST /api/students/promote
 studentRoutes.post("/students/promote", requireAdmin, async (req, res) => {
     try {
         const schoolId = getActiveSchoolId(req);
         if (!schoolId) return res.status(400).json({ message: "No active school selected" });
 
-        const { studentIds, targetStream } = req.body;
+        const { studentIds, targetClassLevel, targetStream } = req.body;
         if (!Array.isArray(studentIds) || studentIds.length === 0) return res.status(400).json({ message: "No students selected for promotion" });
 
-        const io = (req as any).io; // If needed, although not used in service directly
-        const result = await studentService.promoteStudents(schoolId, studentIds, targetStream, req.user!.id);
+        const result = await studentService.promoteStudents(schoolId, studentIds, targetClassLevel, targetStream, req.user!.id);
 
         res.json({ ...result, message: `Successfully processed ${studentIds.length} students.` });
     } catch (error: any) {
         console.error("Promotion error:", error);
         res.status(500).json({ message: "Failed to promote students: " + error.message });
+    }
+});
+
+// POST /api/students/graduate
+studentRoutes.post("/students/graduate", requireAdmin, async (req, res) => {
+    try {
+        const schoolId = getActiveSchoolId(req);
+        if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+        const { studentIds } = req.body;
+        if (!Array.isArray(studentIds) || studentIds.length === 0) return res.status(400).json({ message: "No students selected for graduation" });
+
+        const result = await studentService.graduateStudents(schoolId, studentIds, req.user!.id);
+        res.json({ ...result, message: `Successfully graduated ${result.graduatedCount} students.` });
+    } catch (error: any) {
+        console.error("Graduation error:", error);
+        res.status(500).json({ message: "Failed to graduate students: " + error.message });
     }
 });
 

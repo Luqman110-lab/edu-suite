@@ -198,7 +198,33 @@ export class StudentService {
         return created;
     }
 
-    async promoteStudents(schoolId: number, studentIds: number[], targetStream: string, promotedBy: number) {
+    async bulkTransferStudents(schoolId: number, studentIds: number[], targetClassLevel: string, targetStream: string, transferredBy: number) {
+        if (!studentIds || !studentIds.length || !targetClassLevel || !targetStream) return { updatedCount: 0 };
+
+        const activeStudents = await db.select().from(students)
+            .where(and(inArray(students.id, studentIds), eq(students.schoolId, schoolId)));
+
+        let updatedCount = 0;
+        for (const student of activeStudents) {
+            if (student.classLevel === targetClassLevel && student.stream === targetStream) continue;
+
+            await db.update(students)
+                .set({ classLevel: targetClassLevel, stream: targetStream })
+                .where(eq(students.id, student.id));
+
+            updatedCount++;
+
+            await db.insert(auditLogs).values({
+                userId: transferredBy, userName: 'Admin/System', action: 'transfer', entityType: 'student',
+                entityId: student.id, entityName: student.name,
+                details: { fromClass: student.classLevel, toClass: targetClassLevel, fromStream: student.stream, toStream: targetStream },
+                ipAddress: '127.0.0.1'
+            });
+        }
+        return { updatedCount };
+    }
+
+    async promoteStudents(schoolId: number, studentIds: number[], targetClassLevel: string | null, targetStream: string | null, promotedBy: number) {
         const activeStudents = await db.select().from(students)
             .where(and(inArray(students.id, studentIds), eq(students.schoolId, schoolId)));
 
@@ -211,22 +237,29 @@ export class StudentService {
 
         for (const student of activeStudents) {
             const currentClass = student.classLevel;
-            const nextClass = classMap[currentClass];
+            const nextClass = targetClassLevel || classMap[currentClass];
             if (!nextClass) { skippedCount++; continue; }
 
-            const isGraduating = currentClass === 'P7';
-            const updates: any = { classLevel: nextClass, stream: targetStream || student.stream };
+            const isGraduating = currentClass === 'P7' || nextClass === 'Alumni';
+            const updates: any = { classLevel: nextClass };
+            if (targetStream) updates.stream = targetStream;
+            if (isGraduating) updates.isActive = false; // Mark alumni as inactive
+
             if (isGraduating) { graduatedCount++; } else { promotedCount++; }
 
             await db.update(students).set(updates).where(eq(students.id, student.id));
             await db.insert(promotionHistory).values({
                 schoolId, studentId: student.id, fromClass: currentClass, toClass: nextClass,
-                fromStream: student.stream, toStream: updates.stream,
+                fromStream: student.stream, toStream: updates.stream || student.stream,
                 academicYear: new Date().getFullYear(), term: 1, promotedBy
             });
         }
 
         return { promotedCount, graduatedCount, skippedCount };
+    }
+
+    async graduateStudents(schoolId: number, studentIds: number[], graduatedBy: number) {
+        return this.promoteStudents(schoolId, studentIds, 'Alumni', null, graduatedBy);
     }
 
     async searchStudents(schoolId: number, query: string, filters: { classLevel?: string, stream?: string, boardingStatus?: string, sortBy?: string, sortOrder?: string }) {

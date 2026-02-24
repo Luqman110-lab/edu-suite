@@ -62,6 +62,38 @@ export const useStudents = (academicYear?: string) => {
         },
     });
 
+    // Bulk transfer students
+    const bulkTransferStudents = useMutation({
+        mutationFn: (data: { studentIds: number[], targetClassLevel: string, targetStream: string }) =>
+            dbService.bulkTransferStudents(data.studentIds, data.targetClassLevel, data.targetStream),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['students'] });
+            queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+            queryClient.invalidateQueries({ queryKey: ['demographics'] });
+        },
+    });
+
+    // Promote students
+    const promoteStudents = useMutation({
+        mutationFn: (data: { studentIds: number[], targetClassLevel: string | null, targetStream: string | null }) =>
+            dbService.promoteStudents(data.studentIds, data.targetClassLevel, data.targetStream),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['students'] });
+            queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+            queryClient.invalidateQueries({ queryKey: ['demographics'] });
+        },
+    });
+
+    // Graduate students
+    const graduateStudents = useMutation({
+        mutationFn: (studentIds: number[]) => dbService.graduateStudents(studentIds),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['students'] });
+            queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+            queryClient.invalidateQueries({ queryKey: ['demographics'] });
+        },
+    });
+
     return {
         students: studentsQuery.data || [],
         isLoading: studentsQuery.isLoading,
@@ -72,6 +104,9 @@ export const useStudents = (academicYear?: string) => {
         updateStudent,
         deleteStudent,
         deleteStudents,
-        importStudents
+        importStudents,
+        bulkTransferStudents,
+        promoteStudents,
+        graduateStudents
     };
 };

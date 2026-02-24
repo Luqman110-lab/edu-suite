@@ -1,12 +1,15 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Check, X, Edit2, RotateCcw, Loader2, AlertCircle, Layers, Users, Hash, BookOpen, BookMarked, UsersRound, Activity } from 'lucide-react';
+import { Plus, Check, X, Edit2, RotateCcw, Loader2, AlertCircle, Layers, Users, Hash, BookOpen, BookMarked, UsersRound, Activity, ArrowRightLeft, TrendingUp, CalendarPlus } from 'lucide-react';
 import { useToast } from '../hooks/use-toast';
 import { useSettings } from '../client/src/hooks/useSettings';
 import { useStudents } from '../client/src/hooks/useStudents';
 import { SubjectTeachersModal } from '../client/src/components/classes/SubjectTeachersModal';
 import { ClassRegisterModal } from '../client/src/components/classes/ClassRegisterModal';
 import { ClassOverview } from '../client/src/components/classes/ClassOverview';
+import { PromotionWizard } from '../client/src/components/classes/PromotionWizard';
+import { StreamBalancer } from '../client/src/components/classes/StreamBalancer';
+import { YearTransitionWizard } from '../client/src/components/classes/YearTransitionWizard';
 
 export default function ClassManagement() {
   const { toast } = useToast();
@@ -24,6 +27,9 @@ export default function ClassManagement() {
   const [subjectTeachersModal, setSubjectTeachersModal] = useState<{ isOpen: boolean; classLevel: string; stream: string } | null>(null);
   const [registerModal, setRegisterModal] = useState<{ isOpen: boolean; classLevel: string; stream: string } | null>(null);
   const [overviewModal, setOverviewModal] = useState<{ isOpen: boolean; classLevel: string; stream: string } | null>(null);
+  const [promotionModalOpen, setPromotionModalOpen] = useState(false);
+  const [streamBalancerOpen, setStreamBalancerOpen] = useState(false);
+  const [yearTransitionOpen, setYearTransitionOpen] = useState(false);
 
   const aliasInputRef = useRef<HTMLInputElement>(null);
   const streamInputRef = useRef<HTMLInputElement>(null);
@@ -434,8 +440,29 @@ export default function ClassManagement() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Class Management</h1>
           <p className="text-gray-500 dark:text-gray-400">Manage classes, streams, and display names</p>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm">
+        <div className="flex flex-wrap items-center gap-4">
+          <button
+            onClick={() => setYearTransitionOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-sm font-medium transition-colors shadow-sm"
+          >
+            <CalendarPlus className="w-4 h-4" />
+            Advance Year
+          </button>
+          <button
+            onClick={() => setStreamBalancerOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm"
+          >
+            <ArrowRightLeft className="w-4 h-4 text-blue-500" />
+            Balance Streams
+          </button>
+          <button
+            onClick={() => setPromotionModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-medium transition-colors shadow-sm"
+          >
+            <TrendingUp className="w-4 h-4" />
+            Promote Students
+          </button>
+          <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm hidden md:flex">
             <Hash className="w-4 h-4 text-gray-400" />
             <span className="text-gray-600 dark:text-gray-300">
               <span className="font-semibold">{nurseryLevels.length + primaryLevels.length}</span> Classes
@@ -551,6 +578,27 @@ export default function ClassManagement() {
           stream={overviewModal.stream}
           term={ACTIVE_TERM}
           year={ACTIVE_YEAR}
+        />
+      )}
+
+      {promotionModalOpen && (
+        <PromotionWizard
+          isOpen={promotionModalOpen}
+          onClose={() => setPromotionModalOpen(false)}
+        />
+      )}
+
+      {streamBalancerOpen && (
+        <StreamBalancer
+          isOpen={streamBalancerOpen}
+          onClose={() => setStreamBalancerOpen(false)}
+        />
+      )}
+
+      {yearTransitionOpen && (
+        <YearTransitionWizard
+          isOpen={yearTransitionOpen}
+          onClose={() => setYearTransitionOpen(false)}
         />
       )}
     </div>

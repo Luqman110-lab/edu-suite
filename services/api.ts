@@ -135,6 +135,15 @@ export const apiService = {
   deleteStudents: (ids: number[]) =>
     apiRequest<void>('DELETE', '/students', { ids }),
 
+  bulkTransferStudents: (studentIds: number[], targetClassLevel: string, targetStream: string) =>
+    apiRequest<{ updatedCount: number; message: string }>('POST', '/students/bulk-transfer', { studentIds, targetClassLevel, targetStream }),
+
+  promoteStudents: (studentIds: number[], targetClassLevel: string | null, targetStream: string | null) =>
+    apiRequest<{ promotedCount: number; graduatedCount: number; skippedCount: number; message: string }>('POST', '/students/promote', { studentIds, targetClassLevel, targetStream }),
+
+  graduateStudents: (studentIds: number[]) =>
+    apiRequest<{ graduatedCount: number; message: string }>('POST', '/students/graduate', { studentIds }),
+
   getTeachers: () => apiRequest<Teacher[]>('GET', '/teachers'),
 
   addTeacher: (teacher: Omit<Teacher, 'id'>) =>
