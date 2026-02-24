@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { ClassService } from "../services/ClassService";
-import { requireAuth } from "../auth";
+import { requireAuth, getActiveSchoolId } from "../auth";
 
 export const classesRoutes = Router();
 
@@ -11,9 +11,9 @@ export const classesRoutes = Router();
 // Get all streams for a school
 classesRoutes.get("/streams", requireAuth, async (req, res) => {
     try {
-        const schoolId = req.session.schoolId;
+        const schoolId = getActiveSchoolId(req);
         if (!schoolId) {
-            return res.status(400).json({ message: "School ID not found in session" });
+            return res.status(400).json({ message: "No active school selected" });
         }
 
         const streams = await ClassService.getStreams(schoolId);
@@ -27,9 +27,9 @@ classesRoutes.get("/streams", requireAuth, async (req, res) => {
 // Create a new stream
 classesRoutes.post("/streams", requireAuth, async (req, res) => {
     try {
-        const schoolId = req.session.schoolId;
+        const schoolId = getActiveSchoolId(req);
         if (!schoolId) {
-            return res.status(400).json({ message: "School ID not found in session" });
+            return res.status(400).json({ message: "No active school selected" });
         }
 
         const { classLevel, streamName, maxCapacity } = req.body;
@@ -55,9 +55,9 @@ classesRoutes.post("/streams", requireAuth, async (req, res) => {
 // Update stream capacity
 classesRoutes.put("/streams/:id", requireAuth, async (req, res) => {
     try {
-        const schoolId = req.session.schoolId;
+        const schoolId = getActiveSchoolId(req);
         if (!schoolId) {
-            return res.status(400).json({ message: "School ID not found in session" });
+            return res.status(400).json({ message: "No active school selected" });
         }
 
         const id = parseInt(req.params.id);
@@ -78,9 +78,9 @@ classesRoutes.put("/streams/:id", requireAuth, async (req, res) => {
 // Delete a stream
 classesRoutes.delete("/streams/:id", requireAuth, async (req, res) => {
     try {
-        const schoolId = req.session.schoolId;
+        const schoolId = getActiveSchoolId(req);
         if (!schoolId) {
-            return res.status(400).json({ message: "School ID not found in session" });
+            return res.status(400).json({ message: "No active school selected" });
         }
 
         const id = parseInt(req.params.id);
@@ -103,9 +103,9 @@ classesRoutes.delete("/streams/:id", requireAuth, async (req, res) => {
 // Get teacher assignments
 classesRoutes.get("/class-assignments", requireAuth, async (req, res) => {
     try {
-        const schoolId = req.session.schoolId;
+        const schoolId = getActiveSchoolId(req);
         if (!schoolId) {
-            return res.status(400).json({ message: "School ID not found in session" });
+            return res.status(400).json({ message: "No active school selected" });
         }
 
         const { term, year } = req.query;
@@ -129,9 +129,9 @@ classesRoutes.get("/class-assignments", requireAuth, async (req, res) => {
 // Assign class teacher
 classesRoutes.post("/class-assignments", requireAuth, async (req, res) => {
     try {
-        const schoolId = req.session.schoolId;
+        const schoolId = getActiveSchoolId(req);
         if (!schoolId) {
-            return res.status(400).json({ message: "School ID not found in session" });
+            return res.status(400).json({ message: "No active school selected" });
         }
 
         const { teacherId, classLevel, stream, term, year } = req.body;
@@ -159,9 +159,9 @@ classesRoutes.post("/class-assignments", requireAuth, async (req, res) => {
 // Assign subject teacher
 classesRoutes.post("/class-assignments/subject", requireAuth, async (req, res) => {
     try {
-        const schoolId = req.session.schoolId;
+        const schoolId = getActiveSchoolId(req);
         if (!schoolId) {
-            return res.status(400).json({ message: "School ID not found in session" });
+            return res.status(400).json({ message: "No active school selected" });
         }
 
         const { teacherId, classLevel, stream, subject, term, year } = req.body;
@@ -190,9 +190,9 @@ classesRoutes.post("/class-assignments/subject", requireAuth, async (req, res) =
 // Remove teacher assignment
 classesRoutes.delete("/class-assignments/:id", requireAuth, async (req, res) => {
     try {
-        const schoolId = req.session.schoolId;
+        const schoolId = getActiveSchoolId(req);
         if (!schoolId) {
-            return res.status(400).json({ message: "School ID not found in session" });
+            return res.status(400).json({ message: "No active school selected" });
         }
 
         const id = parseInt(req.params.id);
@@ -215,9 +215,9 @@ classesRoutes.delete("/class-assignments/:id", requireAuth, async (req, res) => 
 // Get class overview statistics
 classesRoutes.get("/:classLevel/:stream/stats", requireAuth, async (req, res) => {
     try {
-        const schoolId = req.session.schoolId;
+        const schoolId = getActiveSchoolId(req);
         if (!schoolId) {
-            return res.status(400).json({ message: "School ID not found in session" });
+            return res.status(400).json({ message: "No active school selected" });
         }
 
         const { classLevel, stream } = req.params;
