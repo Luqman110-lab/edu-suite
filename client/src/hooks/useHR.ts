@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { StaffLeave, DutyRoster, TeacherContract, TeacherDocument, StaffAttendance, TeacherAppraisal, TeacherDisciplinaryRecord } from "../../../types";
+import { apiRequest } from "../../../services/api";
 
 export function useStaffLeave(teacherId?: number) {
     const queryClient = useQueryClient();
@@ -7,22 +8,14 @@ export function useStaffLeave(teacherId?: number) {
     const query = useQuery<StaffLeave[]>({
         queryKey: teacherId ? ["/api/hr/leave", teacherId] : ["/api/hr/leave"],
         queryFn: async () => {
-            const url = teacherId ? `/api/hr/leave?teacherId=${teacherId}` : "/api/hr/leave";
-            const res = await fetch(url);
-            if (!res.ok) throw new Error("Failed to fetch leave requests");
-            return res.json();
+            const url = teacherId ? `/hr/leave?teacherId=${teacherId}` : "/hr/leave";
+            return apiRequest<StaffLeave[]>("GET", url);
         }
     });
 
     const createRequestMutation = useMutation({
         mutationFn: async (data: Partial<StaffLeave>) => {
-            const res = await fetch("/api/hr/leave", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(data)
-            });
-            if (!res.ok) throw new Error("Failed to create leave request");
-            return res.json();
+            return apiRequest<StaffLeave>("POST", "/hr/leave", data);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["/api/hr/leave"] });
@@ -31,13 +24,7 @@ export function useStaffLeave(teacherId?: number) {
 
     const updateStatusMutation = useMutation({
         mutationFn: async ({ id, status }: { id: number; status: 'Approved' | 'Rejected' }) => {
-            const res = await fetch(`/api/hr/leave/${id}/status`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ status })
-            });
-            if (!res.ok) throw new Error("Failed to update leave status");
-            return res.json();
+            return apiRequest<StaffLeave>("PATCH", `/hr/leave/${id}/status`, { status });
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["/api/hr/leave"] });
@@ -61,22 +48,14 @@ export function useDutyRoster(teacherId?: number) {
     const query = useQuery<DutyRoster[]>({
         queryKey: teacherId ? ["/api/hr/duty-roster", teacherId] : ["/api/hr/duty-roster"],
         queryFn: async () => {
-            const url = teacherId ? `/api/hr/duty-roster?teacherId=${teacherId}` : "/api/hr/duty-roster";
-            const res = await fetch(url);
-            if (!res.ok) throw new Error("Failed to fetch duty rosters");
-            return res.json();
+            const url = teacherId ? `/hr/duty-roster?teacherId=${teacherId}` : "/hr/duty-roster";
+            return apiRequest<DutyRoster[]>("GET", url);
         }
     });
 
     const createDutyMutation = useMutation({
         mutationFn: async (data: Partial<DutyRoster>) => {
-            const res = await fetch("/api/hr/duty-roster", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(data)
-            });
-            if (!res.ok) throw new Error("Failed to assign duty");
-            return res.json();
+            return apiRequest<DutyRoster>("POST", "/hr/duty-roster", data);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["/api/hr/duty-roster"] });
@@ -85,10 +64,7 @@ export function useDutyRoster(teacherId?: number) {
 
     const deleteDutyMutation = useMutation({
         mutationFn: async (id: number) => {
-            const res = await fetch(`/api/hr/duty-roster/${id}`, {
-                method: "DELETE"
-            });
-            if (!res.ok) throw new Error("Failed to delete duty assignment");
+            return apiRequest<void>("DELETE", `/hr/duty-roster/${id}`);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["/api/hr/duty-roster"] });
@@ -121,13 +97,7 @@ export function useTeacherContracts(teacherId?: number) {
 
     const createContractMutation = useMutation({
         mutationFn: async (data: Partial<TeacherContract>) => {
-            const res = await fetch("/api/hr/contracts", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(data)
-            });
-            if (!res.ok) throw new Error("Failed to create contract");
-            return res.json();
+            return apiRequest<TeacherContract>("POST", "/hr/contracts", data);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["/api/hr/contracts"] });
@@ -136,13 +106,7 @@ export function useTeacherContracts(teacherId?: number) {
 
     const updateStatusMutation = useMutation({
         mutationFn: async ({ id, status }: { id: number; status: 'Active' | 'Expired' | 'Terminated' }) => {
-            const res = await fetch(`/api/hr/contracts/${id}/status`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ status })
-            });
-            if (!res.ok) throw new Error("Failed to update contract status");
-            return res.json();
+            return apiRequest<TeacherContract>("PATCH", `/hr/contracts/${id}/status`, { status });
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["/api/hr/contracts"] });
@@ -167,22 +131,14 @@ export function useTeacherDocuments(teacherId?: number) {
     const query = useQuery<TeacherDocument[]>({
         queryKey: teacherId ? ["/api/hr/documents", teacherId] : ["/api/hr/documents"],
         queryFn: async () => {
-            const url = teacherId ? `/api/hr/documents?teacherId=${teacherId}` : "/api/hr/documents";
-            const res = await fetch(url);
-            if (!res.ok) throw new Error("Failed to fetch documents");
-            return res.json();
+            const url = teacherId ? `/hr/documents?teacherId=${teacherId}` : "/hr/documents";
+            return apiRequest<TeacherDocument[]>("GET", url);
         }
     });
 
     const createDocumentMutation = useMutation({
         mutationFn: async (data: Partial<TeacherDocument>) => {
-            const res = await fetch("/api/hr/documents", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(data)
-            });
-            if (!res.ok) throw new Error("Failed to upload document");
-            return res.json();
+            return apiRequest<TeacherDocument>("POST", "/hr/documents", data);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["/api/hr/documents"] });
@@ -191,10 +147,7 @@ export function useTeacherDocuments(teacherId?: number) {
 
     const deleteDocumentMutation = useMutation({
         mutationFn: async (id: number) => {
-            const res = await fetch(`/api/hr/documents/${id}`, {
-                method: "DELETE"
-            });
-            if (!res.ok) throw new Error("Failed to delete document");
+            return apiRequest<void>("DELETE", `/hr/documents/${id}`);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["/api/hr/documents"] });
@@ -219,21 +172,13 @@ export function useStaffAttendance(date: string) {
     const query = useQuery<StaffAttendance[]>({
         queryKey: ["/api/hr/attendance", date],
         queryFn: async () => {
-            const res = await fetch(`/api/hr/attendance?date=${date}`);
-            if (!res.ok) throw new Error("Failed to fetch staff attendance");
-            return res.json();
+            return apiRequest<StaffAttendance[]>("GET", `/hr/attendance?date=${date}`);
         }
     });
 
     const recordAttendanceMutation = useMutation({
         mutationFn: async (data: Partial<StaffAttendance>) => {
-            const res = await fetch("/api/hr/attendance", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(data)
-            });
-            if (!res.ok) throw new Error("Failed to record attendance");
-            return res.json();
+            return apiRequest<StaffAttendance>("POST", "/hr/attendance", data);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["/api/hr/attendance"] });
@@ -254,7 +199,7 @@ export function useTeacherAttendance(teacherId: number, startDate?: string, endD
     const query = useQuery<StaffAttendance[]>({
         queryKey: ["/api/hr/attendance/teacher", teacherId, startDate, endDate],
         queryFn: async () => {
-            let url = `/api/hr/attendance/teacher/${teacherId}`;
+            let url = `/hr/attendance/teacher/${teacherId}`;
             const params = new URLSearchParams();
             if (startDate) params.append("startDate", startDate);
             if (endDate) params.append("endDate", endDate);
@@ -262,9 +207,7 @@ export function useTeacherAttendance(teacherId: number, startDate?: string, endD
             const queryString = params.toString();
             if (queryString) url += `?${queryString}`;
 
-            const res = await fetch(url);
-            if (!res.ok) throw new Error("Failed to fetch teacher attendance history");
-            return res.json();
+            return apiRequest<StaffAttendance[]>("GET", url);
         },
         enabled: !!teacherId // Only run if we actually have an ID
     });
@@ -282,23 +225,15 @@ export function useTeacherAppraisals(teacherId?: number) {
     const query = useQuery<TeacherAppraisal[]>({
         queryKey: teacherId ? ["/api/hr/appraisals", teacherId] : ["/api/hr/appraisals"],
         queryFn: async () => {
-            const url = teacherId ? `/api/hr/appraisals/${teacherId}` : "/api/hr/appraisals";
-            const res = await fetch(url);
-            if (!res.ok) throw new Error("Failed to fetch appraisals");
-            return res.json();
+            const url = teacherId ? `/hr/appraisals/${teacherId}` : "/hr/appraisals";
+            return apiRequest<TeacherAppraisal[]>("GET", url);
         },
         enabled: !!teacherId // Currently API only supports fetching by teacherId
     });
 
     const createAppraisalMutation = useMutation({
         mutationFn: async (data: Partial<TeacherAppraisal>) => {
-            const res = await fetch("/api/hr/appraisals", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(data)
-            });
-            if (!res.ok) throw new Error("Failed to create appraisal");
-            return res.json();
+            return apiRequest<TeacherAppraisal>("POST", "/hr/appraisals", data);
         },
         onSuccess: () => {
             if (teacherId) {
@@ -309,13 +244,7 @@ export function useTeacherAppraisals(teacherId?: number) {
 
     const updateAppraisalMutation = useMutation({
         mutationFn: async ({ id, data }: { id: number; data: Partial<TeacherAppraisal> }) => {
-            const res = await fetch(`/api/hr/appraisals/${id}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(data)
-            });
-            if (!res.ok) throw new Error("Failed to update appraisal");
-            return res.json();
+            return apiRequest<TeacherAppraisal>("PATCH", `/hr/appraisals/${id}`, data);
         },
         onSuccess: () => {
             if (teacherId) {
@@ -341,23 +270,15 @@ export function useTeacherDisciplinaryRecords(teacherId?: number) {
     const query = useQuery<TeacherDisciplinaryRecord[]>({
         queryKey: teacherId ? ["/api/hr/disciplinary", teacherId] : ["/api/hr/disciplinary"],
         queryFn: async () => {
-            const url = teacherId ? `/api/hr/disciplinary/${teacherId}` : "/api/hr/disciplinary";
-            const res = await fetch(url);
-            if (!res.ok) throw new Error("Failed to fetch disciplinary records");
-            return res.json();
+            const url = teacherId ? `/hr/disciplinary/${teacherId}` : "/hr/disciplinary";
+            return apiRequest<TeacherDisciplinaryRecord[]>("GET", url);
         },
         enabled: !!teacherId
     });
 
     const createRecordMutation = useMutation({
         mutationFn: async (data: Partial<TeacherDisciplinaryRecord>) => {
-            const res = await fetch("/api/hr/disciplinary", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(data)
-            });
-            if (!res.ok) throw new Error("Failed to create disciplinary record");
-            return res.json();
+            return apiRequest<TeacherDisciplinaryRecord>("POST", "/hr/disciplinary", data);
         },
         onSuccess: () => {
             if (teacherId) {
@@ -368,13 +289,7 @@ export function useTeacherDisciplinaryRecords(teacherId?: number) {
 
     const updateRecordMutation = useMutation({
         mutationFn: async ({ id, data }: { id: number; data: Partial<TeacherDisciplinaryRecord> }) => {
-            const res = await fetch(`/api/hr/disciplinary/${id}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(data)
-            });
-            if (!res.ok) throw new Error("Failed to update disciplinary record");
-            return res.json();
+            return apiRequest<TeacherDisciplinaryRecord>("PATCH", `/hr/disciplinary/${id}`, data);
         },
         onSuccess: () => {
             if (teacherId) {

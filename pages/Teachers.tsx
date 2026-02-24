@@ -8,6 +8,7 @@ import { useTeachers } from '../client/src/hooks/useTeachers';
 import { useStudents } from '../client/src/hooks/useStudents';
 import { useSettings } from '../client/src/hooks/useSettings';
 import FaceEnrollment from '../client/src/components/FaceEnrollment';
+import { apiRequest } from '../services/api';
 
 // Extracted Components
 import { TeacherStats } from '../client/src/components/teachers/TeacherStats';
@@ -255,9 +256,7 @@ export const Teachers: React.FC = () => {
 
   const handleExportPayroll = async () => {
     try {
-      const res = await fetch('/api/hr/payroll-export');
-      if (!res.ok) throw new Error("Failed to fetch payroll data");
-      const data = await res.json();
+      const data = await apiRequest<any[]>('GET', '/hr/payroll-export');
 
       if (!data || data.length === 0) {
         showToastMsg("No payroll data to export", "warning");
