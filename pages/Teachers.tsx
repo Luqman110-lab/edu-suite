@@ -14,7 +14,7 @@ import { TeacherStats } from '../client/src/components/teachers/TeacherStats';
 import { TeacherFilters } from '../client/src/components/teachers/TeacherFilters';
 import { TeacherList } from '../client/src/components/teachers/TeacherList';
 import { TeacherProfile } from '../client/src/components/teachers/TeacherProfile';
-import { TeacherModal } from '../client/src/components/teachers/TeacherModal';
+import TeacherFormWizard from '../components/TeacherFormWizard';
 import { StaffRollCallModal } from '../client/src/components/teachers/StaffRollCallModal';
 
 const ROLES = ['Class Teacher', 'Subject Teacher', 'Headteacher', 'DOS'];
@@ -173,18 +173,11 @@ export const Teachers: React.FC = () => {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => { // e is passed but possibly unused in form logic if handled by wizard internally? No, wizard calls onSubmit(e)
-    // Actually TeacherFormWizard handles logic internally or calls this?
-    // In original code: <TeacherFormWizard ... onSubmit={handleSubmit} ... />
-    // And handleSubmit took e: React.FormEvent.
-    if (e) e.preventDefault();
-
-    if (!formData.name || (formData.roles || []).length === 0) {
+  const handleSubmit = async (teacherData: Teacher) => {
+    if (!teacherData.name || (teacherData.roles || []).length === 0) {
       showToastMsg('Name and at least one role are required.', 'error');
       return;
     }
-
-    const teacherData = formData as Teacher;
 
     try {
       if (editingId) {
@@ -508,13 +501,13 @@ export const Teachers: React.FC = () => {
       />
 
       {isModalOpen && (
-        <TeacherModal
+        <TeacherFormWizard
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           onSubmit={handleSubmit}
-          formData={formData}
-          setFormData={setFormData}
-          isEdit={!!editingId} // Use editingId to determine if edit mode
+          initialData={formData}
+          isEdit={!!editingId}
+          settings={settings}
           isDark={isDark}
         />
       )}
