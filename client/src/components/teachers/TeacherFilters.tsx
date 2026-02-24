@@ -21,6 +21,7 @@ interface TeacherFiltersProps {
 
     // Actions
     onDownloadTemplate: () => void;
+    onImport: () => void;
     onExport: () => void;
     onExportPayroll: () => void;
     onAddTeacher: () => void;
@@ -34,7 +35,9 @@ export const TeacherFilters: React.FC<TeacherFiltersProps> = ({
     showFilters, setShowFilters,
     selectedRole, setSelectedRole,
     selectedGender, setSelectedGender,
+    selectedClass, setSelectedClass,
     ROLES,
+    isDark,
     onDownloadTemplate,
     onImport,
     onExport,
