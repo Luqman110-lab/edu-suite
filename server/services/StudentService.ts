@@ -8,28 +8,32 @@ export class StudentService {
 
     async getStudents(schoolId: number, year?: number) {
         if (year) {
-            return await db.select({
-                id: students.id,
-                name: students.name,
-                indexNumber: students.indexNumber,
-                classLevel: studentYearSnapshots.classLevel,
-                stream: studentYearSnapshots.stream,
-                gender: students.gender,
-                dateOfBirth: students.dateOfBirth,
-                boardingStatus: studentYearSnapshots.boardingStatus,
-                parentName: students.parentName,
-                parentContact: students.parentContact,
-                photoBase64: students.photoBase64,
-                isActive: studentYearSnapshots.isActive,
-                schoolId: students.schoolId,
-            })
-                .from(studentYearSnapshots)
-                .innerJoin(students, eq(studentYearSnapshots.studentId, students.id))
-                .where(and(
-                    eq(studentYearSnapshots.schoolId, schoolId),
-                    eq(studentYearSnapshots.year, year)
-                ))
-                .orderBy(students.name);
+            const [school] = await db.select({ currentYear: schools.currentYear }).from(schools).where(eq(schools.id, schoolId));
+
+            if (school && school.currentYear !== year) {
+                return await db.select({
+                    id: students.id,
+                    name: students.name,
+                    indexNumber: students.indexNumber,
+                    classLevel: studentYearSnapshots.classLevel,
+                    stream: studentYearSnapshots.stream,
+                    gender: students.gender,
+                    dateOfBirth: students.dateOfBirth,
+                    boardingStatus: studentYearSnapshots.boardingStatus,
+                    parentName: students.parentName,
+                    parentContact: students.parentContact,
+                    photoBase64: students.photoBase64,
+                    isActive: studentYearSnapshots.isActive,
+                    schoolId: students.schoolId,
+                })
+                    .from(studentYearSnapshots)
+                    .innerJoin(students, eq(studentYearSnapshots.studentId, students.id))
+                    .where(and(
+                        eq(studentYearSnapshots.schoolId, schoolId),
+                        eq(studentYearSnapshots.year, year)
+                    ))
+                    .orderBy(students.name);
+            }
         }
 
         return await db.select().from(students)
