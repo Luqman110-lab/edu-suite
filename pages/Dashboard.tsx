@@ -38,31 +38,31 @@ import { AttendanceWidget } from '../components/dashboard/AttendanceWidget';
 
 // API Functions (Reused)
 const fetchDashboardStats = async () => {
-  const res = await fetch('/api/dashboard/stats');
+  const res = await fetch('/api/dashboard/stats', { credentials: 'include' });
   if (!res.ok) throw new Error('Failed to fetch stats');
   return res.json();
 };
 
 const fetchRevenueTrends = async () => {
-  const res = await fetch('/api/dashboard/revenue-trends');
+  const res = await fetch('/api/dashboard/revenue-trends', { credentials: 'include' });
   if (!res.ok) throw new Error('Failed to fetch trends');
   return res.json();
 };
 
 const fetchUpcomingEvents = async () => {
-  const res = await fetch('/api/dashboard/upcoming-events');
+  const res = await fetch('/api/dashboard/upcoming-events', { credentials: 'include' });
   if (!res.ok) throw new Error('Failed to fetch events');
   return res.json();
 };
 
 const fetchAcademicPerformance = async () => {
-  const res = await fetch('/api/dashboard/academic-performance');
+  const res = await fetch('/api/dashboard/academic-performance', { credentials: 'include' });
   if (!res.ok) throw new Error('Failed to fetch academics');
   return res.json();
 };
 
 const fetchDemographics = async () => {
-  const res = await fetch('/api/dashboard/demographics');
+  const res = await fetch('/api/dashboard/demographics', { credentials: 'include' });
   if (!res.ok) throw new Error('Failed to fetch demographics');
   return res.json();
 };
