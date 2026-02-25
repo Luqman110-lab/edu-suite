@@ -54,7 +54,7 @@ export const MarksEntry: React.FC = () => {
   const [messageType, setMessageType] = useState<'success' | 'error' | 'info'>('success');
   const [searchQuery, setSearchQuery] = useState('');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [autoSaveTimer, setAutoSaveTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [showStats, setShowStats] = useState(true);
@@ -109,6 +109,7 @@ export const MarksEntry: React.FC = () => {
   // Update students when class/stream/term changes
   useEffect(() => {
     if (!allStudents || !allMarks || !settings) return;
+    if (hasUnsavedChanges) return; // DON'T overwrite active local edits
 
     // Reset history and selection
     setHistory([]);
@@ -364,7 +365,7 @@ export const MarksEntry: React.FC = () => {
   };
 
   const handleSave = async () => {
-    if (autoSaveTimer) clearTimeout(autoSaveTimer);
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     const success = await performSave();
     if (success) showMessage('All marks saved successfully!', 'success');
     else showMessage('Error saving marks.', 'error');
@@ -556,13 +557,14 @@ export const MarksEntry: React.FC = () => {
   // Auto-save logic
   useEffect(() => {
     if (hasUnsavedChanges) {
-      if (autoSaveTimer) clearTimeout(autoSaveTimer);
-      const timer = setTimeout(() => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = setTimeout(() => {
         performSave();
       }, 3000);
-      setAutoSaveTimer(timer);
     }
-    return () => { if (autoSaveTimer) clearTimeout(autoSaveTimer); };
+    return () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    };
   }, [hasUnsavedChanges, marksData, comments]); // simplified deps
 
   const getRowStatus = (studentId: number) => {

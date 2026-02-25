@@ -95,7 +95,7 @@ export const useStudents = (academicYear?: string) => {
     });
 
     return {
-        students: studentsQuery.data || [],
+        students: studentsQuery.data,
         isLoading: studentsQuery.isLoading,
         isError: studentsQuery.isError,
         error: studentsQuery.error,

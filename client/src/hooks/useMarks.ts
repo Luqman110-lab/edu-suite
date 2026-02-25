@@ -41,7 +41,7 @@ export const useMarks = (year?: number) => {
     });
 
     return {
-        marks: marksQuery.data || [],
+        marks: marksQuery.data,
         isLoading: marksQuery.isLoading,
         isError: marksQuery.isError,
         error: marksQuery.error,
