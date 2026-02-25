@@ -3,7 +3,7 @@ import { Teacher, Student } from '../../../../types';
 import { Icons } from '../../lib/icons';
 import { Button } from '../../../../components/Button';
 import { TeacherAttendanceSummaryCard, TeacherPerformanceMetricsCard, TeacherQuickStatsCard } from '../../../../components/TeacherProfileCards';
-import { TeacherLeaveCard, TeacherDutyCard, TeacherContractCard, TeacherDocumentCard, TeacherTimetableCard } from './HRProfileCards';
+import { TeacherLeaveCard, TeacherDutyCard, TeacherContractCard, TeacherDocumentCard, TeacherTimetableCard, TeacherAppraisalCard, TeacherDisciplinaryCard } from './HRProfileCards';
 
 interface TeacherProfileProps {
     teacher: Teacher;

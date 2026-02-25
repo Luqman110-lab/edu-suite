@@ -41,7 +41,7 @@ export const TeacherAttendanceSummaryCard: React.FC<AttendanceSummaryCardProps> 
         const total = monthRecords.length || 1;
         const rate = Math.round((present / total) * 100);
 
-        return { present, late, absent, onLeave, total, rate };
+        return { present, late, absent, total, rate, halfDay };
     }, [attendance]);
 
     // Circular progress calculation
