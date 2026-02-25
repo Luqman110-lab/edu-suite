@@ -22,6 +22,7 @@ import { archiveRoutes } from "./routes/archive";         // absolute paths: /ar
 import { accountingRoutes } from "./routes/accounting";
 import { classesRoutes } from "./routes/classes";
 import hrRoutes from "./routes/hr";              // absolute paths: /leave, /duty-roster
+import p7Routes from "./routes/p7";
 
 export function registerRoutes(app: Express): Server {
     // Setup authentication routes (login, logout, session, etc.)
@@ -47,6 +48,7 @@ export function registerRoutes(app: Express): Server {
     app.use("/api/accounting", accountingRoutes);
     app.use("/api", classesRoutes);
     app.use("/api/hr", requireAuth, hrRoutes);
+    app.use("/api", requireAuth, p7Routes);
     // ─────────────────────────────────────────────────────────────────────────
 
 

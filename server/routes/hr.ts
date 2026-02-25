@@ -23,7 +23,7 @@ const router = Router();
 // Get all leave requests for a school
 router.get("/leave", async (req, res) => {
   try {
-    const schoolId = req.user?.schoolId;
+    const schoolId = req.user?.activeSchoolId;
     if (!schoolId) return res.status(401).json({ message: "Not authenticated" });
 
     // Optional teacherId filter
@@ -46,7 +46,7 @@ router.get("/leave", async (req, res) => {
 // Create a leave request
 router.post("/leave", async (req, res) => {
   try {
-    const schoolId = req.user?.schoolId;
+    const schoolId = req.user?.activeSchoolId;
     if (!schoolId) return res.status(401).json({ message: "Not authenticated" });
 
     const validatedData = insertStaffLeaveSchema.parse(req.body);
@@ -61,7 +61,7 @@ router.post("/leave", async (req, res) => {
 // Update leave status (Approve/Reject)
 router.patch("/leave/:id/status", async (req, res) => {
   try {
-    const schoolId = req.user?.schoolId;
+    const schoolId = req.user?.activeSchoolId;
     if (!schoolId) return res.status(401).json({ message: "Not authenticated" });
 
     // Only admins/headteachers should approve, assuming basic check here
@@ -88,7 +88,7 @@ router.patch("/leave/:id/status", async (req, res) => {
 // Get all duty rosters for a school
 router.get("/duty-roster", async (req, res) => {
   try {
-    const schoolId = req.user?.schoolId;
+    const schoolId = req.user?.activeSchoolId;
     if (!schoolId) return res.status(401).json({ message: "Not authenticated" });
 
     // Optional teacherId filter
@@ -111,7 +111,7 @@ router.get("/duty-roster", async (req, res) => {
 // Create a duty roster assignment
 router.post("/duty-roster", async (req, res) => {
   try {
-    const schoolId = req.user?.schoolId;
+    const schoolId = req.user?.activeSchoolId;
     if (!schoolId) return res.status(401).json({ message: "Not authenticated" });
 
     const validatedData = insertDutyRosterSchema.parse(req.body);
@@ -126,7 +126,7 @@ router.post("/duty-roster", async (req, res) => {
 // Delete a duty roster assignment
 router.delete("/duty-roster/:id", async (req, res) => {
   try {
-    const schoolId = req.user?.schoolId;
+    const schoolId = req.user?.activeSchoolId;
     if (!schoolId) return res.status(401).json({ message: "Not authenticated" });
 
     const rosterId = parseInt(req.params.id);
@@ -143,7 +143,7 @@ router.delete("/duty-roster/:id", async (req, res) => {
 
 router.get("/contracts", async (req, res) => {
   try {
-    const schoolId = req.user?.schoolId;
+    const schoolId = req.user?.activeSchoolId;
     if (!schoolId) return res.status(401).json({ message: "Not authenticated" });
 
     const teacherId = req.query.teacherId ? parseInt(req.query.teacherId as string) : undefined;
@@ -163,7 +163,7 @@ router.get("/contracts", async (req, res) => {
 
 router.post("/contracts", async (req, res) => {
   try {
-    const schoolId = req.user?.schoolId;
+    const schoolId = req.user?.activeSchoolId;
     if (!schoolId) return res.status(401).json({ message: "Not authenticated" });
 
     const validatedData = insertTeacherContractSchema.parse(req.body);
@@ -177,7 +177,7 @@ router.post("/contracts", async (req, res) => {
 
 router.patch("/contracts/:id/status", async (req, res) => {
   try {
-    const schoolId = req.user?.schoolId;
+    const schoolId = req.user?.activeSchoolId;
     if (!schoolId) return res.status(401).json({ message: "Not authenticated" });
 
     const contractId = parseInt(req.params.id);
@@ -199,7 +199,7 @@ router.patch("/contracts/:id/status", async (req, res) => {
 
 router.get("/documents", async (req, res) => {
   try {
-    const schoolId = req.user?.schoolId;
+    const schoolId = req.user?.activeSchoolId;
     if (!schoolId) return res.status(401).json({ message: "Not authenticated" });
 
     const teacherId = req.query.teacherId ? parseInt(req.query.teacherId as string) : undefined;
@@ -219,7 +219,7 @@ router.get("/documents", async (req, res) => {
 
 router.post("/documents", async (req, res) => {
   try {
-    const schoolId = req.user?.schoolId;
+    const schoolId = req.user?.activeSchoolId;
     if (!schoolId) return res.status(401).json({ message: "Not authenticated" });
 
     const validatedData = insertTeacherDocumentSchema.parse(req.body);
@@ -233,7 +233,7 @@ router.post("/documents", async (req, res) => {
 
 router.delete("/documents/:id", async (req, res) => {
   try {
-    const schoolId = req.user?.schoolId;
+    const schoolId = req.user?.activeSchoolId;
     if (!schoolId) return res.status(401).json({ message: "Not authenticated" });
 
     const docId = parseInt(req.params.id);
@@ -250,7 +250,7 @@ router.delete("/documents/:id", async (req, res) => {
 
 router.get("/attendance", async (req, res) => {
   try {
-    const schoolId = req.user?.schoolId;
+    const schoolId = req.user?.activeSchoolId;
     if (!schoolId) return res.status(401).json({ message: "Not authenticated" });
 
     const date = req.query.date as string;
@@ -266,7 +266,7 @@ router.get("/attendance", async (req, res) => {
 
 router.get("/attendance/teacher/:id", async (req, res) => {
   try {
-    const schoolId = req.user?.schoolId;
+    const schoolId = req.user?.activeSchoolId;
     if (!schoolId) return res.status(401).json({ message: "Not authenticated" });
 
     const teacherId = parseInt(req.params.id);
@@ -283,7 +283,7 @@ router.get("/attendance/teacher/:id", async (req, res) => {
 
 router.post("/attendance", async (req, res) => {
   try {
-    const schoolId = req.user?.schoolId;
+    const schoolId = req.user?.activeSchoolId;
     if (!schoolId) return res.status(401).json({ message: "Not authenticated" });
 
     // Validate body
@@ -307,7 +307,7 @@ router.post("/attendance", async (req, res) => {
 
 router.get("/appraisals/:teacherId", async (req, res) => {
   try {
-    const schoolId = req.user?.schoolId;
+    const schoolId = req.user?.activeSchoolId;
     if (!schoolId) return res.status(401).json({ message: "Not authenticated" });
 
     const teacherId = parseInt(req.params.teacherId);
@@ -321,7 +321,7 @@ router.get("/appraisals/:teacherId", async (req, res) => {
 
 router.post("/appraisals", async (req, res) => {
   try {
-    const schoolId = req.user?.schoolId;
+    const schoolId = req.user?.activeSchoolId;
     if (!schoolId) return res.status(401).json({ message: "Not authenticated" });
 
     const validatedData = insertTeacherAppraisalSchema.parse(req.body);
@@ -335,7 +335,7 @@ router.post("/appraisals", async (req, res) => {
 
 router.patch("/appraisals/:id", async (req, res) => {
   try {
-    const schoolId = req.user?.schoolId;
+    const schoolId = req.user?.activeSchoolId;
     if (!schoolId) return res.status(401).json({ message: "Not authenticated" });
 
     const appraisalId = parseInt(req.params.id);
@@ -351,7 +351,7 @@ router.patch("/appraisals/:id", async (req, res) => {
 
 router.get("/disciplinary/:teacherId", async (req, res) => {
   try {
-    const schoolId = req.user?.schoolId;
+    const schoolId = req.user?.activeSchoolId;
     if (!schoolId) return res.status(401).json({ message: "Not authenticated" });
 
     const teacherId = parseInt(req.params.teacherId);
@@ -365,7 +365,7 @@ router.get("/disciplinary/:teacherId", async (req, res) => {
 
 router.post("/disciplinary", async (req, res) => {
   try {
-    const schoolId = req.user?.schoolId;
+    const schoolId = req.user?.activeSchoolId;
     if (!schoolId) return res.status(401).json({ message: "Not authenticated" });
 
     const validatedData = insertTeacherDisciplinaryRecordSchema.parse(req.body);
@@ -379,7 +379,7 @@ router.post("/disciplinary", async (req, res) => {
 
 router.patch("/disciplinary/:id", async (req, res) => {
   try {
-    const schoolId = req.user?.schoolId;
+    const schoolId = req.user?.activeSchoolId;
     if (!schoolId) return res.status(401).json({ message: "Not authenticated" });
 
     const recordId = parseInt(req.params.id);
@@ -395,7 +395,7 @@ router.patch("/disciplinary/:id", async (req, res) => {
 
 router.get("/payroll-export", async (req, res) => {
   try {
-    const schoolId = req.user?.schoolId;
+    const schoolId = req.user?.activeSchoolId;
     if (!schoolId) return res.status(401).json({ message: "Not authenticated" });
 
     // Mock implementation for Payroll Export.

@@ -9,6 +9,7 @@ import { useSettings } from '../client/src/hooks/useSettings';
 import { useStreams } from '../client/src/hooks/useClassAssignments';
 import { FileText, Edit, BarChart, Download } from 'lucide-react';
 import { Toast } from '../client/src/components/Toast';
+import { apiRequest } from '../services/api';
 
 // Components
 import { P7ExamSetList } from '../client/src/components/p7/P7ExamSetList';
@@ -85,11 +86,8 @@ export const P7ExamSets: React.FC = () => {
   const loadExamSets = async () => {
     setApiLoading(true);
     try {
-      const response = await fetch('/api/p7-exam-sets');
-      if (response.ok) {
-        const sets = await response.json();
-        setExamSets(sets);
-      }
+      const sets = await apiRequest<P7ExamSet[]>('GET', '/p7-exam-sets');
+      setExamSets(sets);
     } catch (err) {
       console.error('Error loading exam sets:', err);
     } finally {
@@ -98,20 +96,21 @@ export const P7ExamSets: React.FC = () => {
   };
 
   const loadScoresForSet = async (setId: number) => {
+    setApiLoading(true);
     try {
-      const response = await fetch(`/api/p7-scores?examSetId=${setId}`);
-      if (response.ok) {
-        const scoresData = await response.json();
-        setScores(scoresData);
+      const scoresData = await apiRequest<P7Score[]>('GET', `/p7-scores?examSetId=${setId}`);
+      setScores(scoresData);
 
-        const marksMap: { [studentId: number]: SubjectMarks } = {};
-        scoresData.forEach((score: P7Score) => {
-          marksMap[score.studentId] = score.marks as SubjectMarks;
-        });
-        setMarksData(marksMap);
-      }
+      const newMarksData: { [key: number]: SubjectMarks } = {};
+      scoresData.forEach((s: P7Score) => {
+        newMarksData[s.studentId] = s.marks as SubjectMarks;
+      });
+      setMarksData(newMarksData);
+      setHasUnsavedChanges(false);
     } catch (err) {
       console.error('Error loading scores:', err);
+    } finally {
+      setApiLoading(false);
     }
   };
 
@@ -146,30 +145,22 @@ export const P7ExamSets: React.FC = () => {
   const createExamSet = async () => {
     const setNumber = getNextSetNumber();
     try {
-      const response = await fetch('/api/p7-exam-sets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          setNumber,
-          name: newSetName,
-          stream: selectedStream === 'All' ? null : selectedStream,
-          term: selectedTerm,
-          year: selectedYear,
-          examDate: newSetDate || null,
-          maxMarks: { english: 100, maths: 100, science: 100, sst: 100 },
-          isActive: true
-        })
+      await apiRequest('POST', '/p7-exam-sets', {
+        setNumber,
+        name: newSetName,
+        stream: selectedStream === 'All' ? null : selectedStream,
+        term: selectedTerm,
+        year: selectedYear,
+        examDate: newSetDate || null,
+        maxMarks: { english: 100, maths: 100, science: 100, sst: 100 },
+        isActive: true
       });
 
-      if (response.ok) {
-        showMessageFn('Exam set created successfully', 'success');
-        setNewSetName('');
-        setNewSetDate('');
-        setShowCreateModal(false);
-        await loadExamSets();
-      } else {
-        showMessageFn('Failed to create exam set', 'error');
-      }
+      showMessageFn('Exam set created successfully', 'success');
+      setNewSetName('');
+      setNewSetDate('');
+      setShowCreateModal(false);
+      await loadExamSets();
     } catch (err) {
       console.error('Error creating set:', err);
       showMessageFn('Failed to create exam set', 'error');
@@ -229,19 +220,11 @@ export const P7ExamSets: React.FC = () => {
         };
       });
 
-      const response = await fetch('/api/p7-scores/batch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scores: scoresToSave })
-      });
+      await apiRequest('POST', '/p7-scores/batch', { scores: scoresToSave });
 
-      if (response.ok) {
-        showMessageFn('Marks saved successfully', 'success');
-        setHasUnsavedChanges(false);
-        await loadScoresForSet(selectedSet.id!);
-      } else {
-        showMessageFn('Failed to save marks', 'error');
-      }
+      showMessageFn('Marks saved successfully', 'success');
+      setHasUnsavedChanges(false);
+      await loadScoresForSet(selectedSet.id!);
     } catch (err) {
       console.error('Error saving marks:', err);
       showMessageFn('Failed to save marks', 'error');

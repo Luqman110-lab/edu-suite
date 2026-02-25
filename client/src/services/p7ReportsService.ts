@@ -1,5 +1,6 @@
 import { Student, ClassLevel, SubjectMarks, SchoolSettings, P7ExamSet, P7Score, SUBJECTS_UPPER } from '../../../types';
 import { calculateGrade, calculateDivision } from '../../../services/grading';
+import { apiRequest } from '../../../services/api';
 
 declare const jspdf: any;
 
@@ -25,20 +26,17 @@ const getAllSetScoresForStudent = async (studentId: number, termSets: P7ExamSet[
 
     for (const set of termSets) {
         try {
-            const response = await fetch(`/api/p7-scores?examSetId=${set.id}`);
-            if (response.ok) {
-                const allScores = await response.json();
-                const score = allScores.find((s: P7Score) => s.studentId === studentId);
-                if (score) {
-                    results.push({
-                        setName: set.name,
-                        marks: score.marks,
-                        total: score.total,
-                        aggregate: score.aggregate,
-                        division: score.division,
-                        position: score.position
-                    });
-                }
+            const allScores = await apiRequest<P7Score[]>('GET', `/p7-scores?examSetId=${set.id}`);
+            const score = allScores.find(s => s.studentId === studentId);
+            if (score) {
+                results.push({
+                    setName: set.name,
+                    marks: score.marks as SubjectMarks,
+                    total: score.total,
+                    aggregate: score.aggregate,
+                    division: score.division,
+                    position: score.position
+                });
             }
         } catch (err) {
             console.error(`Error fetching scores for set ${set.id}:`, err);
