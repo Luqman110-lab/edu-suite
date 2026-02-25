@@ -87,6 +87,7 @@ export const MarksEntry: React.FC = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
+  const loadedContextRef = useRef<string>('');
 
   const subjects = ['N1', 'N2', 'N3', 'P1', 'P2', 'P3'].includes(selectedClass) ? SUBJECTS_LOWER : SUBJECTS_UPPER;
   const availableStreams = useMemo(() => {
@@ -109,7 +110,11 @@ export const MarksEntry: React.FC = () => {
   // Update students when class/stream/term changes
   useEffect(() => {
     if (!allStudents || !allMarks || !settings) return;
-    if (hasUnsavedChanges) return; // DON'T overwrite active local edits
+
+    const currentContext = `${selectedClass}-${selectedStream}-${selectedTerm}-${selectedType}`;
+    if (loadedContextRef.current === currentContext) {
+      return; // Ignore background API refetches; don't wipe active spreadsheet
+    }
 
     // Reset history and selection
     setHistory([]);
@@ -173,6 +178,8 @@ export const MarksEntry: React.FC = () => {
     };
     setHistory([initialState]);
     setHistoryIndex(0);
+
+    loadedContextRef.current = currentContext;
 
   }, [allStudents, allMarks, settings, selectedClass, selectedTerm, selectedType, selectedStream]);
 
