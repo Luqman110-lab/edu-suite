@@ -169,7 +169,7 @@ export class DashboardService {
             ));
 
         const eventsMapped = upcomingSchoolEvents.map(e => ({
-            title: e.title,
+            title: e.name,
             date: new Date(e.startDate).toISOString(),
             type: e.eventType,
             startTime: e.startTime || 'All Day',
