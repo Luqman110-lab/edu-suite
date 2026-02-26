@@ -6,6 +6,7 @@ interface AttendanceWidgetProps {
     absentCount: number;
     lateCount?: number;
     totalStudents: number;
+    title?: string;
     isDark?: boolean;
 }
 
@@ -14,6 +15,7 @@ export function AttendanceWidget({
     absentCount,
     lateCount = 0,
     totalStudents,
+    title = "Attendance",
     isDark = false
 }: AttendanceWidgetProps) {
 
@@ -25,7 +27,7 @@ export function AttendanceWidget({
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 h-full">
             <div className="flex items-center justify-between mb-6">
                 <div>
-                    <h3 className="font-bold text-gray-900 dark:text-white text-lg">Attendance</h3>
+                    <h3 className="font-bold text-gray-900 dark:text-white text-lg">{title}</h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400">Daily Overview</p>
                 </div>
                 <div className="p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">

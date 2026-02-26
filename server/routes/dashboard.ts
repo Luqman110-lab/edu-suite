@@ -69,3 +69,42 @@ dashboardRoutes.get("/upcoming-events", requireAuth, async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 });
+
+// GET /api/dashboard/division-distribution
+dashboardRoutes.get("/division-distribution", requireAuth, async (req, res) => {
+    try {
+        const schoolId = getActiveSchoolId(req);
+        if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+        const data = await dashboardService.getDivisionDistribution(schoolId);
+        res.json(data);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// GET /api/dashboard/class-performance
+dashboardRoutes.get("/class-performance", requireAuth, async (req, res) => {
+    try {
+        const schoolId = getActiveSchoolId(req);
+        if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+        const data = await dashboardService.getClassPerformance(schoolId);
+        res.json(data);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// GET /api/dashboard/alerts
+dashboardRoutes.get("/alerts", requireAuth, async (req, res) => {
+    try {
+        const schoolId = getActiveSchoolId(req);
+        if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+        const alerts = await dashboardService.getAlerts(schoolId);
+        res.json(alerts);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+});

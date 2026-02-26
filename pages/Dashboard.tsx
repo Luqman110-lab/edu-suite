@@ -35,6 +35,8 @@ import { format } from 'date-fns';
 import { AnalyticsCard } from '../components/dashboard/AnalyticsCard';
 import { UpcomingExamWidget } from '../components/dashboard/UpcomingExamWidget';
 import { AttendanceWidget } from '../components/dashboard/AttendanceWidget';
+import { AlertsPanel } from '../components/dashboard/AlertsPanel';
+import { AcademicSnapshot } from '../components/dashboard/AcademicSnapshot';
 
 // API Functions (Reused)
 const fetchDashboardStats = async () => {
@@ -74,6 +76,24 @@ const fetchRecentPayments = async () => {
   return result.data || [];
 };
 
+const fetchClassPerformance = async () => {
+  const res = await fetch('/api/dashboard/class-performance', { credentials: 'include' });
+  if (!res.ok) return [];
+  return res.json();
+};
+
+const fetchDivisionDistribution = async () => {
+  const res = await fetch('/api/dashboard/division-distribution', { credentials: 'include' });
+  if (!res.ok) return [];
+  return res.json();
+};
+
+const fetchAlerts = async () => {
+  const res = await fetch('/api/dashboard/alerts', { credentials: 'include' });
+  if (!res.ok) return [];
+  return res.json();
+};
+
 // --- Sub-components used locally ---
 
 const DashboardChart = ({ data, isDark }: { data: any[], isDark: boolean }) => {
@@ -83,8 +103,12 @@ const DashboardChart = ({ data, isDark }: { data: any[], isDark: boolean }) => {
         <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
           <defs>
             <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
-              <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+              <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+              <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+            </linearGradient>
+            <linearGradient id="colorExpenses" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
+              <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? '#374151' : '#f3f4f6'} />
@@ -108,7 +132,9 @@ const DashboardChart = ({ data, isDark }: { data: any[], isDark: boolean }) => {
               boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
             }}
           />
-          <Area type="monotone" dataKey="revenue" stroke="#8b5cf6" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" name="Revenue" />
+          <Legend verticalAlign="top" height={36} />
+          <Area type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" name="Revenue" />
+          <Area type="monotone" dataKey="expenses" stroke="#ef4444" strokeWidth={3} fillOpacity={1} fill="url(#colorExpenses)" name="Expenses" />
         </AreaChart>
       </ResponsiveContainer>
     </div>
@@ -135,28 +161,39 @@ export function Dashboard() {
   const { data: events } = useQuery({ queryKey: ['upcomingEvents', schoolId], queryFn: fetchUpcomingEvents, enabled: !!schoolId, staleTime: 0 });
   const { data: academicData } = useQuery({ queryKey: ['academicPerformance', schoolId], queryFn: fetchAcademicPerformance, enabled: !!schoolId, staleTime: 0 });
   const { data: recentPayments } = useQuery({ queryKey: ['recentPayments', schoolId], queryFn: fetchRecentPayments, enabled: !!schoolId, staleTime: 0 });
+  const { data: classPerformance } = useQuery({ queryKey: ['classPerformance', schoolId], queryFn: fetchClassPerformance, enabled: !!schoolId, staleTime: 0 });
+  const { data: divisionDistribution } = useQuery({ queryKey: ['divisionDist', schoolId], queryFn: fetchDivisionDistribution, enabled: !!schoolId, staleTime: 0 });
+  const { data: alerts } = useQuery({ queryKey: ['alerts', schoolId], queryFn: fetchAlerts, enabled: !!schoolId, staleTime: 0 });
 
-  // Mock data for sparkline charts in Analytics Cards
-  const mockSparkData1 = [{ value: 10 }, { value: 15 }, { value: 13 }, { value: 20 }, { value: 25 }, { value: 22 }, { value: 30 }];
-  const mockSparkData2 = [{ value: 30 }, { value: 25 }, { value: 28 }, { value: 22 }, { value: 20 }, { value: 15 }, { value: 10 }];
+  const { data: demographics } = useQuery({ queryKey: ['demographics', schoolId], queryFn: fetchDemographics, enabled: !!schoolId, staleTime: 0 });
 
-  // Mock exams data since we don't have a specific endpoint for just exams yet, leveraging events for now or placeholders
-  const mockExams = [
-    { id: 1, subject: 'Mathematics', date: format(new Date(new Date().setDate(new Date().getDate() + 2)), 'yyyy-MM-dd'), startTime: '09:00', endTime: '11:00', status: 'confirmed' },
-    { id: 2, subject: 'English', date: format(new Date(new Date().setDate(new Date().getDate() + 4)), 'yyyy-MM-dd'), startTime: '13:00', endTime: '15:00', status: 'confirmed' },
-    { id: 3, subject: 'Science', date: format(new Date(new Date().setDate(new Date().getDate() + 6)), 'yyyy-MM-dd'), startTime: '09:00', endTime: '11:30', status: 'pending' },
-  ] as any[];
+  const avgPerformance = academicData && academicData.length > 0
+    ? Math.round(academicData.reduce((sum: number, s: any) => sum + s.average, 0) / academicData.length)
+    : 0;
+
+  const upcomingEventsList = events ? events.map((event: any, idx: number) => ({
+    id: idx,
+    subject: event.title,
+    date: event.date ? format(new Date(event.date), 'yyyy-MM-dd') : '',
+    startTime: 'All Day',
+    endTime: '',
+    status: 'confirmed'
+  })) : [];
 
 
   return (
     <div className="space-y-6 animate-fade-in-up pb-8">
-      {/* breadcrumb-style header */}
+      {/* Context Header */}
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
-            <span>{user?.name}</span>
-            <span>/</span>
             <span className="font-semibold text-gray-900 dark:text-white">Overview</span>
+            <span>•</span>
+            <span>{activeSchool?.name || 'School'}</span>
+            <span>•</span>
+            <span className="text-violet-600 dark:text-violet-400 font-medium">
+              Term {activeSchool?.currentTerm || '1'}, {activeSchool?.currentYear || new Date().getFullYear()}
+            </span>
           </div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
             {greeting}, {user?.name?.split(' ')[0]}
@@ -164,7 +201,9 @@ export function Dashboard() {
         </div>
         <div className="hidden md:flex items-center gap-2 bg-white dark:bg-gray-800 px-3 py-2 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700/50">
           <CalendarCheck className="w-4 h-4 text-violet-500" />
-          <span className="text-sm font-medium text-gray-600 dark:text-gray-300">{format(new Date(), 'MMM dd, yyyy')}</span>
+          <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
+            {format(new Date(), 'EEEE, dd MMM yyyy')}
+          </span>
         </div>
       </div>
 
@@ -174,53 +213,70 @@ export function Dashboard() {
           title="Total Students"
           value={stats?.students?.total || 0}
           icon={Users}
-          trend={12}
           color="purple"
-          chartData={mockSparkData1}
           subtext="Enrolled this year"
         />
         <AnalyticsCard
           title="Revenue"
           value={`UGX ${(stats?.revenue?.total / 1000000 || 0).toFixed(1)}M`}
           icon={Banknote}
-          trend={8.5}
           color="success"
-          chartData={mockSparkData1}
           subtext="Total collected"
         />
         <AnalyticsCard
           title="Outstanding"
           value={`UGX ${(stats?.revenue?.outstanding / 1000000 || 0).toFixed(1)}M`}
           icon={TrendingUp}
-          trend={-2.4}
           color="warning"
-          chartData={mockSparkData2}
           subtext="Fees pending"
         />
         <AnalyticsCard
           title="Avg. Performance"
-          value="76%"
+          value={`${avgPerformance}%`}
           icon={Activity}
-          trend={5.2}
           color="info"
-          chartData={mockSparkData1}
           subtext="Class average"
         />
       </div>
 
-      {/* Middle Section: Attendance & Exams */}
+      {/* Actionable Alerts Panel */}
+      <div className="w-full">
+        <AlertsPanel alerts={alerts || []} />
+      </div>
+
+      {/* Pulse Section (Student & Teachers) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <AttendanceWidget
+          presentCount={stats?.students?.present || 0}
+          absentCount={stats?.students?.absent || 0}
+          lateCount={stats?.students?.late || 0}
+          totalStudents={stats?.students?.total || 1}
+          isDark={isDark}
+          title="Student Attendance"
+        />
+        <AttendanceWidget
+          presentCount={stats?.teachers?.present || 0}
+          absentCount={stats?.teachers?.absent || 0}
+          lateCount={stats?.teachers?.late || 0}
+          totalStudents={stats?.teachers?.total || 1}
+          isDark={isDark}
+          title="Teacher Attendance"
+        />
+      </div>
+
+      {/* Middle Section: Academic & Upcoming */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <AttendanceWidget
-            presentCount={stats?.students?.present || 0}
-            absentCount={(stats?.students?.total || 0) - (stats?.students?.present || 0)}
-            lateCount={Math.floor(Math.random() * 10)} // Mocking late count as it wasn't in original stats
-            totalStudents={stats?.students?.total || 1}
+          <AcademicSnapshot
+            divisionData={divisionDistribution || []}
+            classPerformance={classPerformance || []}
+            subjectAverages={academicData || []}
+            genderData={demographics?.gender || [{ name: 'M', value: 0 }, { name: 'F', value: 0 }]}
             isDark={isDark}
           />
         </div>
         <div className="lg:col-span-1">
-          <UpcomingExamWidget exams={mockExams} isDark={isDark} onViewAll={() => navigate('/app/planning')} />
+          <UpcomingExamWidget exams={upcomingEventsList} isDark={isDark} onViewAll={() => navigate('/app/planning')} />
         </div>
       </div>
 
@@ -246,14 +302,51 @@ export function Dashboard() {
               <h3 className="font-bold text-lg mb-1">Quick Actions</h3>
               <p className="text-indigo-100 text-sm mb-4">Manage your school efficiently</p>
               <div className="grid grid-cols-2 gap-3">
-                <button onClick={() => navigate('/app/students')} className="bg-white/10 hover:bg-white/20 backdrop-blur-md p-3 rounded-xl flex flex-col items-center gap-2 transition-all border border-white/10">
-                  <UserPlus className="w-5 h-5" />
-                  <span className="text-xs font-semibold">Add Student</span>
-                </button>
-                <button onClick={() => navigate('/app/finance/record-payment')} className="bg-white/10 hover:bg-white/20 backdrop-blur-md p-3 rounded-xl flex flex-col items-center gap-2 transition-all border border-white/10">
-                  <Banknote className="w-5 h-5" />
-                  <span className="text-xs font-semibold">Add Payment</span>
-                </button>
+                {/* Admin / Headteacher Actions */}
+                {(user?.role === 'admin' || user?.role === 'headteacher' || user?.isSuperAdmin) && (
+                  <>
+                    <button onClick={() => navigate('/app/students')} className="bg-white/10 hover:bg-white/20 backdrop-blur-md p-3 rounded-xl flex flex-col items-center gap-2 transition-all border border-white/10">
+                      <UserPlus className="w-5 h-5 text-indigo-300" />
+                      <span className="text-xs font-semibold text-center">Add Student</span>
+                    </button>
+                    <button onClick={() => navigate('/app/finance')} className="bg-white/10 hover:bg-white/20 backdrop-blur-md p-3 rounded-xl flex flex-col items-center gap-2 transition-all border border-white/10">
+                      <TrendingUp className="w-5 h-5 text-red-300" />
+                      <span className="text-xs font-semibold text-center">View Debtors</span>
+                    </button>
+                    <button onClick={() => navigate('/app/reports')} className="bg-white/10 hover:bg-white/20 backdrop-blur-md p-3 rounded-xl flex flex-col items-center gap-2 transition-all border border-white/10">
+                      <PieChartIcon className="w-5 h-5 text-blue-300" />
+                      <span className="text-xs font-semibold text-center">Reports</span>
+                    </button>
+                  </>
+                )}
+
+                {/* Bursar Actions */}
+                {user?.role === 'bursar' && (
+                  <>
+                    <button onClick={() => navigate('/app/finance/record-payment')} className="bg-white/10 hover:bg-white/20 backdrop-blur-md p-3 rounded-xl flex flex-col items-center gap-2 transition-all border border-white/10">
+                      <Banknote className="w-5 h-5 text-green-300" />
+                      <span className="text-xs font-semibold text-center">Record Payment</span>
+                    </button>
+                    <button onClick={() => navigate('/app/finance')} className="bg-white/10 hover:bg-white/20 backdrop-blur-md p-3 rounded-xl flex flex-col items-center gap-2 transition-all border border-white/10">
+                      <TrendingUp className="w-5 h-5 text-red-300" />
+                      <span className="text-xs font-semibold text-center">View Debtors</span>
+                    </button>
+                  </>
+                )}
+
+                {/* Teacher / DOS Actions */}
+                {(user?.role === 'teacher' || user?.role === 'dos') && (
+                  <>
+                    <button onClick={() => navigate('/app/academics')} className="bg-white/10 hover:bg-white/20 backdrop-blur-md p-3 rounded-xl flex flex-col items-center gap-2 transition-all border border-white/10">
+                      <Activity className="w-5 h-5 text-green-300" />
+                      <span className="text-xs font-semibold text-center">Enter Marks</span>
+                    </button>
+                    <button onClick={() => navigate('/app/students/attendance')} className="bg-white/10 hover:bg-white/20 backdrop-blur-md p-3 rounded-xl flex flex-col items-center gap-2 transition-all border border-white/10">
+                      <Users className="w-5 h-5 text-yellow-300" />
+                      <span className="text-xs font-semibold text-center">Attendance</span>
+                    </button>
+                  </>
+                )}
               </div>
             </div>
             {/* Decorative circles */}

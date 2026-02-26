@@ -2928,5 +2928,43 @@ export const selectTeacherAppraisalSchema = createSelectSchema(teacherAppraisals
 
 export const insertTeacherDisciplinaryRecordSchema = createInsertSchema(teacherDisciplinaryRecords);
 export const selectTeacherDisciplinaryRecordSchema = createSelectSchema(teacherDisciplinaryRecords);
+
+export const schoolEvents = pgTable("school_events", {
+  id: serial("id").primaryKey(),
+  schoolId: integer("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  eventType: text("event_type").notNull(), // 'exam', 'meeting', 'holiday', 'sports', 'parents_day', 'other'
+  startDate: text("start_date").notNull(),
+  endDate: text("end_date"),
+  startTime: text("start_time"),
+  endTime: text("end_time"),
+  targetAudience: text("target_audience").default("all"), // 'all', 'teachers', 'parents', 'specific_class'
+  targetClasses: json("target_classes").$type<string[]>().default([]),
+  location: text("location"),
+  createdBy: integer("created_by").references(() => users.id),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  schoolIdx: index("school_events_school_idx").on(table.schoolId),
+  dateIdx: index("school_events_date_idx").on(table.startDate),
+}));
+
+export const schoolEventsRelations = relations(schoolEvents, ({ one }) => ({
+  school: one(schools, {
+    fields: [schoolEvents.schoolId],
+    references: [schools.id],
+  }),
+  creator: one(users, {
+    fields: [schoolEvents.createdBy],
+    references: [users.id],
+  }),
+}));
+
+export const insertSchoolEventSchema = createInsertSchema(schoolEvents);
+export const selectSchoolEventSchema = createSelectSchema(schoolEvents);
+export type SchoolEvent = typeof schoolEvents.$inferSelect;
+export type InsertSchoolEvent = typeof schoolEvents.$inferInsert;
+
 export type StaffAttendance = typeof staffAttendance.$inferSelect;
 export type InsertStaffAttendance = typeof staffAttendance.$inferInsert;
