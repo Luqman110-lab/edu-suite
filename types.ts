@@ -290,6 +290,8 @@ export interface FeePayment {
   receivedBy?: string;
   status?: 'pending' | 'partial' | 'paid';
   notes?: string;
+  isVoided?: boolean;
+  voidReason?: string;
   createdAt?: string;
   updatedAt?: string;
 }

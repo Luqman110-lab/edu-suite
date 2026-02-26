@@ -4,7 +4,9 @@ import { useToast } from '@/hooks/use-toast';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useFinance } from '../FinancialHub';
 import { Button } from '../../components/Button';
-import { Download, Copy, Users } from 'lucide-react';
+import { Download, Copy, Users, ChevronLeft, ChevronRight } from 'lucide-react';
+
+import { useState } from 'react';
 
 interface Debtor {
     id: number;
@@ -43,10 +45,13 @@ export default function DebtorsTab() {
     const textSecondary = isDark ? 'text-gray-400' : 'text-gray-500';
     const borderColor = isDark ? 'border-gray-700' : 'border-gray-200';
 
-    const { data, isLoading } = useQuery<{ debtors: Debtor[]; summary: DebtorSummary }>({
-        queryKey: ['/api/finance/debtors', term, year],
+    const [page, setPage] = useState(1);
+    const limit = 50;
+
+    const { data, isLoading } = useQuery<{ debtors: Debtor[]; summary: DebtorSummary; total: number }>({
+        queryKey: ['/api/finance/debtors', term, year, page],
         queryFn: async () => {
-            const res = await fetch(`/api/finance/debtors?term=${term}&year=${year}`, { credentials: 'include' });
+            const res = await fetch(`/api/finance/debtors?term=${term}&year=${year}&limit=${limit}&offset=${(page - 1) * limit}`, { credentials: 'include' });
             if (!res.ok) throw new Error('Failed to fetch debtors');
             return res.json();
         },
@@ -54,6 +59,8 @@ export default function DebtorsTab() {
 
     const debtors = data?.debtors || [];
     const summary = data?.summary;
+    const totalDebtorsCount = data?.total || 0;
+    const totalPages = Math.ceil(totalDebtorsCount / limit);
 
     const exportToCSV = () => {
         if (debtors.length === 0) {

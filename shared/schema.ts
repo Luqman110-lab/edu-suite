@@ -701,6 +701,8 @@ export const feePayments = pgTable("fee_payments", {
   receivedBy: text("received_by"),
   status: text("status").default("pending"),
   notes: text("notes"),
+  isVoided: boolean("is_voided").default(false),
+  voidReason: text("void_reason"),
   isDeleted: boolean("is_deleted").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -866,6 +868,7 @@ export const financeTransactions = pgTable("finance_transactions", {
   term: integer("term").notNull(),
   year: integer("year").notNull(),
   transactionDate: text("transaction_date").notNull(),
+  isVoided: boolean("is_voided").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => ({
   schoolIdx: index("finance_transactions_school_idx").on(table.schoolId),

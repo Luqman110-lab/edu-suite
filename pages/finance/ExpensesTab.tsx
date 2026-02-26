@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useFinance } from '../FinancialHub';
 import { Button } from '../../components/Button';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface Expense {
     id: number;
@@ -73,15 +74,21 @@ export default function ExpensesTab() {
     });
     const [categoryForm, setCategoryForm] = useState({ name: '', description: '', color: '#6B7280' });
 
-    const { data: expenses = [], isLoading: expensesLoading } = useQuery<Expense[]>({
-        queryKey: ['/api/expenses', term, year],
+    const [page, setPage] = useState(1);
+    const limit = 50;
+
+    const { data: expensesData, isLoading: expensesLoading } = useQuery<{ data: Expense[]; total: number }>({
+        queryKey: ['/api/expenses', term, year, page],
         queryFn: async () => {
-            const res = await fetch(`/api/expenses?term=${term}&year=${year}&limit=200`, { credentials: 'include' });
+            const res = await fetch(`/api/expenses?term=${term}&year=${year}&limit=${limit}&offset=${(page - 1) * limit}`, { credentials: 'include' });
             if (!res.ok) throw new Error('Failed to fetch');
-            const result = await res.json();
-            return result.data || [];
+            return res.json();
         },
     });
+
+    const expenses = expensesData?.data || [];
+    const totalExpenses = expensesData?.total || 0;
+    const totalPages = Math.ceil(totalExpenses / limit);
 
     const { data: categories = [] } = useQuery<ExpenseCategory[]>({
         queryKey: ['/api/expense-categories'],
@@ -288,6 +295,31 @@ export default function ExpensesTab() {
                 </table>
                 {filtered.length === 0 && (
                     <p className={`px-6 py-8 text-center ${textSecondary}`}>No expenses recorded</p>
+                )}
+                {totalPages > 1 && (
+                    <div className={`p-4 border-t ${borderColor} flex items-center justify-between`}>
+                        <p className={`text-sm ${textSecondary}`}>
+                            Showing <span className="font-medium text-gray-900 dark:text-white">{((page - 1) * limit) + 1}</span> to <span className="font-medium text-gray-900 dark:text-white">{Math.min(page * limit, totalExpenses)}</span> of <span className="font-medium text-gray-900 dark:text-white">{totalExpenses}</span> results
+                        </p>
+                        <div className="flex gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                disabled={page === 1}
+                            >
+                                <ChevronLeft className="w-4 h-4" />
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                disabled={page === totalPages}
+                            >
+                                <ChevronRight className="w-4 h-4" />
+                            </Button>
+                        </div>
+                    </div>
                 )}
             </div>
 

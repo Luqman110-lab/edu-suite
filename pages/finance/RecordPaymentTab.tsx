@@ -7,8 +7,10 @@ import { useFinance } from '../FinancialHub';
 import { StudentFilter, FilterState } from '@/components/StudentFilter';
 import { Button } from '../../components/Button';
 import { Card, Input, Spinner } from '../../components/UIComponents';
-import { ArrowLeft, ChevronDown, CheckCircle } from 'lucide-react';
+import { ArrowLeft, ChevronDown, CheckCircle, Printer } from 'lucide-react';
 import { FEE_TYPES } from '@/lib/constants';
+
+declare const jspdf: any;
 
 interface Student {
     id: number;
@@ -152,6 +154,41 @@ export default function RecordPaymentTab() {
                     )}
                 </div>
                 <div className="flex gap-3 justify-center">
+                    <Button variant="outline" onClick={() => {
+                        try {
+                            const { jsPDF } = jspdf;
+                            const doc = new jsPDF({ format: 'a5' });
+
+                            doc.setFontSize(18);
+                            doc.setFont('helvetica', 'bold');
+                            doc.text('PAYMENT RECEIPT', doc.internal.pageSize.getWidth() / 2, 25, { align: 'center' });
+
+                            doc.setFontSize(10);
+                            doc.setFont('helvetica', 'normal');
+                            doc.text(`Date: ${new Date().toLocaleDateString('en-UG')}`, 14, 40);
+                            if (lastReceipt.receiptNumber) {
+                                doc.text(`Receipt #: ${lastReceipt.receiptNumber}`, 14, 47);
+                            }
+
+                            doc.setFontSize(12);
+                            doc.text(`Student:      ${lastReceipt.studentName}`, 14, 60);
+                            doc.text(`Fee Type:     ${lastReceipt.feeType}`, 14, 68);
+
+                            doc.setFont('helvetica', 'bold');
+                            doc.setFontSize(14);
+                            doc.text(`Amount Paid: UGX ${lastReceipt.amount.toLocaleString()}`, 14, 85);
+
+                            doc.setFontSize(10);
+                            doc.setFont('helvetica', 'italic');
+                            doc.text('Thank you for your payment!', doc.internal.pageSize.getWidth() / 2, 110, { align: 'center' });
+
+                            doc.save(`Receipt_${lastReceipt.receiptNumber || 'Payment'}.pdf`);
+                        } catch {
+                            toast({ title: 'Error', description: 'Failed to generate receipt PDF. Ensure jspdf is loaded.', variant: 'destructive' });
+                        }
+                    }}>
+                        <Printer className="w-4 h-4 mr-2" /> Print Receipt
+                    </Button>
                     <Button variant="outline" onClick={() => { setLastReceipt(null); setSelectedStudent(null); }}>
                         New Payment
                     </Button>

@@ -5,7 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useFinance } from '../FinancialHub';
 import { Button } from '../../components/Button';
-import { FileText, Copy, Download } from 'lucide-react';
+import { FileText, Copy, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 
 declare const jspdf: any;
 
@@ -46,6 +46,9 @@ export default function InvoicesTab() {
     const borderColor = isDark ? 'border-gray-700' : 'border-gray-200';
 
     const [showGenerateModal, setShowGenerateModal] = useState(false);
+    const [page, setPage] = useState(1);
+    const limit = 50;
+
     const [generateConfig, setGenerateConfig] = useState({
         term,
         year,
@@ -53,14 +56,18 @@ export default function InvoicesTab() {
         classLevel: '',
     });
 
-    const { data: invoices, isLoading } = useQuery<Invoice[]>({
-        queryKey: ['/api/invoices', term, year],
+    const { data: invoicesData, isLoading } = useQuery<{ data: Invoice[]; total: number }>({
+        queryKey: ['/api/invoices', term, year, page],
         queryFn: async () => {
-            const res = await fetch(`/api/invoices?term=${term}&year=${year}&limit=100`, { credentials: 'include' });
+            const res = await fetch(`/api/invoices?term=${term}&year=${year}&limit=${limit}&offset=${(page - 1) * limit}`, { credentials: 'include' });
             if (!res.ok) throw new Error('Failed to fetch invoices');
             return res.json();
         },
     });
+
+    const invoices = invoicesData?.data || [];
+    const totalInvoices = invoicesData?.total || 0;
+    const totalPages = Math.ceil(totalInvoices / limit);
 
     const generateMutation = useMutation({
         mutationFn: async (config: typeof generateConfig) => {
@@ -242,6 +249,31 @@ export default function InvoicesTab() {
                             </tbody>
                         </table>
                     </div>
+                    {totalPages > 1 && (
+                        <div className={`p-4 border-t ${borderColor} flex items-center justify-between`}>
+                            <p className={`text-sm ${textSecondary}`}>
+                                Showing <span className="font-medium text-gray-900 dark:text-white">{((page - 1) * limit) + 1}</span> to <span className="font-medium text-gray-900 dark:text-white">{Math.min(page * limit, totalInvoices)}</span> of <span className="font-medium text-gray-900 dark:text-white">{totalInvoices}</span> results
+                            </p>
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                                    disabled={page === 1}
+                                >
+                                    <ChevronLeft className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={page === totalPages}
+                                >
+                                    <ChevronRight className="w-4 h-4" />
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 

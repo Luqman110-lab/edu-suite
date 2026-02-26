@@ -116,6 +116,60 @@ export class FeeService {
         return result;
     }
 
+    async voidFeePayment(paymentId: number, schoolId: number, userId: number, reason: string) {
+        return await db.transaction(async (tx) => {
+            const payment = await tx.query.feePayments.findFirst({
+                where: and(eq(feePayments.id, paymentId), eq(feePayments.schoolId, schoolId))
+            });
+
+            if (!payment) throw new Error("Payment not found");
+            if (payment.isVoided) throw new Error("Payment is already voided");
+
+            // Mark the payment as voided
+            await tx.update(feePayments).set({
+                isVoided: true,
+                voidReason: reason,
+                updatedAt: new Date()
+            }).where(eq(feePayments.id, paymentId));
+
+            // Find and mark the associated finance transaction as voided
+            const [transaction] = await tx.select().from(financeTransactions).where(and(
+                eq(financeTransactions.schoolId, schoolId),
+                eq(financeTransactions.studentId, payment.studentId),
+                eq(financeTransactions.transactionType, 'credit'),
+                eq(financeTransactions.amount, payment.amountPaid),
+                sql`${financeTransactions.description} LIKE ${'%' + payment.receiptNumber + '%'}`
+            )).limit(1);
+
+            if (transaction && !transaction.isVoided) {
+                await tx.update(financeTransactions).set({
+                    isVoided: true
+                }).where(eq(financeTransactions.id, transaction.id));
+            }
+
+            // Restore the invoice balance
+            const invoice = await tx.query.invoices.findFirst({
+                where: and(
+                    eq(invoices.schoolId, schoolId),
+                    eq(invoices.studentId, payment.studentId),
+                    eq(invoices.term, payment.term),
+                    eq(invoices.year, payment.year)
+                )
+            });
+
+            if (invoice) {
+                await tx.update(invoices).set({
+                    amountPaid: sql`${invoices.amountPaid} - ${payment.amountPaid}`,
+                    balance: sql`${invoices.balance} + ${payment.amountPaid}`,
+                    status: sql`CASE WHEN (${invoices.amountPaid} - ${payment.amountPaid}) <= 0 THEN 'unpaid' WHEN (${invoices.amountPaid} - ${payment.amountPaid}) >= ${invoices.totalAmount} THEN 'paid' ELSE 'partial' END`,
+                    updatedAt: new Date()
+                }).where(eq(invoices.id, invoice.id));
+            }
+
+            return true;
+        });
+    }
+
     // Financial Summary
     async getFinancialSummary(schoolId: number) {
         const finStats = await db.select({
@@ -159,14 +213,21 @@ export class FeeService {
         if (filters.year) conditions.push(eq(invoices.year, filters.year));
         if (filters.status) conditions.push(eq(invoices.status, filters.status));
 
-        const results = await db.select({
+        const baseQuery = db.select({
             invoice: invoices, studentName: students.name,
             studentClass: students.classLevel, studentStream: students.stream,
         }).from(invoices).leftJoin(students, eq(invoices.studentId, students.id))
-            .where(and(...conditions)).orderBy(desc(invoices.createdAt))
+            .where(and(...conditions));
+
+        const totalResult = await db.select({ count: sql<number>`count(*)` }).from(invoices).where(and(...conditions));
+
+        const results = await baseQuery.orderBy(desc(invoices.createdAt))
             .limit(limit).offset(offset);
 
-        return results.map(r => ({ ...r.invoice, studentName: r.studentName, studentClass: r.studentClass, studentStream: r.studentStream }));
+        return {
+            data: results.map(r => ({ ...r.invoice, studentName: r.studentName, studentClass: r.studentClass, studentStream: r.studentStream })),
+            total: Number(totalResult[0]?.count || 0)
+        };
     }
 
     async getInvoiceById(id: number, schoolId: number) {

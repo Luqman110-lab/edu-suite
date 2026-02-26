@@ -126,6 +126,29 @@ feesRoutes.post("/fee-payments", requireAdmin, async (req, res) => {
     }
 });
 
+// POST /api/fee-payments/:id/void
+feesRoutes.post("/fee-payments/:id/void", requireAdmin, async (req, res) => {
+    try {
+        const schoolId = getActiveSchoolId(req);
+        if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+        const paymentId = parseInt(param(req, 'id'));
+        if (isNaN(paymentId)) return res.status(400).json({ message: "Invalid payment ID" });
+
+        const { reason } = req.body;
+        if (!reason) return res.status(400).json({ message: "Void reason is required" });
+
+        await feeService.voidFeePayment(paymentId, schoolId, req.user!.id, reason);
+        res.json({ message: "Payment voided successfully", success: true });
+    } catch (error: any) {
+        console.error("Void fee payment error:", error);
+        if (error.message === "Payment not found" || error.message === "Payment is already voided") {
+            return res.status(400).json({ message: error.message });
+        }
+        res.status(500).json({ message: "Failed to void fee payment" });
+    }
+});
+
 // GET /api/financial-summary
 feesRoutes.get("/financial-summary", requireAuth, async (req, res) => {
     try {
