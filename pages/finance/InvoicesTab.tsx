@@ -5,7 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useFinance } from '../FinancialHub';
 import { Button } from '../../components/Button';
-import { FileText, MessageSquare, Download } from 'lucide-react';
+import { FileText, Copy, Download } from 'lucide-react';
 
 declare const jspdf: any;
 
@@ -153,13 +153,10 @@ export default function InvoicesTab() {
         }
     };
 
-    const sendReminder = async (invoiceId: number) => {
-        try {
-            await apiRequest('POST', `/api/invoices/${invoiceId}/remind`, { type: 'sms' });
-            toast({ title: 'Reminder Sent', description: 'SMS reminder has been queued.' });
-        } catch {
-            toast({ title: 'Failed to send reminder', variant: 'destructive' });
-        }
+    const copyReminder = (inv: Invoice) => {
+        const message = `Dear Parent/Guardian, this is a reminder that ${inv.studentName} has an outstanding fee balance of ${formatCurrency(inv.balance)} for Invoice #${inv.invoiceNumber}. Please arrange payment. Thank you.`;
+        navigator.clipboard.writeText(message);
+        toast({ title: 'Copied', description: 'Reminder message copied to clipboard for WhatsApp/SMS.' });
     };
 
     if (isLoading) {
@@ -232,11 +229,11 @@ export default function InvoicesTab() {
                                                     <Download className="w-4 h-4" />
                                                 </button>
                                                 <button
-                                                    onClick={() => sendReminder(inv.id)}
-                                                    className="text-green-500 hover:text-green-700"
-                                                    title="Send SMS Reminder"
+                                                    onClick={() => copyReminder(inv)}
+                                                    className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                                    title="Copy Reminder Message"
                                                 >
-                                                    <MessageSquare className="w-4 h-4" />
+                                                    <Copy className="w-4 h-4" />
                                                 </button>
                                             </div>
                                         </td>

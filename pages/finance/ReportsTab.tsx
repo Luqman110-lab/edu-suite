@@ -65,7 +65,7 @@ export default function ReportsTab() {
     const classLevels = ['All', 'N1', 'N2', 'N3', 'P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7'];
 
     const { data: summary } = useQuery<FinancialSummary>({
-        queryKey: ['/api/financial-summary-reports'],
+        queryKey: ['/api/financial-summary', term, year],
         queryFn: async () => {
             const res = await fetch('/api/financial-summary', { credentials: 'include' });
             if (!res.ok) throw new Error('Failed');
@@ -74,7 +74,7 @@ export default function ReportsTab() {
     });
 
     const { data: payments = [] } = useQuery<FeePayment[]>({
-        queryKey: ['/api/fee-payments-reports'],
+        queryKey: ['/api/fee-payments', term, year],
         queryFn: async () => {
             const res = await fetch('/api/fee-payments?limit=500', { credentials: 'include' });
             if (!res.ok) throw new Error('Failed');
@@ -84,7 +84,7 @@ export default function ReportsTab() {
     });
 
     const { data: expenses = [] } = useQuery<Expense[]>({
-        queryKey: ['/api/expenses-reports'],
+        queryKey: ['/api/expenses', term, year],
         queryFn: async () => {
             const res = await fetch('/api/expenses?limit=500', { credentials: 'include' });
             if (!res.ok) throw new Error('Failed');
@@ -94,7 +94,7 @@ export default function ReportsTab() {
     });
 
     const { data: categories = [] } = useQuery<ExpenseCategory[]>({
-        queryKey: ['/api/expense-categories-reports'],
+        queryKey: ['/api/expense-categories'],
         queryFn: async () => {
             const res = await fetch('/api/expense-categories', { credentials: 'include' });
             if (!res.ok) throw new Error('Failed');

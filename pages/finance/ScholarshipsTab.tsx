@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useFinance } from '../FinancialHub';
 import { Button } from '../../components/Button';
 import { FEE_TYPES } from '@/lib/constants';
 
@@ -38,6 +39,7 @@ interface Student {
 
 export default function ScholarshipsTab() {
     const { theme } = useTheme();
+    const { term, year } = useFinance();
     const { toast } = useToast();
     const queryClient = useQueryClient();
 
@@ -65,8 +67,8 @@ export default function ScholarshipsTab() {
     });
 
     const { data: studentScholarships = [] } = useQuery<StudentScholarship[]>({
-        queryKey: ['/api/student-scholarships'],
-        queryFn: async () => { const r = await fetch('/api/student-scholarships', { credentials: 'include' }); return r.json(); },
+        queryKey: ['/api/student-scholarships', term, year],
+        queryFn: async () => { const r = await fetch(`/api/student-scholarships?term=${term}&year=${year}`, { credentials: 'include' }); return r.json(); },
     });
 
     const { data: students = [] } = useQuery<Student[]>({
@@ -177,10 +179,9 @@ export default function ScholarshipsTab() {
                                         <h3 className={`text-lg font-semibold ${textPrimary}`}>{s.name}</h3>
                                         <p className={`text-sm ${textSecondary}`}>{s.description || 'No description'}</p>
                                     </div>
-                                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                                        s.discountType === 'percentage' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${s.discountType === 'percentage' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
                                             : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                                    }`}>{formatDiscount(s)}</span>
+                                        }`}>{formatDiscount(s)}</span>
                                 </div>
                             </div>
                             <div className="p-6 space-y-4">
@@ -261,9 +262,8 @@ export default function ScholarshipsTab() {
                                 <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Applies to Fee Types</label>
                                 <div className="flex flex-wrap gap-2">
                                     {FEE_TYPES.map(type => (
-                                        <button key={type} type="button" onClick={() => toggleFeeType(type)} className={`px-3 py-1 rounded-full text-sm ${
-                                            form.feeTypes.includes(type) ? 'bg-blue-600 text-white' : isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'
-                                        }`}>{type}</button>
+                                        <button key={type} type="button" onClick={() => toggleFeeType(type)} className={`px-3 py-1 rounded-full text-sm ${form.feeTypes.includes(type) ? 'bg-blue-600 text-white' : isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'
+                                            }`}>{type}</button>
                                     ))}
                                 </div>
                                 <p className={`text-xs mt-1 ${textSecondary}`}>Leave empty to apply to all fees</p>

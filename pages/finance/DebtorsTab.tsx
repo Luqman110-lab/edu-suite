@@ -4,7 +4,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useFinance } from '../FinancialHub';
 import { Button } from '../../components/Button';
-import { Download, MessageSquare, Users } from 'lucide-react';
+import { Download, Copy, Users } from 'lucide-react';
 
 interface Debtor {
     id: number;
@@ -44,7 +44,7 @@ export default function DebtorsTab() {
     const borderColor = isDark ? 'border-gray-700' : 'border-gray-200';
 
     const { data, isLoading } = useQuery<{ debtors: Debtor[]; summary: DebtorSummary }>({
-        queryKey: ['/api/finance/debtors-tab', term, year],
+        queryKey: ['/api/finance/debtors', term, year],
         queryFn: async () => {
             const res = await fetch(`/api/finance/debtors?term=${term}&year=${year}`, { credentials: 'include' });
             if (!res.ok) throw new Error('Failed to fetch debtors');
@@ -95,13 +95,10 @@ export default function DebtorsTab() {
         toast({ title: 'Success', description: `Exported ${debtors.length} debtors to CSV` });
     };
 
-    const sendReminder = async (invoiceId: number) => {
-        try {
-            await apiRequest('POST', `/api/invoices/${invoiceId}/remind`, { type: 'sms' });
-            toast({ title: 'Reminder Sent', description: 'SMS reminder has been queued.' });
-        } catch {
-            toast({ title: 'Failed to send reminder', variant: 'destructive' });
-        }
+    const copyReminder = (d: Debtor) => {
+        const message = `Dear Parent/Guardian, this is a reminder that ${d.studentName} has an outstanding fee balance of ${formatCurrency(d.balance)}. Please arrange payment. Thank you.`;
+        navigator.clipboard.writeText(message);
+        toast({ title: 'Copied', description: 'Reminder message copied to clipboard for WhatsApp/SMS.' });
     };
 
     if (isLoading) {
@@ -171,23 +168,22 @@ export default function DebtorsTab() {
                                         <td className="px-4 py-3 text-sm text-right font-bold text-red-600">{formatCurrency(d.balance)}</td>
                                         <td className={`px-4 py-3 text-sm text-center ${textPrimary}`}>{d.daysOverdue}</td>
                                         <td className="px-4 py-3 text-center">
-                                            <span className={`px-2 py-1 text-xs rounded-full font-medium ${
-                                                d.agingCategory === 'current' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                                                    : d.agingCategory === '1-30' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                            <span className={`px-2 py-1 text-xs rounded-full font-medium ${d.agingCategory === 'current' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                                : d.agingCategory === '1-30' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
                                                     : d.agingCategory === '31-60' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
-                                                    : d.agingCategory === '61-90' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
-                                                    : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                                            }`}>
+                                                        : d.agingCategory === '61-90' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+                                                            : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                                }`}>
                                                 {d.agingCategory === 'current' ? 'Current' : `${d.agingCategory} days`}
                                             </span>
                                         </td>
                                         <td className="px-4 py-3 text-center">
                                             <button
-                                                onClick={() => sendReminder(d.id)}
-                                                className="text-green-500 hover:text-green-700"
-                                                title="Send SMS Reminder"
+                                                onClick={() => copyReminder(d)}
+                                                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                                title="Copy Reminder Message"
                                             >
-                                                <MessageSquare className="w-4 h-4" />
+                                                <Copy className="w-4 h-4" />
                                             </button>
                                         </td>
                                     </tr>

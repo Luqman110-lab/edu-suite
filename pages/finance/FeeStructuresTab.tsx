@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
@@ -45,6 +45,10 @@ export default function FeeStructuresTab() {
         boardingStatus: '',
         description: '',
     });
+
+    useEffect(() => {
+        setFilterYear(year);
+    }, [year]);
 
     const { data: allStudents = [] } = useQuery<{ classLevel: string; boardingStatus?: string }[]>({
         queryKey: ['students-for-fee-counts'],

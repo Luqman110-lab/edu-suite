@@ -42,7 +42,7 @@ const DEFAULT_CATEGORIES = [
 
 export default function ExpensesTab() {
     const { theme } = useTheme();
-    const { formatCurrency } = useFinance();
+    const { term, year, formatCurrency } = useFinance();
     const { toast } = useToast();
     const queryClient = useQueryClient();
 
@@ -74,9 +74,9 @@ export default function ExpensesTab() {
     const [categoryForm, setCategoryForm] = useState({ name: '', description: '', color: '#6B7280' });
 
     const { data: expenses = [], isLoading: expensesLoading } = useQuery<Expense[]>({
-        queryKey: ['/api/expenses-list'],
+        queryKey: ['/api/expenses', term, year],
         queryFn: async () => {
-            const res = await fetch('/api/expenses?limit=200', { credentials: 'include' });
+            const res = await fetch(`/api/expenses?term=${term}&year=${year}&limit=200`, { credentials: 'include' });
             if (!res.ok) throw new Error('Failed to fetch');
             const result = await res.json();
             return result.data || [];
@@ -100,7 +100,7 @@ export default function ExpensesTab() {
             return res.json();
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['/api/expenses-list'] });
+            queryClient.invalidateQueries({ queryKey: ['/api/expenses'] });
             queryClient.invalidateQueries({ queryKey: ['/api/finance/hub-stats'] });
             closeModal();
             toast({ title: 'Success', description: editingId ? 'Expense updated' : 'Expense recorded' });
@@ -113,7 +113,7 @@ export default function ExpensesTab() {
             await apiRequest('DELETE', `/api/expenses/${id}`);
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['/api/expenses-list'] });
+            queryClient.invalidateQueries({ queryKey: ['/api/expenses'] });
             queryClient.invalidateQueries({ queryKey: ['/api/finance/hub-stats'] });
         },
         onError: () => toast({ title: 'Error', description: 'Failed to delete expense', variant: 'destructive' }),
