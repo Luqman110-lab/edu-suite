@@ -4,6 +4,7 @@ import { Icons } from '../../lib/icons';
 import { Button } from '../../../../components/Button';
 import { format } from 'date-fns';
 import { StaffLeave, DutyRoster, Teacher } from '../../../../types';
+import { AddContractModal, UploadDocumentModal, AddAppraisalModal, FileReportModal, RequestLeaveModal } from './HRModals';
 
 interface HRCardProps {
     teacherId: number;
@@ -12,6 +13,7 @@ interface HRCardProps {
 
 export const TeacherLeaveCard: React.FC<HRCardProps> = ({ teacherId, isDark }) => {
     const { leaves, isLoading } = useStaffLeave(teacherId);
+    const [isModalOpen, setIsModalOpen] = useState(false);
 
     if (isLoading) {
         return <div className={`animate-pulse h-32 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-gray-100'}`} />;
@@ -24,7 +26,7 @@ export const TeacherLeaveCard: React.FC<HRCardProps> = ({ teacherId, isDark }) =
                     <Icons.Calendar className={`w-5 h-5 ${isDark ? 'text-blue-400' : 'text-blue-500'}`} />
                     <h3 className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>Leave History</h3>
                 </div>
-                <Button variant="outline" size="sm">Request Leave</Button>
+                <Button variant="outline" size="sm" onClick={() => setIsModalOpen(true)}>Request Leave</Button>
             </div>
             <div className="p-4">
                 {leaves.length === 0 ? (
@@ -52,6 +54,7 @@ export const TeacherLeaveCard: React.FC<HRCardProps> = ({ teacherId, isDark }) =
                     </div>
                 )}
             </div>
+            <RequestLeaveModal teacherId={teacherId} isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} isDark={isDark} />
         </div>
     );
 };
@@ -119,6 +122,7 @@ export const TeacherDutyCard: React.FC<HRCardProps> = ({ teacherId, isDark }) =>
 
 export const TeacherContractCard: React.FC<HRCardProps> = ({ teacherId, isDark }) => {
     const { contracts, isLoading } = useTeacherContracts(teacherId);
+    const [isModalOpen, setIsModalOpen] = useState(false);
 
     if (isLoading) {
         return <div className={`animate-pulse h-32 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-gray-100'}`} />;
@@ -131,7 +135,7 @@ export const TeacherContractCard: React.FC<HRCardProps> = ({ teacherId, isDark }
                     <Icons.Briefcase className={`w-5 h-5 ${isDark ? 'text-emerald-400' : 'text-emerald-500'}`} />
                     <h3 className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>Contracts & Employment</h3>
                 </div>
-                <Button variant="outline" size="sm">Add Contract</Button>
+                <Button variant="outline" size="sm" onClick={() => setIsModalOpen(true)}>Add Contract</Button>
             </div>
             <div className="p-4">
                 {contracts.length === 0 ? (
@@ -170,12 +174,14 @@ export const TeacherContractCard: React.FC<HRCardProps> = ({ teacherId, isDark }
                     </div>
                 )}
             </div>
+            <AddContractModal teacherId={teacherId} isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} isDark={isDark} />
         </div>
     );
 };
 
 export const TeacherDocumentCard: React.FC<HRCardProps> = ({ teacherId, isDark }) => {
     const { documents, isLoading } = useTeacherDocuments(teacherId);
+    const [isModalOpen, setIsModalOpen] = useState(false);
 
     if (isLoading) {
         return <div className={`animate-pulse h-32 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-gray-100'}`} />;
@@ -188,7 +194,7 @@ export const TeacherDocumentCard: React.FC<HRCardProps> = ({ teacherId, isDark }
                     <Icons.FileCheck className={`w-5 h-5 ${isDark ? 'text-amber-400' : 'text-amber-500'}`} />
                     <h3 className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>Compliance Documents</h3>
                 </div>
-                <Button variant="outline" size="sm">Upload Document</Button>
+                <Button variant="outline" size="sm" onClick={() => setIsModalOpen(true)}>Upload Document</Button>
             </div>
             <div className="p-4">
                 {documents.length === 0 ? (
@@ -214,6 +220,7 @@ export const TeacherDocumentCard: React.FC<HRCardProps> = ({ teacherId, isDark }
                     </div>
                 )}
             </div>
+            <UploadDocumentModal teacherId={teacherId} isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} isDark={isDark} />
         </div>
     );
 };
@@ -306,6 +313,7 @@ export const TeacherTimetableCard: React.FC<{ teacher: Teacher; isDark: boolean 
 
 export const TeacherAppraisalCard: React.FC<HRCardProps> = ({ teacherId, isDark }) => {
     const { appraisals, isLoading } = useTeacherAppraisals(teacherId);
+    const [isModalOpen, setIsModalOpen] = useState(false);
 
     if (isLoading) {
         return <div className={`animate-pulse h-32 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-gray-100'}`} />;
@@ -318,7 +326,7 @@ export const TeacherAppraisalCard: React.FC<HRCardProps> = ({ teacherId, isDark 
                     <Icons.Award className={`w-5 h-5 ${isDark ? 'text-yellow-400' : 'text-yellow-500'}`} />
                     <h3 className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>Performance Appraisals</h3>
                 </div>
-                <Button variant="outline" size="sm">Add Appraisal</Button>
+                <Button variant="outline" size="sm" onClick={() => setIsModalOpen(true)}>Add Appraisal</Button>
             </div>
             <div className="p-4">
                 {appraisals.length === 0 ? (
@@ -353,12 +361,14 @@ export const TeacherAppraisalCard: React.FC<HRCardProps> = ({ teacherId, isDark 
                     </div>
                 )}
             </div>
+            <AddAppraisalModal teacherId={teacherId} isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} isDark={isDark} />
         </div>
     );
 };
 
 export const TeacherDisciplinaryCard: React.FC<HRCardProps> = ({ teacherId, isDark }) => {
     const { records, isLoading } = useTeacherDisciplinaryRecords(teacherId);
+    const [isModalOpen, setIsModalOpen] = useState(false);
 
     if (isLoading) {
         return <div className={`animate-pulse h-32 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-gray-100'}`} />;
@@ -371,7 +381,7 @@ export const TeacherDisciplinaryCard: React.FC<HRCardProps> = ({ teacherId, isDa
                     <Icons.AlertTriangle className={`w-5 h-5 ${isDark ? 'text-red-400' : 'text-red-500'}`} />
                     <h3 className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>Disciplinary Records</h3>
                 </div>
-                <Button variant="outline" size="sm" className="text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300">File Report</Button>
+                <Button variant="outline" size="sm" className="text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300" onClick={() => setIsModalOpen(true)}>File Report</Button>
             </div>
             <div className="p-4">
                 {records.length === 0 ? (
@@ -404,6 +414,7 @@ export const TeacherDisciplinaryCard: React.FC<HRCardProps> = ({ teacherId, isDa
                     </div>
                 )}
             </div>
+            <FileReportModal teacherId={teacherId} isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} isDark={isDark} />
         </div>
     );
 };
