@@ -3,7 +3,7 @@ import { leaveService } from "../services/LeaveService";
 import { dutyRosterService } from "../services/DutyRosterService";
 import { contractService } from "../services/ContractService";
 import { documentService } from "../services/DocumentService";
-import { staffAttendanceService } from "../services/StaffAttendanceService";
+import { teacherAttendanceService } from "../services/TeacherAttendanceService";
 import { appraisalService } from "../services/AppraisalService";
 import { disciplinaryService } from "../services/DisciplinaryService";
 import {
@@ -256,7 +256,7 @@ router.get("/attendance", async (req, res) => {
     const date = req.query.date as string;
     if (!date) return res.status(400).json({ message: "Date is required" });
 
-    const attendance = await staffAttendanceService.getAttendanceByDate(schoolId, date);
+    const attendance = await teacherAttendanceService.getAttendanceByDate(schoolId, date);
     res.json(attendance);
   } catch (error) {
     console.error("Error fetching attendance:", error);
@@ -273,7 +273,7 @@ router.get("/attendance/teacher/:id", async (req, res) => {
     const startDate = req.query.startDate ? new Date(req.query.startDate as string) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // Default last 30 days
     const endDate = req.query.endDate ? new Date(req.query.endDate as string) : new Date();
 
-    const attendance = await staffAttendanceService.getTeacherAttendanceStats(schoolId, teacherId, startDate, endDate);
+    const attendance = await teacherAttendanceService.getTeacherAttendanceStats(schoolId, teacherId, startDate, endDate);
     res.json(attendance);
   } catch (error) {
     console.error("Error fetching teacher attendance:", error);
@@ -295,7 +295,7 @@ router.post("/attendance", async (req, res) => {
       checkOutTime: req.body.checkOutTime ? new Date(req.body.checkOutTime) : null,
     });
 
-    const record = await staffAttendanceService.recordAttendance(schoolId, validatedData);
+    const record = await teacherAttendanceService.recordAttendance(schoolId, validatedData);
     res.status(201).json(record);
   } catch (error) {
     console.error("Error recording attendance:", error);
