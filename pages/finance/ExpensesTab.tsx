@@ -87,8 +87,8 @@ export default function ExpensesTab() {
     });
 
     const expenses = expensesData?.data || [];
-    const totalExpenses = expensesData?.total || 0;
-    const totalPages = Math.ceil(totalExpenses / limit);
+    const totalExpensesCount = expensesData?.total || 0;
+    const totalPages = Math.ceil(totalExpensesCount / limit);
 
     const { data: categories = [] } = useQuery<ExpenseCategory[]>({
         queryKey: ['/api/expense-categories'],
@@ -299,7 +299,7 @@ export default function ExpensesTab() {
                 {totalPages > 1 && (
                     <div className={`p-4 border-t ${borderColor} flex items-center justify-between`}>
                         <p className={`text-sm ${textSecondary}`}>
-                            Showing <span className="font-medium text-gray-900 dark:text-white">{((page - 1) * limit) + 1}</span> to <span className="font-medium text-gray-900 dark:text-white">{Math.min(page * limit, totalExpenses)}</span> of <span className="font-medium text-gray-900 dark:text-white">{totalExpenses}</span> results
+                            Showing <span className="font-medium text-gray-900 dark:text-white">{((page - 1) * limit) + 1}</span> to <span className="font-medium text-gray-900 dark:text-white">{Math.min(page * limit, totalExpensesCount)}</span> of <span className="font-medium text-gray-900 dark:text-white">{totalExpensesCount}</span> results
                         </p>
                         <div className="flex gap-2">
                             <Button
