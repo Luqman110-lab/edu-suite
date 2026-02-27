@@ -10,7 +10,8 @@ import {
 } from 'recharts';
 import { Download } from 'lucide-react';
 
-declare const jspdf: any;
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 
 interface FeePayment {
     id: number;
@@ -173,7 +174,6 @@ export default function ReportsTab() {
 
     const generatePDFReport = () => {
         try {
-            const { jsPDF } = jspdf;
             const doc = new jsPDF();
 
             doc.setFontSize(16);

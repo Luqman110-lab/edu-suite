@@ -2,7 +2,8 @@ import { Student, MarkRecord, AssessmentType, ClassLevel, SchoolSettings, ApiTea
 import { calculateGrade, getComment, getClassTeacherComment, getHeadTeacherComment } from '../../../services/grading';
 import * as XLSX from 'xlsx';
 
-declare const jspdf: any;
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 
 export const calculateTotalMarks = (record: MarkRecord, subjects: string[]): number => {
     if (!record || !record.marks) return 0;
@@ -230,7 +231,7 @@ export const generateReportsPDF = async ({
     showMessage
 }: ReportGenerationParams) => {
 
-    const doc = new jspdf.jsPDF();
+    const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.width;
     const pageHeight = doc.internal.pageSize.height;
     const margin = 15;

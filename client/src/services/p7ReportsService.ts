@@ -2,7 +2,8 @@ import { Student, ClassLevel, SubjectMarks, SchoolSettings, P7ExamSet, P7Score, 
 import { calculateGrade, calculateDivision } from '../../../services/grading';
 import { apiRequest } from '../../../services/api';
 
-declare const jspdf: any;
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 
 interface P7ReportResult {
     setName: string;
@@ -85,7 +86,7 @@ export const generateP7ReportCard = async (
         red: [239, 68, 68]
     };
 
-    const doc = new jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const pageWidth = doc.internal.pageSize.width;
     const pageHeight = doc.internal.pageSize.height;
     const margin = 12;
@@ -355,7 +356,7 @@ export const generateAssessmentSheet = (
         divU: [239, 68, 68]
     };
 
-    const doc = new jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
     const pageWidth = doc.internal.pageSize.width;
     const pageHeight = doc.internal.pageSize.height;
     const margin = 10;

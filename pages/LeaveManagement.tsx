@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { jsPDF } from 'jspdf';
 import { useAcademicYear } from '../contexts/AcademicYearContext';
 
 interface Student {
@@ -118,27 +119,21 @@ export const LeaveManagement: React.FC = () => {
     const student = students.find(s => s.id === request.studentId);
     if (!student) return;
 
-    const jspdfModule = (window as any).jspdf;
-    if (!jspdfModule || !jspdfModule.jsPDF) {
-      alert('PDF library not loaded. Please refresh the page and try again.');
-      return;
-    }
-    const { jsPDF } = jspdfModule;
     const doc = new jsPDF();
-    
+
     doc.setFontSize(18);
     doc.text('EXEAT LETTER', 105, 30, { align: 'center' });
-    
+
     doc.setFontSize(12);
     doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, 50);
     doc.text(`Leave Reference: EX-${request.id.toString().padStart(5, '0')}`, 20, 60);
-    
+
     doc.setFontSize(14);
     doc.text('Student Information', 20, 80);
     doc.setFontSize(12);
     doc.text(`Name: ${student.name}`, 25, 90);
     doc.text(`Class: ${student.classLevel}`, 25, 98);
-    
+
     doc.setFontSize(14);
     doc.text('Leave Details', 20, 118);
     doc.setFontSize(12);
@@ -162,7 +157,7 @@ export const LeaveManagement: React.FC = () => {
 
     doc.line(120, 252, 180, 252);
     doc.text('Date', 120, 260);
-    
+
     doc.save(`exeat_${student.name.replace(/\s+/g, '_')}_${request.id}.pdf`);
   };
 

@@ -2,8 +2,8 @@ import * as XLSX from 'xlsx';
 import { SchoolSettings, Student, FeePayment } from '../../../types';
 import { Expense, ExpenseCategory, ReportConfig } from '../types/finance';
 
-// Helper to allow jspdf usage without explicit import if it's a global script
-declare const jspdf: any;
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 
 const formatCurrency = (amount: number) => {
     return `UGX ${amount.toLocaleString()}`;
@@ -51,7 +51,6 @@ export const generateFeeCollectionReport = (
     year: number,
     selectedClass: string
 ) => {
-    const { jsPDF } = jspdf;
     const doc = new jsPDF();
 
     const getStudentIdsForClass = () => {
@@ -145,7 +144,6 @@ export const generateExpenseReport = (
     dateFrom: string | undefined,
     dateTo: string | undefined
 ) => {
-    const { jsPDF } = jspdf;
     const doc = new jsPDF();
 
     let filteredExpenses = expenses;
@@ -231,7 +229,6 @@ export const generateIncomeStatement = (
     term: number,
     year: number
 ) => {
-    const { jsPDF } = jspdf;
     const doc = new jsPDF();
 
     const filteredPayments = payments.filter(p =>
@@ -333,7 +330,6 @@ export const generateOutstandingFeesReport = (
     year: number,
     selectedClass: string
 ) => {
-    const { jsPDF } = jspdf;
     const doc = new jsPDF();
 
     const classLabel = selectedClass === 'All' ? 'All Classes' : selectedClass;
@@ -427,7 +423,6 @@ export const generatePaymentReceipt = (
     students: Student[],
     config: ReportConfig
 ) => {
-    const { jsPDF } = jspdf;
     const doc = new jsPDF({ format: [210, 148] });
 
     const pageWidth = doc.internal.pageSize.width;
@@ -530,7 +525,6 @@ export const generateStudentBalancesReport = (
     year: number,
     selectedClass: string
 ) => {
-    const { jsPDF } = jspdf;
     const doc = new jsPDF();
 
     const classLabel = selectedClass === 'All' ? 'All Classes' : selectedClass;

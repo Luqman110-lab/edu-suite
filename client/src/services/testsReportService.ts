@@ -1,7 +1,8 @@
 import { TestSession, Student, TestScore, SchoolSettings, SUBJECTS_LOWER, SUBJECTS_UPPER } from '../../../types';
 import { calculateGrade } from '../../../services/grading';
 
-declare const jspdf: any;
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 
 export const generateTestAssessmentSheet = async (
     session: TestSession,
@@ -48,7 +49,7 @@ export const generateTestAssessmentSheet = async (
         return;
     }
 
-    const doc = new jspdf.jsPDF('l', 'mm', 'a4');
+    const doc = new jsPDF('l', 'mm', 'a4');
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 10;
@@ -359,7 +360,7 @@ export const generateStudentTermReport = async (
             studentScores.push({ session, score: studentScore });
         }
 
-        const doc = new jspdf.jsPDF('p', 'mm', 'a4');
+        const doc = new jsPDF('p', 'mm', 'a4');
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
         const margin = 12;

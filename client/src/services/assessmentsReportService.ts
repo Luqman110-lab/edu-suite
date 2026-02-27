@@ -3,7 +3,8 @@ import { calculateGrade } from '../../../services/grading';
 
 
 
-declare const jspdf: any;
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 
 const subjectShortNames: { [key: string]: string } = {
     'english': 'ENG',
@@ -741,7 +742,7 @@ export const generateAssessmentPDF = async (
         return;
     }
 
-    const doc = new jspdf.jsPDF('l', 'mm', 'a4');
+    const doc = new jsPDF('l', 'mm', 'a4');
 
     const reportsToGenerate = selectedType === 'BOTH'
         ? [AssessmentType.BOT, AssessmentType.EOT]

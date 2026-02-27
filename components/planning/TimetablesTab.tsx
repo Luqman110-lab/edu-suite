@@ -1,5 +1,7 @@
 
 import { useState } from 'react';
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 import { Clock, Plus, Settings, RefreshCw, Download, ChevronDown } from 'lucide-react';
 import { TimetablePeriod, ClassTimetable, Teacher } from '../../types';
 
@@ -86,23 +88,7 @@ export function TimetablesTab({
     };
 
     const exportTimetablePDF = async () => {
-        const jsPDF = (window as any).jspdf?.jsPDF;
-        if (!jsPDF) {
-            await new Promise<void>((resolve) => {
-                const script = document.createElement('script');
-                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-                script.onload = () => {
-                    const autoTableScript = document.createElement('script');
-                    autoTableScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js';
-                    autoTableScript.onload = () => resolve();
-                    document.body.appendChild(autoTableScript);
-                };
-                document.body.appendChild(script);
-            });
-        }
-
-        const PDF = (window as any).jspdf?.jsPDF;
-        const doc = new PDF({ orientation: 'landscape' });
+        const doc = new jsPDF({ orientation: 'landscape' });
 
         doc.setFontSize(16);
         doc.text(`Class Timetable - ${selectedClass}${selectedStream ? ` (${selectedStream})` : ''}`, 14, 15);
@@ -144,23 +130,7 @@ export function TimetablesTab({
         const teacher = teachers.find(t => t.id === teacherId);
         if (!teacher) return;
 
-        const jsPDF = (window as any).jspdf?.jsPDF;
-        if (!jsPDF) {
-            await new Promise<void>((resolve) => {
-                const script = document.createElement('script');
-                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-                script.onload = () => {
-                    const autoTableScript = document.createElement('script');
-                    autoTableScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js';
-                    autoTableScript.onload = () => resolve();
-                    document.body.appendChild(autoTableScript);
-                };
-                document.body.appendChild(script);
-            });
-        }
-
-        const PDF = (window as any).jspdf?.jsPDF;
-        const doc = new PDF({ orientation: 'landscape' });
+        const doc = new jsPDF({ orientation: 'landscape' });
 
         doc.setFontSize(16);
         doc.text(`Teacher Timetable - ${teacher.name}`, 14, 15);

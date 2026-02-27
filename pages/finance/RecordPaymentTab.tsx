@@ -10,7 +10,8 @@ import { Card, Input, Spinner } from '../../components/UIComponents';
 import { ArrowLeft, ChevronDown, CheckCircle, Printer } from 'lucide-react';
 import { FEE_TYPES } from '@/lib/constants';
 
-declare const jspdf: any;
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 
 interface Student {
     id: number;
@@ -156,7 +157,6 @@ export default function RecordPaymentTab() {
                 <div className="flex gap-3 justify-center">
                     <Button variant="outline" onClick={() => {
                         try {
-                            const { jsPDF } = jspdf;
                             const doc = new jsPDF({ format: 'a5' });
 
                             doc.setFontSize(18);

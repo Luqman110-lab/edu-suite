@@ -7,7 +7,8 @@ import { useFinance } from '../FinancialHub';
 import { Button } from '../../components/Button';
 import { FileText, Copy, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 
-declare const jspdf: any;
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 
 interface Invoice {
     id: number;
@@ -91,7 +92,6 @@ export default function InvoicesTab() {
             if (!response.ok) throw new Error('Failed to fetch invoice');
             const data = await response.json();
 
-            const { jsPDF } = jspdf;
             const doc = new jsPDF();
 
             doc.setFontSize(20);
