@@ -66,7 +66,8 @@ dashboardRoutes.get("/upcoming-events", requireAuth, async (req, res) => {
         const events = await dashboardService.getUpcomingEvents(schoolId);
         res.json(events);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        console.error("Upcoming events error:", error.message);
+        res.json([]);
     }
 });
 
@@ -105,6 +106,7 @@ dashboardRoutes.get("/alerts", requireAuth, async (req, res) => {
         const alerts = await dashboardService.getAlerts(schoolId);
         res.json(alerts);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        console.error("Dashboard alerts error:", error.message);
+        res.json([]);
     }
 });

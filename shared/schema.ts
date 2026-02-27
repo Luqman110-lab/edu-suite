@@ -2010,6 +2010,7 @@ export const schoolEvents = pgTable("school_events", {
   budget: integer("budget"),
   status: text("status").default("planned"), // 'planned', 'in_progress', 'completed', 'cancelled', 'postponed'
   notes: text("notes"),
+  isActive: boolean("is_active").default(true),
   isRecurring: boolean("is_recurring").default(false),
   recurrencePattern: text("recurrence_pattern"), // 'weekly', 'monthly', 'termly', 'annually'
   coordinatorId: integer("coordinator_id").references(() => users.id),

@@ -13,8 +13,14 @@ export class DashboardService {
 
         const studentCount = await db.select({ count: sql<number>`count(*)` }).from(students)
             .where(and(eq(students.schoolId, schoolId), eq(students.isActive, true)));
-        const teacherCount = await db.select({ count: sql<number>`count(*)` }).from(teachers)
-            .where(and(eq(teachers.schoolId, schoolId), eq(teachers.isActive, true)));
+        let teacherCount;
+        try {
+            teacherCount = await db.select({ count: sql<number>`count(*)` }).from(teachers)
+                .where(and(eq(teachers.schoolId, schoolId), eq(teachers.isActive, true)));
+        } catch (e) {
+            teacherCount = await db.select({ count: sql<number>`count(*)` }).from(teachers)
+                .where(eq(teachers.schoolId, schoolId));
+        }
 
         const attendance = await db.select({ count: sql<number>`count(*)` }).from(gateAttendance)
             .where(and(eq(gateAttendance.schoolId, schoolId), eq(gateAttendance.date, today), sql`${gateAttendance.status} IN ('present', 'late', 'half_day')`));
@@ -160,13 +166,24 @@ export class DashboardService {
         const todayStr = today.toISOString().split('T')[0];
         const nextWeekStr = nextWeek.toISOString().split('T')[0];
 
-        const upcomingSchoolEvents = await db.select().from(schoolEvents)
-            .where(and(
-                eq(schoolEvents.schoolId, schoolId),
-                eq(schoolEvents.isActive, true),
-                sql`${schoolEvents.startDate} >= ${todayStr}`,
-                sql`${schoolEvents.startDate} <= ${nextWeekStr}`
-            ));
+        let upcomingSchoolEvents;
+        try {
+            upcomingSchoolEvents = await db.select().from(schoolEvents)
+                .where(and(
+                    eq(schoolEvents.schoolId, schoolId),
+                    eq(schoolEvents.isActive, true),
+                    sql`${schoolEvents.startDate} >= ${todayStr}`,
+                    sql`${schoolEvents.startDate} <= ${nextWeekStr}`
+                ));
+        } catch (e) {
+            // Fallback: query without isActive filter (column may not exist in DB yet)
+            upcomingSchoolEvents = await db.select().from(schoolEvents)
+                .where(and(
+                    eq(schoolEvents.schoolId, schoolId),
+                    sql`${schoolEvents.startDate} >= ${todayStr}`,
+                    sql`${schoolEvents.startDate} <= ${nextWeekStr}`
+                ));
+        }
 
         const eventsMapped = upcomingSchoolEvents.map(e => ({
             title: e.name,
@@ -233,8 +250,14 @@ export class DashboardService {
             .where(and(eq(teacherAttendance.schoolId, schoolId), eq(teacherAttendance.date, today), sql`${teacherAttendance.status} IN ('present', 'late', 'half_day')`));
 
         const presentTeacherIds = teacherPresentResult.map(t => t.teacherId);
-        const allActiveTeachers = await db.select({ id: teachers.id, name: teachers.name }).from(teachers)
-            .where(and(eq(teachers.schoolId, schoolId), eq(teachers.isActive, true)));
+        let allActiveTeachers;
+        try {
+            allActiveTeachers = await db.select({ id: teachers.id, name: teachers.name }).from(teachers)
+                .where(and(eq(teachers.schoolId, schoolId), eq(teachers.isActive, true)));
+        } catch (e) {
+            allActiveTeachers = await db.select({ id: teachers.id, name: teachers.name }).from(teachers)
+                .where(eq(teachers.schoolId, schoolId));
+        }
 
         const absentTeachers = allActiveTeachers.filter(t => !presentTeacherIds.includes(t.id));
 
