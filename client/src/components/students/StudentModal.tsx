@@ -155,6 +155,10 @@ export const StudentModal: React.FC<StudentModalProps> = ({ isOpen, onClose, onS
                                     {currentStreams.map((s: string) => <option key={s} value={s} />)}
                                 </datalist>
                                 <p className={`text-xs mt-1 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Type a new name to create a stream for this class.</p>
+                                <label className="flex items-center space-x-2 mt-2 cursor-pointer">
+                                    <input type="checkbox" className="rounded text-primary-600 focus:ring-primary-500" checked={!!formData.forceCapacityOverride} onChange={e => setFormData({ ...formData, forceCapacityOverride: e.target.checked })} />
+                                    <span className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Force override stream capacity limits</span>
+                                </label>
                             </div>
                         </div>
                     </div>

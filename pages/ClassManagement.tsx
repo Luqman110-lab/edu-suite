@@ -21,7 +21,7 @@ export default function ClassManagement() {
 
   const [newStreams, setNewStreams] = useState<Record<string, string>>({});
   const [editingAlias, setEditingAlias] = useState<{ level: string; value: string } | null>(null);
-  const [editingStream, setEditingStream] = useState<{ level: string; oldName: string; value: string } | null>(null);
+  const [editingStream, setEditingStream] = useState<{ level: string; oldName: string; value: string; oldCapacity: number; maxCapacity: number } | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ level: string; stream: string } | null>(null);
 
@@ -122,19 +122,17 @@ export default function ClassManagement() {
 
   const handleRenameStream = async () => {
     if (!editingStream || !settings) return;
-    const { level, oldName, value } = editingStream;
+    const { level, oldName, value, oldCapacity, maxCapacity } = editingStream;
     const newName = value.trim();
-    if (!newName || newName === oldName) {
+    if (!newName) {
       setEditingStream(null);
       return;
     }
 
-
-
     setBusyAction(`rename-stream-${level}-${oldName}`);
     try {
       const currentStreams = streams.filter(s => s.classLevel === level).map(s => s.streamName);
-      if (currentStreams.includes(newName)) {
+      if (newName !== oldName && currentStreams.includes(newName)) {
         toast({ title: 'Name already taken', description: `"${newName}" already exists in ${getDisplayName(level)}.`, variant: 'destructive' });
         setBusyAction(null);
         return;
@@ -142,10 +140,12 @@ export default function ClassManagement() {
 
       const streamRecord = streams.find(s => s.classLevel === level && s.streamName === oldName);
       if (streamRecord) {
-        // Technically our updateStream doesn't support renaming names yet... it only supports maxCapacity.
-        // As a workaround we can recreate it and delete the old one to act like a rename
-        await createStream({ classLevel: level, streamName: newName, maxCapacity: streamRecord.maxCapacity });
-        await removeStream(streamRecord.id);
+        if (newName !== oldName) {
+          await createStream({ classLevel: level, streamName: newName, maxCapacity: Number(maxCapacity) });
+          await removeStream(streamRecord.id);
+        } else if (Number(maxCapacity) !== oldCapacity) {
+          await updateStream({ id: streamRecord.id, maxCapacity: Number(maxCapacity) });
+        }
       }
       setEditingStream(null);
     } catch (error) {
@@ -221,7 +221,20 @@ export default function ClassManagement() {
               if (e.key === 'Enter') handleRenameStream();
               if (e.key === 'Escape') setEditingStream(null);
             }}
-            className="w-24 px-1 py-0.5 text-sm bg-transparent border-none outline-none dark:text-white"
+            className="w-24 px-1 py-0.5 text-sm font-semibold bg-transparent border-none outline-none dark:text-white"
+            placeholder="Name"
+          />
+          <span className="text-gray-400 dark:text-gray-500 text-xs font-semibold">Cap:</span>
+          <input
+            type="number"
+            value={editingStream.maxCapacity}
+            onChange={(e) => setEditingStream({ ...editingStream, maxCapacity: Number(e.target.value) })}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleRenameStream();
+              if (e.key === 'Escape') setEditingStream(null);
+            }}
+            className="w-12 px-1 py-0.5 text-sm bg-transparent border-none outline-none dark:text-white"
+            placeholder="Cap"
           />
           <button onClick={handleRenameStream} className="text-green-500 hover:text-green-600 p-0.5">
             <Check className="w-3.5 h-3.5" />
@@ -242,11 +255,16 @@ export default function ClassManagement() {
           <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-400" />
         ) : null}
         <span>{stream}</span>
-        {count > 0 && (
-          <span className="text-xs text-gray-400 dark:text-gray-500 font-normal">({count})</span>
+        {count >= 0 && (
+          <span className={`text-xs ${(streams.find(s => s.classLevel === level && s.streamName === stream)?.maxCapacity || 60) <= count ? 'text-red-500 font-bold' : 'text-gray-400 dark:text-gray-500'} font-normal`}>
+            ({count}/{streams.find(s => s.classLevel === level && s.streamName === stream)?.maxCapacity || 60})
+          </span>
         )}
         <button
-          onClick={() => setEditingStream({ level, oldName: stream, value: stream })}
+          onClick={() => {
+            const strRec = streams.find(s => s.classLevel === level && s.streamName === stream);
+            setEditingStream({ level, oldName: stream, value: stream, maxCapacity: strRec?.maxCapacity || 60, oldCapacity: strRec?.maxCapacity || 60 });
+          }}
           disabled={!!busyAction}
           className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-primary-500 transition-all p-0.5"
           title="Rename stream"

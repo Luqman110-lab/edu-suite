@@ -80,6 +80,7 @@ export interface Student {
     sickness: boolean;
     fees: boolean;
   };
+  forceCapacityOverride?: boolean;
 }
 
 export interface Teacher {

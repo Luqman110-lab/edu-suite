@@ -98,6 +98,7 @@ export interface Student {
   boardingStatus?: string;
   houseOrDormitory?: string;
   medicalInfo?: MedicalInfo;
+  forceCapacityOverride?: boolean;
   emergencyContacts?: EmergencyContact[];
   specialCases?: SpecialCases;
   isActive?: boolean;

@@ -86,7 +86,8 @@ export const Students: React.FC = () => {
     paycode: '',
     parentName: '',
     parentContact: '',
-    specialCases: { absenteeism: false, sickness: false, fees: false }
+    specialCases: { absenteeism: false, sickness: false, fees: false },
+    forceCapacityOverride: false
   });
 
   // Derived State
@@ -264,7 +265,7 @@ export const Students: React.FC = () => {
         // Reset form
         setFormData({
           name: '', classLevel: ClassLevel.P1, stream: '', gender: Gender.Male, paycode: '', parentName: '', parentContact: '',
-          specialCases: { absenteeism: false, sickness: false, fees: false }
+          specialCases: { absenteeism: false, sickness: false, fees: false }, forceCapacityOverride: false
         });
       } catch (error: any) {
         showToast(`Failed to save: ${error.message}`, 'error');
@@ -628,7 +629,7 @@ export const Students: React.FC = () => {
             const defaultStream = availableStreams[0] || '';
             setFormData({
               name: '', classLevel: defaultClass, stream: defaultStream, gender: Gender.Male, paycode: '', parentName: '', parentContact: '',
-              specialCases: { absenteeism: false, sickness: false, fees: false }
+              specialCases: { absenteeism: false, sickness: false, fees: false }, forceCapacityOverride: false
             });
             setSelectedStudent(null);
             setIsModalOpen(true);
