@@ -6,6 +6,13 @@ interface UseMessagingProps {
     activeConversationId?: number;
 }
 
+export interface NewMessageNotification {
+    conversationId: number;
+    senderName: string;
+    preview: string;
+    timestamp: number;
+}
+
 export function useMessaging({ currentUserId, activeConversationId }: UseMessagingProps) {
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [activeMessages, setActiveMessages] = useState<Message[]>([]);
@@ -13,13 +20,74 @@ export function useMessaging({ currentUserId, activeConversationId }: UseMessagi
     const [isSending, setIsSending] = useState(false);
     const [typingUsers, setTypingUsers] = useState<number[]>([]);
     const [onlineUsers, setOnlineUsers] = useState<Set<number>>(new Set());
+    const [notification, setNotification] = useState<NewMessageNotification | null>(null);
 
     // WebSocket ref
     const ws = useRef<WebSocket | null>(null);
     const typingTimeoutRef = useRef<number | null>(null);
+    // Track unread counts to detect new messages during polling
+    const prevUnreadMapRef = useRef<Record<number, number>>({});
+    const prevConversationsRef = useRef<Conversation[]>([]);
 
     // Vercel Migration: WebSockets are disabled
     const ENABLE_WEBSOCKETS = false;
+
+    // Play a subtle notification sound
+    const playNotificationSound = useCallback(() => {
+        try {
+            const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.frequency.value = 880;
+            osc.type = 'sine';
+            gain.gain.setValueAtTime(0.15, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + 0.3);
+        } catch (e) { /* audio not supported — silent fallback */ }
+    }, []);
+
+    // Detect new messages by comparing unread counts between polls
+    const checkForNewMessages = useCallback((newConversations: Conversation[]) => {
+        if (!currentUserId) return;
+        const prevMap = prevUnreadMapRef.current;
+
+        for (const conv of newConversations) {
+            const prevCount = prevMap[conv.id] || 0;
+            const newCount = conv.unreadCount || 0;
+
+            // New unread messages appeared in a conversation we're NOT viewing
+            if (newCount > prevCount && conv.id !== activeConversationId) {
+                const displayName = conv.isGroup && conv.groupName
+                    ? conv.groupName
+                    : conv.participants.filter(p => p.id !== currentUserId).map(p => p.name).join(', ') || 'Someone';
+
+                const preview = conv.lastMessage?.isDeleted ? 'Message deleted'
+                    : conv.lastMessage?.content || 'New message';
+
+                setNotification({
+                    conversationId: conv.id,
+                    senderName: displayName,
+                    preview: preview.length > 60 ? preview.slice(0, 60) + '…' : preview,
+                    timestamp: Date.now(),
+                });
+                playNotificationSound();
+                // Auto-dismiss after 5 seconds
+                setTimeout(() => setNotification(prev => prev?.timestamp === Date.now() ? null : prev), 5000);
+                break; // Only one notification at a time
+            }
+        }
+
+        // Update map
+        const nextMap: Record<number, number> = {};
+        for (const c of newConversations) nextMap[c.id] = c.unreadCount || 0;
+        prevUnreadMapRef.current = nextMap;
+        prevConversationsRef.current = newConversations;
+    }, [currentUserId, activeConversationId, playNotificationSound]);
+
+    const dismissNotification = useCallback(() => setNotification(null), []);
 
     // Poll list fallback 
     useEffect(() => {
@@ -28,7 +96,7 @@ export function useMessaging({ currentUserId, activeConversationId }: UseMessagi
             if (activeConversationId) fetchMessages(activeConversationId); // Poll active messages too to sync deleted/edited
         };
         fetchAll();
-        const interval = setInterval(fetchAll, 10000);
+        const interval = setInterval(fetchAll, 5000);
         return () => clearInterval(interval);
     }, [activeConversationId]);
 
@@ -142,7 +210,11 @@ export function useMessaging({ currentUserId, activeConversationId }: UseMessagi
     const fetchConversations = async () => {
         try {
             const res = await fetch('/api/conversations');
-            if (res.ok) setConversations(await res.json());
+            if (res.ok) {
+                const data = await res.json();
+                checkForNewMessages(data);
+                setConversations(data);
+            }
         } catch (e) {
             console.error(e);
         }
@@ -289,6 +361,8 @@ export function useMessaging({ currentUserId, activeConversationId }: UseMessagi
         isSending,
         typingUsers,
         onlineUsers,
+        notification,
+        dismissNotification,
         sendMessage,
         editMessage,
         deleteMessage,

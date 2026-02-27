@@ -2,6 +2,9 @@ import { Router, Request } from "express";
 import { attendanceService } from "../services/AttendanceService";
 import { feeService } from "../services/FeeService";
 import { requireAuth, requireAdmin, requireStaff, getActiveSchoolId } from "../auth";
+import { db } from "../db";
+import { schools } from "../../shared/schema";
+import { eq } from "drizzle-orm";
 
 function param(req: Request, key: string): string {
     const val = req.params[key];
@@ -67,19 +70,87 @@ attendanceRoutes.post("/gate-attendance/mark-absent", requireStaff, async (req, 
     }
 });
 
+// GET /api/gate-attendance/summary-by-class — G5: Attendance summary grouped by class
+attendanceRoutes.get("/gate-attendance/summary-by-class", requireAuth, async (req, res) => {
+    try {
+        const schoolId = getActiveSchoolId(req);
+        if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+        const date = req.query.date as string || new Date().toISOString().split('T')[0];
+
+        const summary = await attendanceService.getAttendanceSummaryByClass(schoolId, date);
+        res.json(summary);
+    } catch (error: any) {
+        res.status(500).json({ message: "Failed to fetch class summary: " + error.message });
+    }
+});
+
+// GET /api/gate-attendance/qr/:studentId — G6: Student QR code data for gate scanning
+attendanceRoutes.get("/gate-attendance/qr/:studentId", requireAuth, async (req, res) => {
+    try {
+        const schoolId = getActiveSchoolId(req);
+        if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+        const studentId = parseInt(param(req, 'studentId'));
+        if (isNaN(studentId)) return res.status(400).json({ message: "Invalid student ID" });
+
+        const qrData = await attendanceService.getStudentQRData(schoolId, studentId);
+        res.json(qrData);
+    } catch (error: any) {
+        if (error.message === "Student not found") return res.status(404).json({ message: error.message });
+        res.status(500).json({ message: "Failed to generate QR data: " + error.message });
+    }
+});
+
+// POST /api/gate-attendance/auto-absent — G3: Auto mark-absent scheduler trigger
+attendanceRoutes.post("/gate-attendance/auto-absent", requireAdmin, async (req, res) => {
+    try {
+        const schoolId = getActiveSchoolId(req);
+        if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+        const result = await attendanceService.scheduleAutoAbsent(schoolId);
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: "Failed to auto mark absent: " + error.message });
+    }
+});
+
 // GET /api/attendance-settings
 attendanceRoutes.get("/attendance-settings", requireAuth, async (req, res) => {
     try {
         const schoolId = getActiveSchoolId(req);
         if (!schoolId) return res.status(400).json({ message: "No active school selected" });
-        // TODO: Move settings to a Service or Database
-        res.json({
+
+        const [school] = await db.select({ attendanceSettings: schools.attendanceSettings })
+            .from(schools).where(eq(schools.id, schoolId)).limit(1);
+
+        // Merge DB values with defaults so new keys always have fallback values
+        const defaults = {
             schoolStartTime: "08:00", lateThresholdMinutes: 15, gateCloseTime: "08:30",
             schoolEndTime: "16:00", enableFaceRecognition: false, enableQrScanning: true,
-            requireFaceForGate: false, faceConfidenceThreshold: 0.6
-        });
+            requireFaceForGate: false, requireFaceForTeachers: false, faceConfidenceThreshold: 0.6,
+            enableGeofencing: false, schoolLatitude: null, schoolLongitude: null,
+            geofenceRadiusMeters: 100, periodsPerDay: 8, periodDurationMinutes: 40,
+        };
+
+        res.json({ ...defaults, ...(school?.attendanceSettings || {}) });
     } catch (error: any) {
         res.status(500).json({ message: "Failed to fetch attendance settings: " + error.message });
+    }
+});
+
+// POST /api/attendance-settings  (save)
+attendanceRoutes.post("/attendance-settings", requireAdmin, async (req, res) => {
+    try {
+        const schoolId = getActiveSchoolId(req);
+        if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+
+        const settingsPayload = req.body;
+        await db.update(schools)
+            .set({ attendanceSettings: settingsPayload, updatedAt: new Date() })
+            .where(eq(schools.id, schoolId));
+
+        res.json({ message: "Attendance settings saved" });
+    } catch (error: any) {
+        res.status(500).json({ message: "Failed to save attendance settings: " + error.message });
     }
 });
 

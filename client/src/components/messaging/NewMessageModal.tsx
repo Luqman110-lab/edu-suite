@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { User } from '../../types/messaging';
 
 // Icons
 const Icons = {
     Check: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>,
+    Search: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>,
 };
 
 const getAvatarInitial = (name: string) => name ? name.charAt(0).toUpperCase() : '?';
@@ -23,12 +24,14 @@ export const NewMessageModal = ({
     const [message, setMessage] = useState('');
     const [users, setUsers] = useState<User[]>([]);
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
-    const [isGroup, setIsGroup] = useState(false);
+    const [mode, setMode] = useState<'dm' | 'group' | 'broadcast'>('dm');
     const [loading, setLoading] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
         if (isOpen) {
             loadUsers();
+            setSearchQuery('');
         }
     }, [isOpen]);
 
@@ -45,8 +48,55 @@ export const NewMessageModal = ({
         setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
     };
 
+    // Filter and group users by role
+    const filteredGroupedUsers = useMemo(() => {
+        const query = searchQuery.toLowerCase().trim();
+        const filtered = query
+            ? users.filter(u => u.name.toLowerCase().includes(query) || (u.role || '').toLowerCase().includes(query))
+            : users;
+
+        // Group by role, sorted alphabetically within groups
+        const groups: Record<string, User[]> = {};
+        const sorted = [...filtered].sort((a, b) => a.name.localeCompare(b.name));
+        for (const user of sorted) {
+            const role = (user.role || 'staff').charAt(0).toUpperCase() + (user.role || 'staff').slice(1);
+            if (!groups[role]) groups[role] = [];
+            groups[role].push(user);
+        }
+        // Sort group keys: Admin first, then alphabetical
+        const order = Object.keys(groups).sort((a, b) => {
+            if (a === 'Admin') return -1;
+            if (b === 'Admin') return 1;
+            return a.localeCompare(b);
+        });
+        return order.map(role => ({ role, users: groups[role] }));
+    }, [users, searchQuery]);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (mode === 'broadcast') {
+            if (!subject || !message) return;
+            setLoading(true);
+            try {
+                const res = await fetch('/api/conversations/broadcast', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: subject, message })
+                });
+                if (res.ok) {
+                    const conv = await res.json();
+                    await onSend({ _broadcast: true, conversationId: conv.id });
+                }
+            } catch (e) {
+                console.error(e);
+            }
+            setLoading(false);
+            onClose();
+            setSubject(''); setMessage(''); setGroupName(''); setSelectedIds([]); setMode('dm');
+            return;
+        }
+
+        const isGroup = mode === 'group';
         if ((!groupName && isGroup) || (!subject && !groupName) || !message || selectedIds.length === 0) return;
         setLoading(true);
         await onSend({
@@ -58,12 +108,7 @@ export const NewMessageModal = ({
         });
         setLoading(false);
         onClose();
-        // Reset form
-        setSubject('');
-        setMessage('');
-        setGroupName('');
-        setSelectedIds([]);
-        setIsGroup(false);
+        setSubject(''); setMessage(''); setGroupName(''); setSelectedIds([]); setMode('dm');
     };
 
     if (!isOpen) return null;
@@ -81,24 +126,20 @@ export const NewMessageModal = ({
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                    <div className="flex gap-4 mb-2">
-                        <button
-                            type="button"
-                            onClick={() => setIsGroup(false)}
-                            className={`flex-1 py-1 rounded-md text-sm font-medium transition-colors ${!isGroup ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}
-                        >
-                            Direct Message
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setIsGroup(true)}
-                            className={`flex-1 py-1 rounded-md text-sm font-medium transition-colors ${isGroup ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}
-                        >
-                            Group Chat
-                        </button>
+                    <div className="flex gap-2 mb-2">
+                        {(['dm', 'group', 'broadcast'] as const).map(m => (
+                            <button
+                                key={m}
+                                type="button"
+                                onClick={() => setMode(m)}
+                                className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-colors ${mode === m ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'}`}
+                            >
+                                {m === 'dm' ? 'Direct' : m === 'group' ? 'Group' : '📢 Broadcast'}
+                            </button>
+                        ))}
                     </div>
 
-                    {isGroup ? (
+                    {mode === 'group' ? (
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Group Name</label>
                             <input
@@ -110,35 +151,73 @@ export const NewMessageModal = ({
                         </div>
                     ) : (
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Subject</label>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                {mode === 'broadcast' ? 'Announcement Title' : 'Subject'}
+                            </label>
                             <input
                                 className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-blue-500"
                                 value={subject}
                                 onChange={e => setSubject(e.target.value)}
-                                placeholder="What's this about?"
+                                placeholder={mode === 'broadcast' ? 'e.g. Staff Meeting Tomorrow' : "What's this about?"}
                             />
                         </div>
                     )}
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Recipients</label>
-                        <div className="h-32 overflow-y-auto border rounded-xl p-2 dark:bg-gray-700 dark:border-gray-600 space-y-1">
-                            {users.map(u => (
-                                <div
-                                    key={u.id}
-                                    onClick={() => toggleUser(u.id)}
-                                    className={`p-2 rounded-lg cursor-pointer flex items-center justify-between ${selectedIds.includes(u.id) ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'hover:bg-gray-50 dark:hover:bg-gray-600'}`}
-                                >
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-600">{getAvatarInitial(u.name)}</div>
-                                        <span className="text-sm font-medium">{u.name}</span>
-                                        <span className="text-xs text-gray-400 uppercase tracking-wider">{u.role}</span>
-                                    </div>
-                                    {selectedIds.includes(u.id) && <Icons.Check />}
-                                </div>
-                            ))}
+                    {mode === 'broadcast' && (
+                        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg px-3 py-2">
+                            <p className="text-xs text-amber-700 dark:text-amber-300">📢 This announcement will be sent to <strong>all users</strong> in your school.</p>
                         </div>
-                    </div>
+                    )}
+
+                    {mode !== 'broadcast' && (
+                        <div>
+                            <div className="flex items-center justify-between mb-1">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Recipients</label>
+                                {selectedIds.length > 0 && (
+                                    <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+                                        {selectedIds.length} selected
+                                    </span>
+                                )}
+                            </div>
+                            {/* Search input */}
+                            <div className="relative mb-2">
+                                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                                    <Icons.Search />
+                                </div>
+                                <input
+                                    type="text"
+                                    value={searchQuery}
+                                    onChange={e => setSearchQuery(e.target.value)}
+                                    placeholder="Search by name or role..."
+                                    className="w-full pl-9 pr-3 py-2 text-sm border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                            {/* Grouped user list */}
+                            <div className="h-48 overflow-y-auto border rounded-xl p-2 dark:bg-gray-700 dark:border-gray-600 space-y-2">
+                                {filteredGroupedUsers.length === 0 && (
+                                    <p className="text-sm text-gray-400 text-center py-4">No users found</p>
+                                )}
+                                {filteredGroupedUsers.map(group => (
+                                    <div key={group.role}>
+                                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 px-2 py-1">{group.role}s</p>
+                                        {group.users.map(u => (
+                                            <div
+                                                key={u.id}
+                                                onClick={() => toggleUser(u.id)}
+                                                className={`p-2 rounded-lg cursor-pointer flex items-center justify-between transition-colors ${selectedIds.includes(u.id) ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'hover:bg-gray-50 dark:hover:bg-gray-600'}`}
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-xs font-bold text-white">{getAvatarInitial(u.name)}</div>
+                                                    <span className="text-sm font-medium dark:text-gray-200">{u.name}</span>
+                                                </div>
+                                                {selectedIds.includes(u.id) && <Icons.Check />}
+                                            </div>
+                                        ))}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Message</label>
@@ -154,10 +233,10 @@ export const NewMessageModal = ({
                         <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 rounded-lg">Cancel</button>
                         <button
                             type="submit"
-                            disabled={loading || (!subject && !groupName) || !message || selectedIds.length === 0}
+                            disabled={loading || (mode === 'broadcast' ? !subject : ((!subject && !groupName) || selectedIds.length === 0)) || !message}
                             className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-lg shadow-blue-500/20 disabled:opacity-50"
                         >
-                            {loading ? 'Creating...' : (isGroup ? 'Create Group' : 'Send Message')}
+                            {loading ? 'Creating...' : (mode === 'group' ? 'Create Group' : mode === 'broadcast' ? '📢 Broadcast' : 'Send Message')}
                         </button>
                     </div>
                 </form>

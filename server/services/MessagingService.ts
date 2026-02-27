@@ -317,6 +317,70 @@ export class MessagingService {
             ));
         return true;
     }
+
+    async removeParticipant(convId: number, userId: number, requestingUserId: number) {
+        // Get the conversation to check admin permissions
+        const [conv] = await db.select().from(conversations).where(eq(conversations.id, convId));
+        if (!conv) throw new Error("Conversation not found");
+        if (!conv.isGroup) throw new Error("Cannot remove participants from direct messages");
+
+        // Check if requesting user is an admin or the creator
+        const isAdmin = (conv.admins as number[] || []).includes(requestingUserId) || conv.createdById === requestingUserId;
+        if (!isAdmin && requestingUserId !== userId) throw new Error("Only admins can remove other participants");
+
+        // Prevent removing the creator
+        if (userId === conv.createdById) throw new Error("Cannot remove the group creator");
+
+        await db.delete(conversationParticipants)
+            .where(and(
+                eq(conversationParticipants.conversationId, convId),
+                eq(conversationParticipants.userId, userId)
+            ));
+
+        return true;
+    }
+
+    async createBroadcast(schoolId: number, senderId: number, data: { title: string; message: string }) {
+        // Get all users in the school
+        const schoolUsers = await db.select({ userId: userSchools.userId })
+            .from(userSchools)
+            .where(eq(userSchools.schoolId, schoolId));
+
+        if (schoolUsers.length === 0) throw new Error("No users in school");
+
+        // Create broadcast conversation
+        const [broadcast] = await db.insert(conversations).values({
+            schoolId,
+            subject: data.title || 'Announcement',
+            type: 'broadcast',
+            isGroup: true,
+            groupName: `📢 ${data.title || 'Announcement'}`,
+            admins: [senderId],
+            createdById: senderId,
+            lastMessageAt: new Date()
+        }).returning();
+
+        // Add all school users as participants
+        const participantValues = schoolUsers.map(u => ({
+            conversationId: broadcast.id,
+            userId: u.userId,
+            joinedAt: new Date(),
+            lastReadAt: u.userId === senderId ? new Date() : null
+        }));
+
+        await db.insert(conversationParticipants).values(participantValues).onConflictDoNothing();
+
+        // Send the announcement as the first message
+        await db.insert(messages).values({
+            conversationId: broadcast.id,
+            senderId,
+            content: data.message,
+            messageType: 'text',
+            createdAt: new Date()
+        });
+
+        return broadcast;
+    }
 }
 
 export const messagingService = new MessagingService();

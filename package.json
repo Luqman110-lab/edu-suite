@@ -33,6 +33,7 @@
     "@types/web-push": "^3.6.4",
     "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^4.2.1",
+    "@vladmandic/face-api": "^1.7.15",
     "axios": "^1.13.4",
     "axios-cookiejar-support": "^6.0.5",
     "compression": "^1.8.1",

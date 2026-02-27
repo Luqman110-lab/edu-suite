@@ -190,3 +190,38 @@ conversationRoutes.post("/conversations/:id/read", requireAuth, async (req, res)
         res.status(500).json({ message: "Failed to mark as read" });
     }
 });
+
+// DELETE /api/conversations/:id/participants/:userId - Remove participant from group
+conversationRoutes.delete("/conversations/:id/participants/:userId", requireAuth, async (req, res) => {
+    try {
+        const convId = parseInt(param(req, 'id'));
+        const userId = parseInt(param(req, 'userId'));
+        if (isNaN(convId) || isNaN(userId)) return res.status(400).json({ message: "Invalid ID" });
+
+        await messagingService.removeParticipant(convId, userId, req.user!.id);
+        res.json({ success: true });
+    } catch (error: any) {
+        if (error.message.includes("Cannot remove") || error.message.includes("Only admins")) {
+            return res.status(403).json({ message: error.message });
+        }
+        console.error("Remove participant error:", error);
+        res.status(500).json({ message: "Failed to remove participant: " + error.message });
+    }
+});
+
+// POST /api/conversations/broadcast - Create broadcast announcement to all school users
+conversationRoutes.post("/conversations/broadcast", requireAuth, async (req, res) => {
+    try {
+        const schoolId = getActiveSchoolId(req);
+        if (!schoolId) return res.status(400).json({ message: "No active school" });
+
+        const { title, message } = req.body;
+        if (!title || !message) return res.status(400).json({ message: "Title and message required" });
+
+        const broadcast = await messagingService.createBroadcast(schoolId, req.user!.id, { title, message });
+        res.status(201).json(broadcast);
+    } catch (error: any) {
+        console.error("Create broadcast error:", error);
+        res.status(500).json({ message: "Failed to create broadcast: " + error.message });
+    }
+});

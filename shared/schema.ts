@@ -143,6 +143,39 @@ export const schools = pgTable("schools", {
     allowedIPAddresses: [],
     enforceIPWhitelist: false,
   }),
+  attendanceSettings: json("attendance_settings").$type<{
+    schoolStartTime: string;
+    lateThresholdMinutes: number;
+    gateCloseTime: string;
+    schoolEndTime: string;
+    enableFaceRecognition: boolean;
+    enableQrScanning: boolean;
+    requireFaceForGate: boolean;
+    requireFaceForTeachers: boolean;
+    faceConfidenceThreshold: number;
+    enableGeofencing: boolean;
+    schoolLatitude: number | null;
+    schoolLongitude: number | null;
+    geofenceRadiusMeters: number;
+    periodsPerDay: number;
+    periodDurationMinutes: number;
+  }>().default({
+    schoolStartTime: "08:00",
+    lateThresholdMinutes: 15,
+    gateCloseTime: "08:30",
+    schoolEndTime: "16:00",
+    enableFaceRecognition: false,
+    enableQrScanning: true,
+    requireFaceForGate: false,
+    requireFaceForTeachers: false,
+    faceConfidenceThreshold: 0.6,
+    enableGeofencing: false,
+    schoolLatitude: null,
+    schoolLongitude: null,
+    geofenceRadiusMeters: 100,
+    periodsPerDay: 8,
+    periodDurationMinutes: 40,
+  }),
   archivedYears: json("archived_years").$type<number[]>().default([]),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),

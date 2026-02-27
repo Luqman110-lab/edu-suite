@@ -190,8 +190,8 @@ export const ChatArea = ({
                 </div>
                 <div>
                     <h2 className="font-bold text-gray-900 dark:text-white leading-tight">{displayName}</h2>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 font-medium animate-pulse">
-                        {isTypingMessage || conversation.subject || (conversation.isGroup ? `${conversation.participants.length} members` : 'Online')}
+                    <p className={`text-xs text-gray-500 dark:text-gray-400 font-medium ${isTypingMessage ? 'animate-pulse' : ''}`}>
+                        {isTypingMessage || conversation.subject || (conversation.isGroup ? `${conversation.participants.length} members` : '')}
                     </p>
                 </div>
             </div>

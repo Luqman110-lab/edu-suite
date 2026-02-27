@@ -36,6 +36,8 @@ const MessagingLayout = () => {
     isSending,
     typingUsers,
     onlineUsers,
+    notification,
+    dismissNotification,
     sendMessage,
     editMessage,
     deleteMessage,
@@ -111,8 +113,32 @@ const MessagingLayout = () => {
   );
 
   return (
-    <div className="h-[calc(100vh-6rem)] md:h-[calc(100vh-8rem)] bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden flex">
-      {/* Sidebar: - On mobile: show if NO chat selected (id undefined) - On desktop: always show */}
+    <div className="relative h-[calc(100vh-6rem)] md:h-[calc(100vh-8rem)] bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden flex">
+      {/* Notification Toast */}
+      {notification && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-50 animate-[slideDown_0.3s_ease-out]">
+          <div
+            className="flex items-center gap-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl px-4 py-3 min-w-[280px] max-w-md cursor-pointer hover:shadow-2xl transition-shadow"
+            onClick={() => { dismissNotification(); navigate(`/app/messages/${notification.conversationId}`); }}
+          >
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+              {notification.senderName.charAt(0).toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{notification.senderName}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{notification.preview}</p>
+            </div>
+            <button
+              onClick={(e) => { e.stopPropagation(); dismissNotification(); }}
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-lg leading-none flex-shrink-0"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Sidebar */}
       <div className={`${id ? 'hidden md:block' : 'w-full'} md:w-80 lg:w-96 flex-shrink-0 h-full border-r border-gray-200 dark:border-gray-700`}>
         <MessagingSidebar
           conversations={conversations}
@@ -125,7 +151,7 @@ const MessagingLayout = () => {
         />
       </div>
 
-      {/* Chat Area: - On mobile: show if chat SELECTED (id defined) - On desktop: always show (flex-1) */}
+      {/* Chat Area */}
       <div className={`${!id ? 'hidden md:flex' : 'w-full flex'} md:flex-1 h-full bg-gray-50/50 dark:bg-black/20 flex-col`}>
         {id && activeConversation ? (
           <ChatArea

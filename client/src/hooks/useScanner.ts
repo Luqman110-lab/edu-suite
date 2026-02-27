@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { AttendanceTeacher, FaceEmbedding, AttendanceSettings } from '../types/attendance';
+import * as faceapi from '@vladmandic/face-api';
 
-declare const faceapi: any;
 declare const jsQR: any;
 
 export type ScannerType = 'qr' | 'face';
@@ -47,9 +47,10 @@ export function useScanner({ teachers, students, faceEmbeddings, settings, perso
     }, []);
 
     const loadFaceModels = async () => {
-        if (faceModelsLoaded || typeof faceapi === 'undefined') return false;
+        if (faceModelsLoaded) return false;
         try {
-            const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/model';
+            // Load models from local public/models directory (no CDN dependency)
+            const MODEL_URL = '/models';
             await Promise.all([
                 faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
                 faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
@@ -79,8 +80,8 @@ export function useScanner({ teachers, students, faceEmbeddings, settings, perso
 
         if (type === 'face') {
             const modelsLoaded = await loadFaceModels();
-            if (!modelsLoaded && typeof faceapi === 'undefined') {
-                alert('Face recognition is not available. Please refresh the page and try again.');
+            if (!modelsLoaded) {
+                alert('Face recognition models could not be loaded. Please try again.');
                 return;
             }
         }

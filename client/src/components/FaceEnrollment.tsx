@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-
-declare const faceapi: any;
+import * as faceapi from '@vladmandic/face-api';
 
 interface FaceEnrollmentProps {
   personId: number;
@@ -26,11 +25,8 @@ export default function FaceEnrollment({ personId, personType, personName, onSuc
 
   const loadModels = useCallback(async () => {
     try {
-      if (typeof faceapi === 'undefined') {
-        throw new Error('Face API library not loaded. Please refresh the page.');
-      }
-
-      const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/model';
+      // Load models from local public/models directory (no CDN dependency)
+      const MODEL_URL = '/models';
 
       await Promise.all([
         faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),

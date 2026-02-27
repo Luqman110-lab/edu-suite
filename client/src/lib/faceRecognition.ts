@@ -1,4 +1,4 @@
-declare const faceapi: any;
+import * as faceapi from '@vladmandic/face-api';
 
 export interface FaceEmbedding {
   id: number;
@@ -29,18 +29,15 @@ export async function loadFaceModels(): Promise<boolean> {
 
   modelsLoading = true;
   try {
-    if (typeof faceapi === 'undefined') {
-      throw new Error('Face API library not loaded');
-    }
+    // Load models from local public/models directory (no CDN dependency)
+    const MODEL_URL = '/models';
 
-    const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/model';
-    
     await Promise.all([
       faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
       faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
       faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
     ]);
-    
+
     modelsLoaded = true;
     return true;
   } catch (err) {
@@ -97,7 +94,7 @@ export function computeEuclideanDistance(a: number[] | Float32Array, b: number[]
   if (a.length !== b.length) {
     throw new Error('Embedding dimensions must match');
   }
-  
+
   let sum = 0;
   for (let i = 0; i < a.length; i++) {
     const diff = a[i] - b[i];
@@ -125,7 +122,7 @@ export function findBestMatch(
   for (const emb of embeddings) {
     const distance = computeEuclideanDistance(descriptor, emb.embedding);
     const confidence = distanceToConfidence(distance);
-    
+
     if (distance < minDistance && confidence >= threshold) {
       minDistance = distance;
       bestMatch = {
@@ -149,7 +146,7 @@ export function calculateHaversineDistance(
   const R = 6371000;
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = 
+  const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
     Math.sin(dLon / 2) * Math.sin(dLon / 2);

@@ -2,6 +2,15 @@
 import { GateStudent, GateRecord, GateSettings } from '../types/gate';
 import { FaceEmbedding } from '../types/attendance';
 
+export interface ClassSummary {
+    classLevel: string;
+    total: number;
+    present: number;
+    late: number;
+    absent: number;
+    leftEarly: number;
+}
+
 export const fetchGateStudents = async (): Promise<GateStudent[]> => {
     const res = await fetch('/api/students', { credentials: 'include' });
     if (!res.ok) throw new Error('Failed to fetch students');
@@ -51,3 +60,29 @@ export const markAbsent = async (date: string) => {
     if (!res.ok) throw new Error('Failed to mark absent');
     return res.json();
 };
+
+// G5: Attendance summary by class
+export const fetchClassSummary = async (date: string): Promise<ClassSummary[]> => {
+    const res = await fetch(`/api/gate-attendance/summary-by-class?date=${date}`, { credentials: 'include' });
+    if (!res.ok) throw new Error('Failed to fetch class summary');
+    return res.json();
+};
+
+// G6: Student QR data for gate scanning
+export const fetchStudentQR = async (studentId: number) => {
+    const res = await fetch(`/api/gate-attendance/qr/${studentId}`, { credentials: 'include' });
+    if (!res.ok) throw new Error('Failed to fetch QR data');
+    return res.json();
+};
+
+// G3: Trigger auto mark-absent
+export const triggerAutoAbsent = async () => {
+    const res = await fetch('/api/gate-attendance/auto-absent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to trigger auto-absent');
+    return res.json();
+};
+
