@@ -37,6 +37,8 @@ export const Reports: React.FC = () => {
   const loading = studentsLoading || marksLoading || teachersLoading || settingsLoading;
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'success' | 'error' | 'info'>('success');
+  const [generating, setGenerating] = useState(false);
+  const [generatingProgress, setGeneratingProgress] = useState({ current: 0, total: 0 });
 
   const showMessageFn = useCallback((msg: string, type: 'success' | 'error' | 'info' = 'success') => {
     setMessage(msg);
@@ -208,18 +210,28 @@ export const Reports: React.FC = () => {
       wholeClassStudents.some(s => s.id === m.studentId)
     );
 
-    await generateReportsPDF({
-      selectedStudents: studentsToProcess,
-      classBotMarks,
-      classEotMarks,
-      allTeachers,
-      settings,
-      selectedClass,
-      selectedTerm,
-      reportType,
-      selectedStream,
-      showMessage: showMessageFn
-    });
+    setGenerating(true);
+    setGeneratingProgress({ current: 0, total: studentsToProcess.length });
+    try {
+      await generateReportsPDF({
+        selectedStudents: studentsToProcess,
+        classBotMarks,
+        classEotMarks,
+        allTeachers,
+        settings,
+        selectedClass,
+        selectedTerm,
+        reportType,
+        selectedStream,
+        showMessage: showMessageFn,
+        onProgress: (current, total) => setGeneratingProgress({ current, total })
+      });
+    } catch (err: any) {
+      showMessageFn(`Failed to generate PDF: ${err?.message || 'Unknown error'}`, 'error');
+    } finally {
+      setGenerating(false);
+      setGeneratingProgress({ current: 0, total: 0 });
+    }
   };
 
   const handleExportExcel = () => {
@@ -280,11 +292,12 @@ export const Reports: React.FC = () => {
             onGeneratePDF={() => handleGeneratePDF()}
             onExportExcel={handleExportExcel}
             onExportCSV={handleExportCSV}
-            loading={loading}
+            loading={loading || generating}
             settingsLoaded={!!settings}
             selectedCount={selectedStudentIds.size}
             totalCount={studentPreviews.length}
             hasStudents={studentPreviews.length > 0}
+            generatingProgress={generating ? generatingProgress : undefined}
           />
         </div>
 

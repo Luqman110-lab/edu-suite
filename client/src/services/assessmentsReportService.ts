@@ -729,32 +729,37 @@ export const generateAssessmentPDF = async (
     teachers: ApiTeacher[],
     subjects: string[]
 ) => {
-    const classStudents = allStudents.filter(s => s.classLevel === selectedClass);
-    const year = settings.currentYear || new Date().getFullYear();
+    try {
+        const classStudents = allStudents.filter(s => s.classLevel === selectedClass);
+        const year = settings.currentYear || new Date().getFullYear();
 
-    let filteredStudents = classStudents;
-    if (selectedStream !== 'ALL') {
-        filteredStudents = classStudents.filter(s => s.stream === selectedStream);
+        let filteredStudents = classStudents;
+        if (selectedStream !== 'ALL') {
+            filteredStudents = classStudents.filter(s => s.stream === selectedStream);
+        }
+
+        if (filteredStudents.length === 0) {
+            alert("No students found for this selection.");
+            return;
+        }
+
+        const doc = new jsPDF('l', 'mm', 'a4');
+
+        const reportsToGenerate = selectedType === 'BOTH'
+            ? [AssessmentType.BOT, AssessmentType.EOT]
+            : [selectedType];
+
+        for (let i = 0; i < reportsToGenerate.length; i++) {
+            const type = reportsToGenerate[i];
+            if (i > 0) doc.addPage();
+            generateSection(doc, type, classStudents, allMarks, settings, year, selectedStream, selectedClass, selectedTerm, teachers, subjects);
+        }
+
+        const sanitizedSchoolName = settings.schoolName.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase();
+        const streamSuffix = selectedStream !== 'ALL' ? `_${selectedStream}` : '';
+        doc.save(`${sanitizedSchoolName}_Assessment_${selectedClass}${streamSuffix}_Term${selectedTerm}_${selectedType}.pdf`);
+    } catch (err: any) {
+        console.error('Assessment PDF generation error:', err);
+        throw new Error(`Failed to generate assessment PDF: ${err?.message || 'Unknown error'}`);
     }
-
-    if (filteredStudents.length === 0) {
-        alert("No students found for this selection.");
-        return;
-    }
-
-    const doc = new jsPDF('l', 'mm', 'a4');
-
-    const reportsToGenerate = selectedType === 'BOTH'
-        ? [AssessmentType.BOT, AssessmentType.EOT]
-        : [selectedType];
-
-    for (let i = 0; i < reportsToGenerate.length; i++) {
-        const type = reportsToGenerate[i];
-        if (i > 0) doc.addPage();
-        generateSection(doc, type, classStudents, allMarks, settings, year, selectedStream, selectedClass, selectedTerm, teachers, subjects);
-    }
-
-    const sanitizedSchoolName = settings.schoolName.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase();
-    const streamSuffix = selectedStream !== 'ALL' ? `_${selectedStream}` : '';
-    doc.save(`${sanitizedSchoolName}_Assessment_${selectedClass}${streamSuffix}_Term${selectedTerm}_${selectedType}.pdf`);
 };

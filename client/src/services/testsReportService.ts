@@ -11,317 +11,322 @@ export const generateTestAssessmentSheet = async (
     settings: SchoolSettings,
     showMessage: (msg: string, type: 'success' | 'error' | 'info') => void
 ) => {
-    if (!settings) {
-        showMessage('Settings not loaded', 'error');
-        return;
-    }
-    if (!session?.id) {
-        showMessage('Invalid test session', 'error');
-        return;
-    }
+    try {
+        if (!settings) {
+            showMessage('Settings not loaded', 'error');
+            return;
+        }
+        if (!session?.id) {
+            showMessage('Invalid test session', 'error');
+            return;
+        }
 
-    const sessionSubjects = ['P1', 'P2', 'P3'].includes(session.classLevel) ? SUBJECTS_LOWER : SUBJECTS_UPPER;
+        const sessionSubjects = ['P1', 'P2', 'P3'].includes(session.classLevel) ? SUBJECTS_LOWER : SUBJECTS_UPPER;
 
-    const studentRows = students.map(student => {
-        const score = scores[student.id!];
-        const convertedMarks = score?.convertedMarks || {};
-        let totalMarks = 0;
-        sessionSubjects.forEach(sub => {
-            const mark = (convertedMarks as any)[sub];
-            if (mark !== undefined && mark !== null) {
-                totalMarks += mark;
-            }
-        });
-        return {
-            student,
-            score,
-            convertedMarks,
-            totalMarks,
-            aggregate: score?.aggregate || 0,
-            division: score?.division || ''
+        const studentRows = students.map(student => {
+            const score = scores[student.id!];
+            const convertedMarks = score?.convertedMarks || {};
+            let totalMarks = 0;
+            sessionSubjects.forEach(sub => {
+                const mark = (convertedMarks as any)[sub];
+                if (mark !== undefined && mark !== null) {
+                    totalMarks += mark;
+                }
+            });
+            return {
+                student,
+                score,
+                convertedMarks,
+                totalMarks,
+                aggregate: score?.aggregate || 0,
+                division: score?.division || ''
+            };
+        }).sort((a, b) => b.totalMarks - a.totalMarks);
+
+        const studentsWithResults = studentRows.filter(r => r.totalMarks > 0);
+
+        if (studentsWithResults.length === 0) {
+            showMessage('No students have scores for this test', 'error');
+            return;
+        }
+
+        const doc = new jsPDF('l', 'mm', 'a4');
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 10;
+
+        const colors = {
+            primary: [123, 17, 19],
+            darkBlue: [30, 58, 95],
+            white: [255, 255, 255],
+            cream: [253, 245, 230],
+            text: [51, 51, 51],
+            muted: [128, 128, 128],
+            border: [200, 200, 200],
+            lightGray: [248, 249, 250],
+            green: [34, 197, 94],
+            blue: [59, 130, 246],
+            red: [239, 68, 68],
+            purple: [139, 92, 246]
         };
-    }).sort((a, b) => b.totalMarks - a.totalMarks);
 
-    const studentsWithResults = studentRows.filter(r => r.totalMarks > 0);
+        doc.setFillColor(colors.primary[0], colors.primary[1], colors.primary[2]);
+        doc.rect(0, 0, pageWidth, 3, 'F');
 
-    if (studentsWithResults.length === 0) {
-        showMessage('No students have scores for this test', 'error');
-        return;
-    }
+        let headerY = 10;
+        const logoSize = 16;
 
-    const doc = new jsPDF('l', 'mm', 'a4');
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 10;
+        if (settings.logoBase64) {
+            try {
+                let format = 'PNG';
+                if (settings.logoBase64.startsWith('data:image/jpeg')) format = 'JPEG';
+                doc.addImage(settings.logoBase64, format, pageWidth / 2 - logoSize / 2, headerY, logoSize, logoSize);
+                headerY += logoSize + 2;
+            } catch (e) { headerY += 2; }
+        }
 
-    const colors = {
-        primary: [123, 17, 19],
-        darkBlue: [30, 58, 95],
-        white: [255, 255, 255],
-        cream: [253, 245, 230],
-        text: [51, 51, 51],
-        muted: [128, 128, 128],
-        border: [200, 200, 200],
-        lightGray: [248, 249, 250],
-        green: [34, 197, 94],
-        blue: [59, 130, 246],
-        red: [239, 68, 68],
-        purple: [139, 92, 246]
-    };
+        doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(14);
+        doc.text(settings.schoolName.toUpperCase(), pageWidth / 2, headerY, { align: 'center' });
+        headerY += 4;
 
-    doc.setFillColor(colors.primary[0], colors.primary[1], colors.primary[2]);
-    doc.rect(0, 0, pageWidth, 3, 'F');
+        doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.text(settings.addressBox || '', pageWidth / 2, headerY, { align: 'center' });
+        headerY += 3;
 
-    let headerY = 10;
-    const logoSize = 16;
-
-    if (settings.logoBase64) {
-        try {
-            let format = 'PNG';
-            if (settings.logoBase64.startsWith('data:image/jpeg')) format = 'JPEG';
-            doc.addImage(settings.logoBase64, format, pageWidth / 2 - logoSize / 2, headerY, logoSize, logoSize);
-            headerY += logoSize + 2;
-        } catch (e) { headerY += 2; }
-    }
-
-    doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    doc.text(settings.schoolName.toUpperCase(), pageWidth / 2, headerY, { align: 'center' });
-    headerY += 4;
-
-    doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.text(settings.addressBox || '', pageWidth / 2, headerY, { align: 'center' });
-    headerY += 3;
-
-    doc.setFontSize(7);
-    doc.setTextColor(colors.muted[0], colors.muted[1], colors.muted[2]);
-    doc.text(`Tel: ${settings.contactPhones || 'N/A'}`, pageWidth / 2, headerY, { align: 'center' });
-    headerY += 3;
-
-    if (settings.motto) {
-        doc.setFont("helvetica", "italic");
         doc.setFontSize(7);
         doc.setTextColor(colors.muted[0], colors.muted[1], colors.muted[2]);
-        doc.text(`"${settings.motto}"`, pageWidth / 2, headerY, { align: 'center' });
-        headerY += 2;
-    }
+        doc.text(`Tel: ${settings.contactPhones || 'N/A'}`, pageWidth / 2, headerY, { align: 'center' });
+        headerY += 3;
 
-    doc.setDrawColor(colors.primary[0], colors.primary[1], colors.primary[2]);
-    doc.setLineWidth(0.6);
-    doc.line(margin + 40, headerY, pageWidth - margin - 40, headerY);
-    headerY += 4;
-
-    doc.setFillColor(colors.darkBlue[0], colors.darkBlue[1], colors.darkBlue[2]);
-    doc.rect(margin, headerY, pageWidth - (margin * 2), 7, 'F');
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.setTextColor(255, 255, 255);
-    doc.text("TEST ASSESSMENT SHEET", pageWidth / 2, headerY + 5, { align: 'center' });
-    headerY += 10;
-
-    doc.setFillColor(colors.cream[0], colors.cream[1], colors.cream[2]);
-    doc.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
-    doc.setLineWidth(0.2);
-    doc.rect(margin, headerY, pageWidth - (margin * 2), 14, 'FD');
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
-
-    const col1X = margin + 5;
-    const col2X = margin + 80;
-    const col3X = margin + 160;
-    const infoY1 = headerY + 5;
-    const infoY2 = headerY + 11;
-
-    doc.setFont("helvetica", "bold");
-    doc.text("Test:", col1X, infoY1);
-    doc.setFont("helvetica", "normal");
-    doc.text(session.name, col1X + 12, infoY1);
-
-    doc.setFont("helvetica", "bold");
-    doc.text("Class:", col2X, infoY1);
-    doc.setFont("helvetica", "normal");
-    doc.text(`${session.classLevel}${session.stream ? ' - ' + session.stream : ''}`, col2X + 15, infoY1);
-
-    doc.setFont("helvetica", "bold");
-    doc.text("Term:", col3X, infoY1);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Term ${session.term}, ${session.year}`, col3X + 15, infoY1);
-
-    doc.setFont("helvetica", "bold");
-    doc.text("Type:", col1X, infoY2);
-    doc.setFont("helvetica", "normal");
-    doc.text(session.testType, col1X + 12, infoY2);
-
-    doc.setFont("helvetica", "bold");
-    doc.text("Date:", col2X, infoY2);
-    doc.setFont("helvetica", "normal");
-    doc.text(session.testDate ? new Date(session.testDate).toLocaleDateString() : '-', col2X + 15, infoY2);
-
-    doc.setFont("helvetica", "bold");
-    doc.text("Students:", col3X, infoY2);
-    doc.setFont("helvetica", "normal");
-    doc.text(`${studentsWithResults.length} with results`, col3X + 22, infoY2);
-
-    headerY += 18;
-
-    const subjectLabels: { [key: string]: string } = {
-        english: 'ENG', maths: 'MTC', science: 'SCI', sst: 'SST', literacy1: 'LIT1', literacy2: 'LIT2'
-    };
-
-    const head = [[
-        { content: 'POS', styles: { halign: 'center', fillColor: colors.primary, textColor: colors.white } },
-        { content: 'STUDENT NAME', styles: { halign: 'left', fillColor: colors.primary, textColor: colors.white } },
-        { content: 'SEX', styles: { halign: 'center', fillColor: colors.primary, textColor: colors.white } },
-        ...sessionSubjects.flatMap(sub => [
-            { content: subjectLabels[sub] || sub.toUpperCase(), styles: { halign: 'center', fillColor: colors.darkBlue, textColor: colors.white } },
-            { content: 'GR', styles: { halign: 'center', fillColor: colors.darkBlue, textColor: [200, 200, 200], fontSize: 6 } }
-        ]),
-        { content: 'TOT', styles: { halign: 'center', fillColor: colors.primary, textColor: colors.white, fontStyle: 'bold' } },
-        { content: 'AGG', styles: { halign: 'center', fillColor: colors.primary, textColor: colors.white, fontStyle: 'bold' } },
-        { content: 'DIV', styles: { halign: 'center', fillColor: colors.primary, textColor: colors.white, fontStyle: 'bold' } }
-    ]];
-
-    let currentRank = 0;
-    let prevTotal = -1;
-
-    const body = studentRows.map((row, index) => {
-        if (row.totalMarks !== prevTotal && row.totalMarks > 0) {
-            currentRank = index + 1;
+        if (settings.motto) {
+            doc.setFont("helvetica", "italic");
+            doc.setFontSize(7);
+            doc.setTextColor(colors.muted[0], colors.muted[1], colors.muted[2]);
+            doc.text(`"${settings.motto}"`, pageWidth / 2, headerY, { align: 'center' });
+            headerY += 2;
         }
-        prevTotal = row.totalMarks;
 
-        const rowData: any[] = [
-            row.totalMarks > 0 ? currentRank.toString() : '-',
-            row.student.name.toUpperCase(),
-            row.student.gender === 'Male' ? 'M' : row.student.gender === 'Female' ? 'F' : '-'
-        ];
+        doc.setDrawColor(colors.primary[0], colors.primary[1], colors.primary[2]);
+        doc.setLineWidth(0.6);
+        doc.line(margin + 40, headerY, pageWidth - margin - 40, headerY);
+        headerY += 4;
 
-        sessionSubjects.forEach(sub => {
-            const mark = (row.convertedMarks as any)[sub];
-            const { grade } = calculateGrade(mark, settings?.gradingConfig);
-            rowData.push(mark !== undefined && mark !== null ? Math.round(mark) : '-');
-            rowData.push(mark !== undefined && mark !== null ? grade : '-');
-        });
-
-        rowData.push(row.totalMarks > 0 ? Math.round(row.totalMarks) : '-');
-        rowData.push(row.aggregate > 0 ? row.aggregate : '-');
-        rowData.push(row.aggregate > 0 ? row.division : '-');
-
-        return rowData;
-    });
-
-    const baseColIdx = 4 + (sessionSubjects.length * 2);
-    const columnStyles: any = {
-        0: { cellWidth: 12, halign: 'center', fontStyle: 'bold' },
-        1: { cellWidth: 18, halign: 'center', fontSize: 7 },
-        2: { cellWidth: 50, halign: 'left', fontStyle: 'bold' },
-        3: { cellWidth: 10, halign: 'center' },
-    };
-
-    sessionSubjects.forEach((_, i) => {
-        columnStyles[4 + (i * 2)] = { cellWidth: 18, halign: 'center' };
-        columnStyles[4 + (i * 2) + 1] = { cellWidth: 8, halign: 'center', fontSize: 7, textColor: colors.muted };
-    });
-
-    columnStyles[baseColIdx] = { cellWidth: 14, halign: 'center', fontStyle: 'bold' };
-    columnStyles[baseColIdx + 1] = { cellWidth: 12, halign: 'center', fontStyle: 'bold' };
-    columnStyles[baseColIdx + 2] = { cellWidth: 12, halign: 'center', fontStyle: 'bold' };
-
-    (doc as any).autoTable({
-        startY: headerY,
-        head: head,
-        body: body,
-        theme: 'grid',
-        styles: {
-            font: 'helvetica',
-            fontSize: 7.5,
-            textColor: colors.text,
-            lineColor: colors.border,
-            lineWidth: 0.1,
-            cellPadding: 1.2,
-            valign: 'middle'
-        },
-        headStyles: { fontStyle: 'bold', halign: 'center', lineWidth: 0.1, lineColor: colors.white, minCellHeight: 7 },
-        bodyStyles: { minCellHeight: 6 },
-        alternateRowStyles: { fillColor: colors.lightGray },
-        columnStyles: columnStyles,
-        margin: { left: margin, right: margin },
-        didParseCell: function (data: any) {
-            if (data.section === 'body') {
-                const colIdx = data.column.index;
-                const divColIdx = baseColIdx + 2;
-
-                if (colIdx === 0 && data.cell.raw !== '-') {
-                    const rank = parseInt(data.cell.raw);
-                    if (rank === 1) { data.cell.styles.textColor = [212, 175, 55]; data.cell.styles.fontStyle = 'bold'; }
-                    else if (rank === 2) { data.cell.styles.textColor = [156, 163, 175]; data.cell.styles.fontStyle = 'bold'; }
-                    else if (rank === 3) { data.cell.styles.textColor = [180, 83, 9]; data.cell.styles.fontStyle = 'bold'; }
-                }
-
-                if (colIdx === divColIdx) {
-                    const div = data.cell.raw;
-                    if (div === 'I') data.cell.styles.textColor = colors.green;
-                    else if (div === 'II') data.cell.styles.textColor = colors.blue;
-                    else if (div === 'III') data.cell.styles.textColor = [180, 140, 20];
-                    else if (div === 'IV') data.cell.styles.textColor = colors.purple;
-                    else if (div === 'U') data.cell.styles.textColor = colors.red;
-                    data.cell.styles.fontStyle = 'bold';
-                }
-            }
-        }
-    });
-
-    const tableEndY = (doc as any).lastAutoTable.finalY;
-    let footerY = tableEndY + 6;
-
-    if (footerY < pageHeight - 30) {
-        const divCounts = { I: 0, II: 0, III: 0, IV: 0, U: 0 };
-        studentRows.forEach(r => {
-            if (r.division && r.division in divCounts) {
-                divCounts[r.division as keyof typeof divCounts]++;
-            }
-        });
+        doc.setFillColor(colors.darkBlue[0], colors.darkBlue[1], colors.darkBlue[2]);
+        doc.rect(margin, headerY, pageWidth - (margin * 2), 7, 'F');
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(255, 255, 255);
+        doc.text("TEST ASSESSMENT SHEET", pageWidth / 2, headerY + 5, { align: 'center' });
+        headerY += 10;
 
         doc.setFillColor(colors.cream[0], colors.cream[1], colors.cream[2]);
-        doc.rect(margin, footerY, pageWidth - (margin * 2), 10, 'F');
+        doc.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
+        doc.setLineWidth(0.2);
+        doc.rect(margin, headerY, pageWidth - (margin * 2), 14, 'FD');
 
-        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
         doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
-        let divX = margin + 5;
-        ['I', 'II', 'III', 'IV', 'U'].forEach((div, idx) => {
-            const divColors = [colors.green, colors.blue, [180, 140, 20], colors.purple, colors.red];
-            doc.setTextColor(divColors[idx][0], divColors[idx][1], divColors[idx][2]);
-            doc.text(`DIV ${div}: ${divCounts[div as keyof typeof divCounts]}`, divX, footerY + 6);
-            divX += 35;
+
+        const col1X = margin + 5;
+        const col2X = margin + 80;
+        const col3X = margin + 160;
+        const infoY1 = headerY + 5;
+        const infoY2 = headerY + 11;
+
+        doc.setFont("helvetica", "bold");
+        doc.text("Test:", col1X, infoY1);
+        doc.setFont("helvetica", "normal");
+        doc.text(session.name, col1X + 12, infoY1);
+
+        doc.setFont("helvetica", "bold");
+        doc.text("Class:", col2X, infoY1);
+        doc.setFont("helvetica", "normal");
+        doc.text(`${session.classLevel}${session.stream ? ' - ' + session.stream : ''}`, col2X + 15, infoY1);
+
+        doc.setFont("helvetica", "bold");
+        doc.text("Term:", col3X, infoY1);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Term ${session.term}, ${session.year}`, col3X + 15, infoY1);
+
+        doc.setFont("helvetica", "bold");
+        doc.text("Type:", col1X, infoY2);
+        doc.setFont("helvetica", "normal");
+        doc.text(session.testType, col1X + 12, infoY2);
+
+        doc.setFont("helvetica", "bold");
+        doc.text("Date:", col2X, infoY2);
+        doc.setFont("helvetica", "normal");
+        doc.text(session.testDate ? new Date(session.testDate).toLocaleDateString() : '-', col2X + 15, infoY2);
+
+        doc.setFont("helvetica", "bold");
+        doc.text("Students:", col3X, infoY2);
+        doc.setFont("helvetica", "normal");
+        doc.text(`${studentsWithResults.length} with results`, col3X + 22, infoY2);
+
+        headerY += 18;
+
+        const subjectLabels: { [key: string]: string } = {
+            english: 'ENG', maths: 'MTC', science: 'SCI', sst: 'SST', literacy1: 'LIT1', literacy2: 'LIT2'
+        };
+
+        const head = [[
+            { content: 'POS', styles: { halign: 'center', fillColor: colors.primary, textColor: colors.white } },
+            { content: 'STUDENT NAME', styles: { halign: 'left', fillColor: colors.primary, textColor: colors.white } },
+            { content: 'SEX', styles: { halign: 'center', fillColor: colors.primary, textColor: colors.white } },
+            ...sessionSubjects.flatMap(sub => [
+                { content: subjectLabels[sub] || sub.toUpperCase(), styles: { halign: 'center', fillColor: colors.darkBlue, textColor: colors.white } },
+                { content: 'GR', styles: { halign: 'center', fillColor: colors.darkBlue, textColor: [200, 200, 200], fontSize: 6 } }
+            ]),
+            { content: 'TOT', styles: { halign: 'center', fillColor: colors.primary, textColor: colors.white, fontStyle: 'bold' } },
+            { content: 'AGG', styles: { halign: 'center', fillColor: colors.primary, textColor: colors.white, fontStyle: 'bold' } },
+            { content: 'DIV', styles: { halign: 'center', fillColor: colors.primary, textColor: colors.white, fontStyle: 'bold' } }
+        ]];
+
+        let currentRank = 0;
+        let prevTotal = -1;
+
+        const body = studentRows.map((row, index) => {
+            if (row.totalMarks !== prevTotal && row.totalMarks > 0) {
+                currentRank = index + 1;
+            }
+            prevTotal = row.totalMarks;
+
+            const rowData: any[] = [
+                row.totalMarks > 0 ? currentRank.toString() : '-',
+                row.student.name.toUpperCase(),
+                row.student.gender === 'Male' ? 'M' : row.student.gender === 'Female' ? 'F' : '-'
+            ];
+
+            sessionSubjects.forEach(sub => {
+                const mark = (row.convertedMarks as any)[sub];
+                const { grade } = calculateGrade(mark, settings?.gradingConfig);
+                rowData.push(mark !== undefined && mark !== null ? Math.round(mark) : '-');
+                rowData.push(mark !== undefined && mark !== null ? grade : '-');
+            });
+
+            rowData.push(row.totalMarks > 0 ? Math.round(row.totalMarks) : '-');
+            rowData.push(row.aggregate > 0 ? row.aggregate : '-');
+            rowData.push(row.aggregate > 0 ? row.division : '-');
+
+            return rowData;
         });
 
-        const passCount = divCounts.I + divCounts.II + divCounts.III + divCounts.IV;
-        const passRate = studentsWithResults.length > 0 ? Math.round((passCount / studentsWithResults.length) * 100) : 0;
-        doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
-        doc.text(`Pass Rate: ${passRate}%`, pageWidth - margin - 40, footerY + 6);
+        const baseColIdx = 4 + (sessionSubjects.length * 2);
+        const columnStyles: any = {
+            0: { cellWidth: 12, halign: 'center', fontStyle: 'bold' },
+            1: { cellWidth: 18, halign: 'center', fontSize: 7 },
+            2: { cellWidth: 50, halign: 'left', fontStyle: 'bold' },
+            3: { cellWidth: 10, halign: 'center' },
+        };
 
-        footerY += 14;
+        sessionSubjects.forEach((_, i) => {
+            columnStyles[4 + (i * 2)] = { cellWidth: 18, halign: 'center' };
+            columnStyles[4 + (i * 2) + 1] = { cellWidth: 8, halign: 'center', fontSize: 7, textColor: colors.muted };
+        });
+
+        columnStyles[baseColIdx] = { cellWidth: 14, halign: 'center', fontStyle: 'bold' };
+        columnStyles[baseColIdx + 1] = { cellWidth: 12, halign: 'center', fontStyle: 'bold' };
+        columnStyles[baseColIdx + 2] = { cellWidth: 12, halign: 'center', fontStyle: 'bold' };
+
+        (doc as any).autoTable({
+            startY: headerY,
+            head: head,
+            body: body,
+            theme: 'grid',
+            styles: {
+                font: 'helvetica',
+                fontSize: 7.5,
+                textColor: colors.text,
+                lineColor: colors.border,
+                lineWidth: 0.1,
+                cellPadding: 1.2,
+                valign: 'middle'
+            },
+            headStyles: { fontStyle: 'bold', halign: 'center', lineWidth: 0.1, lineColor: colors.white, minCellHeight: 7 },
+            bodyStyles: { minCellHeight: 6 },
+            alternateRowStyles: { fillColor: colors.lightGray },
+            columnStyles: columnStyles,
+            margin: { left: margin, right: margin },
+            didParseCell: function (data: any) {
+                if (data.section === 'body') {
+                    const colIdx = data.column.index;
+                    const divColIdx = baseColIdx + 2;
+
+                    if (colIdx === 0 && data.cell.raw !== '-') {
+                        const rank = parseInt(data.cell.raw);
+                        if (rank === 1) { data.cell.styles.textColor = [212, 175, 55]; data.cell.styles.fontStyle = 'bold'; }
+                        else if (rank === 2) { data.cell.styles.textColor = [156, 163, 175]; data.cell.styles.fontStyle = 'bold'; }
+                        else if (rank === 3) { data.cell.styles.textColor = [180, 83, 9]; data.cell.styles.fontStyle = 'bold'; }
+                    }
+
+                    if (colIdx === divColIdx) {
+                        const div = data.cell.raw;
+                        if (div === 'I') data.cell.styles.textColor = colors.green;
+                        else if (div === 'II') data.cell.styles.textColor = colors.blue;
+                        else if (div === 'III') data.cell.styles.textColor = [180, 140, 20];
+                        else if (div === 'IV') data.cell.styles.textColor = colors.purple;
+                        else if (div === 'U') data.cell.styles.textColor = colors.red;
+                        data.cell.styles.fontStyle = 'bold';
+                    }
+                }
+            }
+        });
+
+        const tableEndY = (doc as any).lastAutoTable.finalY;
+        let footerY = tableEndY + 6;
+
+        if (footerY < pageHeight - 30) {
+            const divCounts = { I: 0, II: 0, III: 0, IV: 0, U: 0 };
+            studentRows.forEach(r => {
+                if (r.division && r.division in divCounts) {
+                    divCounts[r.division as keyof typeof divCounts]++;
+                }
+            });
+
+            doc.setFillColor(colors.cream[0], colors.cream[1], colors.cream[2]);
+            doc.rect(margin, footerY, pageWidth - (margin * 2), 10, 'F');
+
+            doc.setFontSize(8);
+            doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
+            let divX = margin + 5;
+            ['I', 'II', 'III', 'IV', 'U'].forEach((div, idx) => {
+                const divColors = [colors.green, colors.blue, [180, 140, 20], colors.purple, colors.red];
+                doc.setTextColor(divColors[idx][0], divColors[idx][1], divColors[idx][2]);
+                doc.text(`DIV ${div}: ${divCounts[div as keyof typeof divCounts]}`, divX, footerY + 6);
+                divX += 35;
+            });
+
+            const passCount = divCounts.I + divCounts.II + divCounts.III + divCounts.IV;
+            const passRate = studentsWithResults.length > 0 ? Math.round((passCount / studentsWithResults.length) * 100) : 0;
+            doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
+            doc.text(`Pass Rate: ${passRate}%`, pageWidth - margin - 40, footerY + 6);
+
+            footerY += 14;
+        }
+
+        doc.setFontSize(7);
+        doc.setTextColor(colors.muted[0], colors.muted[1], colors.muted[2]);
+        const gradingKey = settings?.gradingConfig?.grades
+            .map(g => `${g.grade} (${g.minScore}-${g.maxScore})`)
+            .join(', ') || "D1 (90-100), D2 (80-89), C3 (70-79), C4 (60-69), C5 (55-59), C6 (50-54), P7 (45-49), P8 (40-44), F9 (0-39)";
+        doc.text(`Grading: ${gradingKey}`, pageWidth / 2, footerY, { align: 'center' });
+
+        doc.setFontSize(6);
+        doc.text(`Generated: ${new Date().toLocaleString()}`, margin, pageHeight - 4);
+        doc.text(settings.schoolName, pageWidth / 2, pageHeight - 4, { align: 'center' });
+
+        const fileName = `${settings.schoolName.replace(/[^a-zA-Z0-9]/g, '_')}_${session.name.replace(/[^a-zA-Z0-9]/g, '_')}_Assessment.pdf`;
+        doc.save(fileName);
+        showMessage('Assessment sheet generated successfully', 'success');
+    } catch (err: any) {
+        console.error('Test assessment sheet error:', err);
+        showMessage(`Failed to generate assessment sheet: ${err?.message || 'Unknown error'}`, 'error');
     }
-
-    doc.setFontSize(7);
-    doc.setTextColor(colors.muted[0], colors.muted[1], colors.muted[2]);
-    const gradingKey = settings?.gradingConfig?.grades
-        .map(g => `${g.grade} (${g.minScore}-${g.maxScore})`)
-        .join(', ') || "D1 (90-100), D2 (80-89), C3 (70-79), C4 (60-69), C5 (55-59), C6 (50-54), P7 (45-49), P8 (40-44), F9 (0-39)";
-    doc.text(`Grading: ${gradingKey}`, pageWidth / 2, footerY, { align: 'center' });
-
-    doc.setFontSize(6);
-    doc.text(`Generated: ${new Date().toLocaleString()}`, margin, pageHeight - 4);
-    doc.text(settings.schoolName, pageWidth / 2, pageHeight - 4, { align: 'center' });
-
-    const fileName = `${settings.schoolName.replace(/[^a-zA-Z0-9]/g, '_')}_${session.name.replace(/[^a-zA-Z0-9]/g, '_')}_Assessment.pdf`;
-    doc.save(fileName);
-    showMessage('Assessment sheet generated successfully', 'success');
 };
 
 

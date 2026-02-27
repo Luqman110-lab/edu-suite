@@ -116,49 +116,54 @@ export const LeaveManagement: React.FC = () => {
   };
 
   const generateExeatLetter = (request: LeaveRequest) => {
-    const student = students.find(s => s.id === request.studentId);
-    if (!student) return;
+    try {
+      const student = students.find(s => s.id === request.studentId);
+      if (!student) return;
 
-    const doc = new jsPDF();
+      const doc = new jsPDF();
 
-    doc.setFontSize(18);
-    doc.text('EXEAT LETTER', 105, 30, { align: 'center' });
+      doc.setFontSize(18);
+      doc.text('EXEAT LETTER', 105, 30, { align: 'center' });
 
-    doc.setFontSize(12);
-    doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, 50);
-    doc.text(`Leave Reference: EX-${request.id.toString().padStart(5, '0')}`, 20, 60);
+      doc.setFontSize(12);
+      doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, 50);
+      doc.text(`Leave Reference: EX-${request.id.toString().padStart(5, '0')}`, 20, 60);
 
-    doc.setFontSize(14);
-    doc.text('Student Information', 20, 80);
-    doc.setFontSize(12);
-    doc.text(`Name: ${student.name}`, 25, 90);
-    doc.text(`Class: ${student.classLevel}`, 25, 98);
+      doc.setFontSize(14);
+      doc.text('Student Information', 20, 80);
+      doc.setFontSize(12);
+      doc.text(`Name: ${student.name}`, 25, 90);
+      doc.text(`Class: ${student.classLevel}`, 25, 98);
 
-    doc.setFontSize(14);
-    doc.text('Leave Details', 20, 118);
-    doc.setFontSize(12);
-    doc.text(`Type: ${request.leaveType.charAt(0).toUpperCase() + request.leaveType.slice(1)}`, 25, 128);
-    doc.text(`From: ${new Date(request.startDate).toLocaleDateString()}`, 25, 136);
-    doc.text(`To: ${new Date(request.endDate).toLocaleDateString()}`, 25, 144);
-    doc.text(`Expected Return: ${request.expectedReturnTime}`, 25, 152);
-    doc.text(`Reason: ${request.reason}`, 25, 160);
-    doc.text(`Destination: ${request.destination || 'Not specified'}`, 25, 168);
+      doc.setFontSize(14);
+      doc.text('Leave Details', 20, 118);
+      doc.setFontSize(12);
+      doc.text(`Type: ${request.leaveType.charAt(0).toUpperCase() + request.leaveType.slice(1)}`, 25, 128);
+      doc.text(`From: ${new Date(request.startDate).toLocaleDateString()}`, 25, 136);
+      doc.text(`To: ${new Date(request.endDate).toLocaleDateString()}`, 25, 144);
+      doc.text(`Expected Return: ${request.expectedReturnTime}`, 25, 152);
+      doc.text(`Reason: ${request.reason}`, 25, 160);
+      doc.text(`Destination: ${request.destination || 'Not specified'}`, 25, 168);
 
-    doc.setFontSize(14);
-    doc.text('Guardian Information', 20, 188);
-    doc.setFontSize(12);
-    doc.text(`Name: ${request.guardianName}`, 25, 198);
-    doc.text(`Phone: ${request.guardianPhone}`, 25, 206);
-    doc.text(`Relationship: ${request.guardianRelationship || 'Parent/Guardian'}`, 25, 214);
-    doc.text(`Transport: ${request.transportMode || 'To be picked up'}`, 25, 222);
+      doc.setFontSize(14);
+      doc.text('Guardian Information', 20, 188);
+      doc.setFontSize(12);
+      doc.text(`Name: ${request.guardianName}`, 25, 198);
+      doc.text(`Phone: ${request.guardianPhone}`, 25, 206);
+      doc.text(`Relationship: ${request.guardianRelationship || 'Parent/Guardian'}`, 25, 214);
+      doc.text(`Transport: ${request.transportMode || 'To be picked up'}`, 25, 222);
 
-    doc.line(20, 252, 80, 252);
-    doc.text('Authorized Signature', 20, 260);
+      doc.line(20, 252, 80, 252);
+      doc.text('Authorized Signature', 20, 260);
 
-    doc.line(120, 252, 180, 252);
-    doc.text('Date', 120, 260);
+      doc.line(120, 252, 180, 252);
+      doc.text('Date', 120, 260);
 
-    doc.save(`exeat_${student.name.replace(/\s+/g, '_')}_${request.id}.pdf`);
+      doc.save(`exeat_${student.name.replace(/\s+/g, '_')}_${request.id}.pdf`);
+    } catch (err: any) {
+      console.error('Exeat letter generation error:', err);
+      alert(`Failed to generate exeat letter: ${err?.message || 'Unknown error'}`);
+    }
   };
 
   const getStatusBadge = (status: string) => {
