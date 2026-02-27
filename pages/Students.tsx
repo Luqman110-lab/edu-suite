@@ -71,7 +71,8 @@ export const Students: React.FC = () => {
   const showToast = (message: string, type: 'success' | 'error' | 'warning') => setLocalToast({ message, type });
 
   // Hooks
-  const { students, isLoading: studentsLoading, addStudent, updateStudent, deleteStudent, deleteStudents, importStudents, refetch: refetchStudents } = useStudents(isArchiveMode && selectedYear ? selectedYear.toString() : undefined);
+  const { students: rawStudents, isLoading: studentsLoading, addStudent, updateStudent, deleteStudent, deleteStudents, importStudents, refetch: refetchStudents } = useStudents(isArchiveMode && selectedYear ? selectedYear.toString() : undefined);
+  const students = Array.isArray(rawStudents) ? rawStudents : [];
   const { settings, isLoading: settingsLoading, updateSettings, refetch: refetchSettings } = useSettings();
   const { streams, createStream } = useStreams();
 

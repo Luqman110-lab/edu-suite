@@ -55,8 +55,10 @@ export const Teachers: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Hooks
-  const { teachers, isLoading: teachersLoading, addTeacher, updateTeacher, deleteTeacher, deleteTeachers, importTeachers } = useTeachers();
-  const { students } = useStudents();
+  const { teachers: rawTeachers, isLoading: teachersLoading, addTeacher, updateTeacher, deleteTeacher, deleteTeachers, importTeachers } = useTeachers();
+  const teachers = Array.isArray(rawTeachers) ? rawTeachers : [];
+  const { students: rawStudents } = useStudents();
+  const students = Array.isArray(rawStudents) ? rawStudents : [];
   const { settings } = useSettings();
 
   const initialFormState: Partial<Teacher> = {
