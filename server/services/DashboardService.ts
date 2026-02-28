@@ -119,27 +119,31 @@ export class DashboardService {
         const currentTerm = school.currentTerm || 1;
         const currentYear = school.currentYear || new Date().getFullYear();
 
-        const allMarks = await db.select().from(marks)
+        const subjects = ['english', 'maths', 'science', 'sst', 'literacy1', 'literacy2'];
+
+        // This calculates the average for each subject directly using Postgres JSON operators securely
+        const stats = await db.select({
+            englishAvg: sql<number>`AVG(NULLIF((marks->>'english')::numeric, 0))`,
+            mathsAvg: sql<number>`AVG(NULLIF((marks->>'maths')::numeric, 0))`,
+            scienceAvg: sql<number>`AVG(NULLIF((marks->>'science')::numeric, 0))`,
+            sstAvg: sql<number>`AVG(NULLIF((marks->>'sst')::numeric, 0))`,
+            literacy1Avg: sql<number>`AVG(NULLIF((marks->>'literacy1')::numeric, 0))`,
+            literacy2Avg: sql<number>`AVG(NULLIF((marks->>'literacy2')::numeric, 0))`
+        }).from(marks)
             .where(and(eq(marks.schoolId, schoolId), eq(marks.term, currentTerm), eq(marks.year, currentYear)));
 
-        const subjects = ['english', 'maths', 'science', 'sst', 'literacy1', 'literacy2'];
-        const totals: Record<string, { sum: number, count: number }> = {};
-        subjects.forEach(sub => totals[sub] = { sum: 0, count: 0 });
+        const result = stats[0];
 
-        allMarks.forEach(record => {
-            const m = record.marks as any;
-            if (m) {
-                subjects.forEach(sub => {
-                    const val = m[sub];
-                    if (typeof val === 'number') { totals[sub].sum += val; totals[sub].count++; }
-                });
-            }
-        });
+        const mapped = [
+            { subject: 'English', average: Math.round(Number(result.englishAvg) || 0) },
+            { subject: 'Maths', average: Math.round(Number(result.mathsAvg) || 0) },
+            { subject: 'Science', average: Math.round(Number(result.scienceAvg) || 0) },
+            { subject: 'Sst', average: Math.round(Number(result.sstAvg) || 0) },
+            { subject: 'Literacy1', average: Math.round(Number(result.literacy1Avg) || 0) },
+            { subject: 'Literacy2', average: Math.round(Number(result.literacy2Avg) || 0) }
+        ];
 
-        return subjects.map(sub => ({
-            subject: sub.charAt(0).toUpperCase() + sub.slice(1),
-            average: totals[sub].count > 0 ? Math.round(totals[sub].sum / totals[sub].count) : 0
-        })).filter(d => d.average > 0);
+        return mapped.filter(d => d.average > 0);
     }
 
     async getUpcomingEvents(schoolId: number) {
@@ -203,16 +207,14 @@ export class DashboardService {
         const currentTerm = school.currentTerm || 1;
         const currentYear = school.currentYear || new Date().getFullYear();
 
-        const allMarks = await db.select({ division: marks.division }).from(marks)
-            .where(and(eq(marks.schoolId, schoolId), eq(marks.term, currentTerm), eq(marks.year, currentYear)));
+        const distStats = await db.select({
+            division: sql<string>`COALESCE(${marks.division}, 'X')`,
+            count: sql<number>`count(*)::int`
+        }).from(marks)
+            .where(and(eq(marks.schoolId, schoolId), eq(marks.term, currentTerm), eq(marks.year, currentYear)))
+            .groupBy(sql`COALESCE(${marks.division}, 'X')`);
 
-        const dist: Record<string, number> = { 'I': 0, 'II': 0, 'III': 0, 'IV': 0, 'U': 0, 'X': 0 };
-        allMarks.forEach(m => {
-            const d = m.division || 'X';
-            dist[d] = (dist[d] || 0) + 1;
-        });
-
-        return Object.entries(dist).map(([division, count]) => ({ division, count })).filter(d => d.count > 0);
+        return distStats.map(d => ({ division: d.division, count: Number(d.count) })).filter(d => d.count > 0);
     }
 
     async getClassPerformance(schoolId: number) {
@@ -222,22 +224,16 @@ export class DashboardService {
         const currentTerm = school.currentTerm || 1;
         const currentYear = school.currentYear || new Date().getFullYear();
 
-        const records = await db.select({
+        const classTotals = await db.select({
             classLevel: students.classLevel,
-            aggregate: marks.aggregate
+            avgAggregate: sql<number>`AVG(COALESCE(${marks.aggregate}, 0))`
         }).from(marks).innerJoin(students, eq(marks.studentId, students.id))
-            .where(and(eq(marks.schoolId, schoolId), eq(marks.term, currentTerm), eq(marks.year, currentYear)));
+            .where(and(eq(marks.schoolId, schoolId), eq(marks.term, currentTerm), eq(marks.year, currentYear)))
+            .groupBy(students.classLevel);
 
-        const classTotals: Record<string, { sum: number, count: number }> = {};
-        records.forEach(r => {
-            if (!classTotals[r.classLevel]) classTotals[r.classLevel] = { sum: 0, count: 0 };
-            classTotals[r.classLevel].sum += (r.aggregate || 0);
-            classTotals[r.classLevel].count += 1;
-        });
-
-        return Object.entries(classTotals).map(([className, data]) => ({
-            class: className,
-            avgAggregate: Math.round((data.sum / data.count) * 10) / 10
+        return classTotals.map(data => ({
+            class: data.classLevel,
+            avgAggregate: Math.round(Number(data.avgAggregate) * 10) / 10
         })).sort((a, b) => a.class.localeCompare(b.class));
     }
 
