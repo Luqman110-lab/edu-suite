@@ -14,15 +14,19 @@ async function initDatabase() {
     }
 
     try {
-        console.log('📊 Pushing database schema...');
-        const { stdout, stderr } = await execAsync('npx drizzle-kit push');
+        console.log('📊 Applying necessary database schema updates...');
+        const { Client } = await import('pg');
+        const client = new Client({
+            connectionString: process.env.DATABASE_URL + (process.env.DATABASE_URL.includes('sslmode=require') ? '' : '?sslmode=require'),
+            ssl: { rejectUnauthorized: false }
+        });
+        await client.connect();
 
-        if (stderr && !stderr.includes('✓')) {
-            console.log('⚠️  Warning:', stderr);
-        }
+        await client.query('ALTER TABLE marks ADD COLUMN IF NOT EXISTS aggregate INTEGER DEFAULT 0;');
+        await client.query("ALTER TABLE marks ADD COLUMN IF NOT EXISTS division TEXT DEFAULT '';");
 
-        console.log(stdout);
-        console.log('✅ Database schema synced successfully!');
+        await client.end();
+        console.log('✅ Base schema columns synced successfully without OOM!');
 
         // Start the actual server
         console.log('🚀 Starting server...');

@@ -121,14 +121,22 @@ export class DashboardService {
 
         const subjects = ['english', 'maths', 'science', 'sst', 'literacy1', 'literacy2'];
 
-        // This calculates the average for each subject directly using Postgres JSON operators securely
+        // Safely extract JSON keys and cast to numeric, but strictly use Regex to ensure no empty strings or letters crash the transaction
+        const safeAvg = (field: string) => sql<number>`AVG(
+            CASE 
+                WHEN marks->>${field} ~ '^[0-9]+(\.[0-9]+)?$' 
+                THEN NULLIF((marks->>${field})::numeric, 0) 
+                ELSE NULL 
+            END
+        )`;
+
         const stats = await db.select({
-            englishAvg: sql<number>`AVG(NULLIF((marks->>'english')::numeric, 0))`,
-            mathsAvg: sql<number>`AVG(NULLIF((marks->>'maths')::numeric, 0))`,
-            scienceAvg: sql<number>`AVG(NULLIF((marks->>'science')::numeric, 0))`,
-            sstAvg: sql<number>`AVG(NULLIF((marks->>'sst')::numeric, 0))`,
-            literacy1Avg: sql<number>`AVG(NULLIF((marks->>'literacy1')::numeric, 0))`,
-            literacy2Avg: sql<number>`AVG(NULLIF((marks->>'literacy2')::numeric, 0))`
+            englishAvg: safeAvg('english'),
+            mathsAvg: safeAvg('maths'),
+            scienceAvg: safeAvg('science'),
+            sstAvg: safeAvg('sst'),
+            literacy1Avg: safeAvg('literacy1'),
+            literacy2Avg: safeAvg('literacy2')
         }).from(marks)
             .where(and(eq(marks.schoolId, schoolId), eq(marks.term, currentTerm), eq(marks.year, currentYear)));
 

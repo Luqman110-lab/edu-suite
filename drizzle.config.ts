@@ -15,7 +15,8 @@ export default defineConfig({
   schema: "./shared/schema.ts",
   dialect: "postgresql",
   dbCredentials: {
-    url: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false } as any, // Bypass self-signed/proxy cert issues
+    url: process.env.DATABASE_URL.includes("sslmode=require")
+      ? process.env.DATABASE_URL
+      : `${process.env.DATABASE_URL}?sslmode=require`,
   },
 });
