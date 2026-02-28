@@ -4,7 +4,7 @@ import { calculateGrade } from '../../../services/grading';
 
 
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 const subjectShortNames: { [key: string]: string } = {
     'english': 'ENG',
@@ -341,7 +341,7 @@ const generateSection = (
     columnStyles[baseColIdx + 2] = { cellWidth: 12, halign: 'center', fontStyle: 'bold' };
 
     // @ts-ignore
-    doc.autoTable({
+    autoTable(doc, {
         startY: headerY,
         head: head,
         body: body,
@@ -530,7 +530,7 @@ const generateSection = (
     ];
 
     // @ts-ignore
-    doc.autoTable({
+    autoTable(doc, {
         startY: analysisY,
         head: divAnalysisHead,
         body: divAnalysisBody,
@@ -583,7 +583,7 @@ const generateSection = (
     });
 
     // @ts-ignore
-    doc.autoTable({
+    autoTable(doc, {
         startY: analysisY,
         head: statsHead,
         body: statsBody,
@@ -640,7 +640,7 @@ const generateSection = (
     });
 
     // @ts-ignore
-    doc.autoTable({
+    autoTable(doc, {
         startY: analysisY,
         head: gradeDistHead,
         body: gradeDistBody,
@@ -675,7 +675,7 @@ const generateSection = (
         ]);
 
         // @ts-ignore
-        doc.autoTable({
+        autoTable(doc, {
             startY: analysisY,
             head: topHead,
             body: topBody,

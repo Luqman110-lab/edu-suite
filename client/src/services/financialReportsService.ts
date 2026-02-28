@@ -3,7 +3,7 @@ import { SchoolSettings, Student, FeePayment } from '../../../types';
 import { Expense, ExpenseCategory, ReportConfig } from '../types/finance';
 
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 const formatCurrency = (amount: number) => {
     return `UGX ${amount.toLocaleString()}`;
@@ -105,7 +105,7 @@ export const generateFeeCollectionReport = (
                 '', 'SUBTOTAL', '', formatCurrency(typeTotalDue), formatCurrency(typeTotalPaid), '', ''
             ]);
 
-            (doc as any).autoTable({
+            autoTable(doc, {
                 startY: y,
                 head: [['Date', 'Student', 'Class', 'Due', 'Paid', 'Status', 'Method']],
                 body: tableData,
@@ -196,7 +196,7 @@ export const generateExpenseReport = (
 
             tableData.push(['', 'SUBTOTAL', '', '', formatCurrency(categoryTotal)]);
 
-            (doc as any).autoTable({
+            autoTable(doc, {
                 startY: y,
                 head: [['Date', 'Description', 'Vendor', 'Receipt #', 'Amount']],
                 body: tableData,
@@ -280,7 +280,7 @@ export const generateIncomeStatement = (
         const revenueData = Object.entries(revenueByType).map(([type, amount]) => [type, formatCurrency(amount)]);
         revenueData.push(['TOTAL REVENUE', formatCurrency(totalRevenue)]);
 
-        (doc as any).autoTable({
+        autoTable(doc, {
             startY: y,
             head: [['Fee Type', 'Amount']],
             body: revenueData,
@@ -303,7 +303,7 @@ export const generateIncomeStatement = (
         const expenseData = Object.entries(expenseByCategory).map(([cat, amount]) => [cat, formatCurrency(amount)]);
         expenseData.push(['TOTAL EXPENSES', formatCurrency(totalExpenses)]);
 
-        (doc as any).autoTable({
+        autoTable(doc, {
             startY: y,
             head: [['Category', 'Amount']],
             body: expenseData,
@@ -407,7 +407,7 @@ export const generateOutstandingFeesReport = (
 
         const totalOutstanding = studentBalances.reduce((sum, sb) => sum + sb.balance, 0);
 
-        (doc as any).autoTable({
+        autoTable(doc, {
             startY: y,
             head: [['#', 'Student Name', 'Class', 'Total Due', 'Paid', 'Balance']],
             body: tableData,
@@ -498,7 +498,7 @@ export const generatePaymentReceipt = (
 
         y += 15;
 
-        (doc as any).autoTable({
+        autoTable(doc, {
             startY: y,
             head: [['Description', 'Term', 'Year', 'Amount']],
             body: [
@@ -629,7 +629,7 @@ export const generateStudentBalancesReport = (
         let rowNum = 1;
         const numberedData = tableData.map(row => [(rowNum++).toString(), ...row]);
 
-        (doc as any).autoTable({
+        autoTable(doc, {
             startY: y,
             head: [['#', 'Student Name', 'Class', 'Fee Breakdown', 'Total Due', 'Total Paid', 'Balance']],
             body: numberedData,

@@ -2,7 +2,7 @@ import { TestSession, Student, TestScore, SchoolSettings, SUBJECTS_LOWER, SUBJEC
 import { calculateGrade } from '../../../services/grading';
 
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 export const generateTestAssessmentSheet = async (
     session: TestSession,
@@ -233,7 +233,7 @@ export const generateTestAssessmentSheet = async (
         columnStyles[baseColIdx + 1] = { cellWidth: 12, halign: 'center', fontStyle: 'bold' };
         columnStyles[baseColIdx + 2] = { cellWidth: 12, halign: 'center', fontStyle: 'bold' };
 
-        (doc as any).autoTable({
+        autoTable(doc, {
             startY: headerY,
             head: head,
             body: body,
@@ -548,7 +548,7 @@ export const generateStudentTermReport = async (
         columnStyles[totIdx + 1] = { cellWidth: 12, halign: 'center', fontStyle: 'bold', fontSize: 8 };
         columnStyles[totIdx + 2] = { cellWidth: 12, halign: 'center', fontStyle: 'bold', fontSize: 8 };
 
-        (doc as any).autoTable({
+        autoTable(doc, {
             startY: y,
             head: head,
             body: body,

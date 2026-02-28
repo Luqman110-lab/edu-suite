@@ -3,7 +3,7 @@ import { calculateGrade, getComment, getClassTeacherComment, getHeadTeacherComme
 import * as XLSX from 'xlsx';
 
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 export const calculateTotalMarks = (record: MarkRecord, subjects: string[]): number => {
     if (!record || !record.marks) return 0;

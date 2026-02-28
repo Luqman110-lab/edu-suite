@@ -3,7 +3,7 @@ import { calculateGrade, calculateDivision } from '../../../services/grading';
 import { apiRequest } from '../../../services/api';
 
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 interface P7ReportResult {
     setName: string;
