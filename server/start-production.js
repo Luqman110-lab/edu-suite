@@ -24,6 +24,10 @@ async function initDatabase() {
 
         await client.query('ALTER TABLE marks ADD COLUMN IF NOT EXISTS aggregate INTEGER DEFAULT 0;');
         await client.query("ALTER TABLE marks ADD COLUMN IF NOT EXISTS division TEXT DEFAULT '';");
+        await client.query("ALTER TABLE schools ADD COLUMN IF NOT EXISTS attendance_settings JSONB DEFAULT '{}'::jsonb;");
+        await client.query("ALTER TABLE schools ADD COLUMN IF NOT EXISTS archived_years JSONB DEFAULT '[]'::jsonb;");
+        await client.query("ALTER TABLE schools ADD COLUMN IF NOT EXISTS security_config JSONB DEFAULT '{}'::jsonb;");
+        await client.query("ALTER TABLE schools ADD COLUMN IF NOT EXISTS id_card_config JSONB DEFAULT '{}'::jsonb;");
 
         await client.end();
         console.log('✅ Base schema columns synced successfully without OOM!');

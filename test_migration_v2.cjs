@@ -21,6 +21,12 @@ async function run() {
         await client.query("ALTER TABLE marks ADD COLUMN IF NOT EXISTS division TEXT DEFAULT '';");
         console.log('Added division column');
 
+        await client.query("ALTER TABLE schools ADD COLUMN IF NOT EXISTS attendance_settings JSONB DEFAULT '{}'::jsonb;");
+        await client.query("ALTER TABLE schools ADD COLUMN IF NOT EXISTS archived_years JSONB DEFAULT '[]'::jsonb;");
+        await client.query("ALTER TABLE schools ADD COLUMN IF NOT EXISTS security_config JSONB DEFAULT '{}'::jsonb;");
+        await client.query("ALTER TABLE schools ADD COLUMN IF NOT EXISTS id_card_config JSONB DEFAULT '{}'::jsonb;");
+        console.log('Added school config JSONB columns');
+
         const res = await client.query('SELECT aggregate, division FROM marks LIMIT 1;');
         console.log('Validation success:', res.fields.map(f => f.name));
 

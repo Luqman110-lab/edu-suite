@@ -1,12 +1,11 @@
 import 'dotenv/config';
-import { Pool } from 'pg';
-import { drizzle } from 'drizzle-orm/node-postgres';
+import { Pool, neonConfig } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-serverless';
 import * as schema from "../shared/schema";
-import dns from 'dns';
+import ws from 'ws';
 
-// Force IPv4 DNS resolution to avoid IPv6 issues on Render
-dns.setDefaultResultOrder('ipv4first');
-
+// Required for neon serverless in Node.js environments
+neonConfig.webSocketConstructor = ws;
 
 if (!process.env.DATABASE_URL) {
   throw new Error(
@@ -15,9 +14,9 @@ if (!process.env.DATABASE_URL) {
 }
 
 export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
-  connectionTimeoutMillis: 10000,
+  connectionString: process.env.DATABASE_URL.includes("sslmode=require")
+    ? process.env.DATABASE_URL
+    : `${process.env.DATABASE_URL}?sslmode=require`,
 });
 
 // Test connection on startup
