@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 
 import { useBoardingSettings } from '../../client/src/hooks/useBoardingSettings';
@@ -8,14 +8,14 @@ import { BoardingSettings as BoardingSettingsType } from '../../types';
 export const BoardingSettings: React.FC = () => {
     const { isDark } = useTheme();
     const { settings, isLoading, updateSettings } = useBoardingSettings();
-
-    // const [settings, setSettings] = useState<BoardingSettingsType | null>(null);
-    // const [loading, setLoading] = useState(true);
     const loading = isLoading;
-    // const [saving, setSaving] = useState(false);
     const saving = updateSettings.isPending;
 
-    // Toast logic handled locally or could be global
+    // Local state for form editing (initialized from react-query data)
+    const [localSettings, setLocalSettings] = useState<BoardingSettingsType | null>(null);
+    useEffect(() => { if (settings && !localSettings) setLocalSettings(settings); }, [settings]);
+
+    // Toast logic handled locally
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     const showToast = (message: string, type: 'success' | 'error') => {
         setToast({ message, type });
@@ -57,7 +57,7 @@ export const BoardingSettings: React.FC = () => {
         return <div className="p-8 text-center">Loading settings...</div>;
     }
 
-    if (!settings) {
+    if (!settings || !localSettings) {
         return <div className="p-8 text-center text-red-500">Failed to load settings</div>;
     }
 
@@ -81,17 +81,17 @@ export const BoardingSettings: React.FC = () => {
                             <label className={labelClasses}>Morning Check</label>
                             <input
                                 type="checkbox"
-                                checked={settings.enableMorningRollCall}
-                                onChange={e => setSettings({ ...settings, enableMorningRollCall: e.target.checked })}
+                                checked={localSettings.enableMorningRollCall}
+                                onChange={e => setLocalSettings({ ...localSettings, enableMorningRollCall: e.target.checked })}
                                 className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                             />
                         </div>
                         <input
                             type="time"
                             className={inputClasses}
-                            value={settings.morningRollCallTime}
-                            onChange={e => setSettings({ ...settings, morningRollCallTime: e.target.value })}
-                            disabled={!settings.enableMorningRollCall}
+                            value={localSettings.morningRollCallTime}
+                            onChange={e => setLocalSettings({ ...localSettings, morningRollCallTime: e.target.value })}
+                            disabled={!localSettings.enableMorningRollCall}
                         />
                     </div>
                     <div>
@@ -99,17 +99,17 @@ export const BoardingSettings: React.FC = () => {
                             <label className={labelClasses}>Evening Check</label>
                             <input
                                 type="checkbox"
-                                checked={settings.enableEveningRollCall}
-                                onChange={e => setSettings({ ...settings, enableEveningRollCall: e.target.checked })}
+                                checked={localSettings.enableEveningRollCall}
+                                onChange={e => setLocalSettings({ ...localSettings, enableEveningRollCall: e.target.checked })}
                                 className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                             />
                         </div>
                         <input
                             type="time"
                             className={inputClasses}
-                            value={settings.eveningRollCallTime}
-                            onChange={e => setSettings({ ...settings, eveningRollCallTime: e.target.value })}
-                            disabled={!settings.enableEveningRollCall}
+                            value={localSettings.eveningRollCallTime}
+                            onChange={e => setLocalSettings({ ...localSettings, eveningRollCallTime: e.target.value })}
+                            disabled={!localSettings.enableEveningRollCall}
                         />
                     </div>
                     <div>
@@ -117,17 +117,17 @@ export const BoardingSettings: React.FC = () => {
                             <label className={labelClasses}>Night Check</label>
                             <input
                                 type="checkbox"
-                                checked={settings.enableNightRollCall}
-                                onChange={e => setSettings({ ...settings, enableNightRollCall: e.target.checked })}
+                                checked={localSettings.enableNightRollCall}
+                                onChange={e => setLocalSettings({ ...localSettings, enableNightRollCall: e.target.checked })}
                                 className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                             />
                         </div>
                         <input
                             type="time"
                             className={inputClasses}
-                            value={settings.nightRollCallTime}
-                            onChange={e => setSettings({ ...settings, nightRollCallTime: e.target.value })}
-                            disabled={!settings.enableNightRollCall}
+                            value={localSettings.nightRollCallTime}
+                            onChange={e => setLocalSettings({ ...localSettings, nightRollCallTime: e.target.value })}
+                            disabled={!localSettings.enableNightRollCall}
                         />
                     </div>
                 </div>
@@ -153,12 +153,12 @@ export const BoardingSettings: React.FC = () => {
                                 <label key={day} className="flex items-center space-x-2">
                                     <input
                                         type="checkbox"
-                                        checked={settings.visitingDays?.includes(day) || false}
+                                        checked={localSettings.visitingDays?.includes(day) || false}
                                         onChange={e => {
                                             const newDays = e.target.checked
-                                                ? [...settings.visitingDays, day]
-                                                : settings.visitingDays.filter(d => d !== day);
-                                            setSettings({ ...settings, visitingDays: newDays });
+                                                ? [...localSettings.visitingDays, day]
+                                                : localSettings.visitingDays.filter(d => d !== day);
+                                            setLocalSettings({ ...localSettings, visitingDays: newDays });
                                         }}
                                         className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                                     />
@@ -173,8 +173,8 @@ export const BoardingSettings: React.FC = () => {
                             <input
                                 type="time"
                                 className={inputClasses}
-                                value={settings.visitingHoursStart}
-                                onChange={e => setSettings({ ...settings, visitingHoursStart: e.target.value })}
+                                value={localSettings.visitingHoursStart}
+                                onChange={e => setLocalSettings({ ...localSettings, visitingHoursStart: e.target.value })}
                             />
                         </div>
                         <div>
@@ -182,8 +182,8 @@ export const BoardingSettings: React.FC = () => {
                             <input
                                 type="time"
                                 className={inputClasses}
-                                value={settings.visitingHoursEnd}
-                                onChange={e => setSettings({ ...settings, visitingHoursEnd: e.target.value })}
+                                value={localSettings.visitingHoursEnd}
+                                onChange={e => setLocalSettings({ ...localSettings, visitingHoursEnd: e.target.value })}
                             />
                         </div>
                     </div>
@@ -206,8 +206,8 @@ export const BoardingSettings: React.FC = () => {
                     <label className="flex items-center space-x-3">
                         <input
                             type="checkbox"
-                            checked={settings.requireGuardianApproval}
-                            onChange={e => setSettings({ ...settings, requireGuardianApproval: e.target.checked })}
+                            checked={localSettings.requireGuardianApproval}
+                            onChange={e => setLocalSettings({ ...localSettings, requireGuardianApproval: e.target.checked })}
                             className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-5 w-5"
                         />
                         <div>
@@ -221,8 +221,8 @@ export const BoardingSettings: React.FC = () => {
                         <input
                             type="number"
                             className={inputClasses}
-                            value={settings.autoMarkAbsentAfterMinutes}
-                            onChange={e => setSettings({ ...settings, autoMarkAbsentAfterMinutes: parseInt(e.target.value) || 0 })}
+                            value={localSettings.autoMarkAbsentAfterMinutes}
+                            onChange={e => setLocalSettings({ ...localSettings, autoMarkAbsentAfterMinutes: parseInt(e.target.value) || 0 })}
                         />
                         <p className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                             Students not verified within this time after roll call starts will be marked absent.
@@ -233,7 +233,7 @@ export const BoardingSettings: React.FC = () => {
 
             <div className="flex justify-end pt-4">
                 <button
-                    onClick={handleSave}
+                    onClick={() => localSettings && handleSave(localSettings)}
                     disabled={saving}
                     className="flex items-center gap-2 px-6 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-medium shadow-lg shadow-primary-500/20 transition-all disabled:opacity-50"
                 >

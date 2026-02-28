@@ -25,6 +25,7 @@ import hrRoutes from "./routes/hr";              // absolute paths: /leave, /dut
 import p7Routes from "./routes/p7";
 import { marksRoutes } from "./routes/marks";
 import { teacherAttendanceRoutes } from "./routes/teacher-attendance";
+import { parentRoutes } from "./routes/parent";
 
 export function registerRoutes(app: Express): Server {
     // Setup authentication routes (login, logout, session, etc.)
@@ -53,6 +54,7 @@ export function registerRoutes(app: Express): Server {
     app.use("/api", requireAuth, p7Routes);
     app.use("/api", requireAuth, marksRoutes);
     app.use("/api", requireAuth, teacherAttendanceRoutes);
+    app.use("/api/parent", parentRoutes);
     // ─────────────────────────────────────────────────────────────────────────
 
 

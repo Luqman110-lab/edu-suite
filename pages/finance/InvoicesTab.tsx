@@ -145,8 +145,8 @@ export default function InvoicesTab() {
 
             y += 15;
             doc.setFontSize(12);
-            const statusColor = inv.status === 'paid' ? [0, 128, 0] : inv.status === 'partial' ? [245, 158, 11] : [239, 68, 68];
-            doc.setTextColor(...statusColor);
+            const [r, g, b] = inv.status === 'paid' ? [0, 128, 0] : inv.status === 'partial' ? [245, 158, 11] : [239, 68, 68];
+            doc.setTextColor(r, g, b);
             doc.text(`Status: ${inv.status.toUpperCase()}`, 105, y, { align: 'center' });
 
             doc.setFontSize(8);

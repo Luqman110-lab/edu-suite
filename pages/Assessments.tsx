@@ -21,7 +21,7 @@ export const Assessments: React.FC = () => {
   // Hooks
   const { settings, isLoading: settingsLoading } = useSettings();
   const { students: allStudents, isLoading: studentsLoading } = useStudents(isArchiveMode ? String(selectedYear) : undefined);
-  const { marks: allMarks, isLoading: marksLoading } = useMarks(isArchiveMode ? String(selectedYear) : undefined);
+  const { marks: allMarks, isLoading: marksLoading } = useMarks(isArchiveMode ? selectedYear : undefined);
   const { teachers, isLoading: teachersLoading } = useTeachers();
 
   // State

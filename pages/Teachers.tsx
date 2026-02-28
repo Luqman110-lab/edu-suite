@@ -441,13 +441,13 @@ export const Teachers: React.FC = () => {
         )}
 
         {isModalOpen && (
-          <TeacherModal
+          <TeacherFormWizard
             isOpen={isModalOpen}
             onClose={() => setIsModalOpen(false)}
             onSubmit={handleSubmit}
-            formData={formData}
-            setFormData={setFormData}
+            initialData={formData}
             isEdit={!!editingId}
+            settings={settings}
             isDark={isDark}
           />
         )}

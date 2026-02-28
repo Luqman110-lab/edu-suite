@@ -33,6 +33,28 @@ export function StudentFilter({ onFilterChange, className = '', simpleSelect, on
 
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [searchResults, setSearchResults] = useState<any[]>([]);
+    const [streamOptions, setStreamOptions] = useState<{ value: string; label: string }[]>([{ value: '', label: 'All Streams' }]);
+
+    // Fetch streams dynamically
+    useEffect(() => {
+        const fetchStreams = async () => {
+            try {
+                const res = await apiRequest('GET', '/api/streams');
+                const data = await res.json();
+                const opts = [{ value: '', label: 'All Streams' }];
+                if (Array.isArray(data)) {
+                    for (const s of data) {
+                        const name = typeof s === 'string' ? s : s.name;
+                        if (name) opts.push({ value: name, label: name });
+                    }
+                }
+                if (opts.length > 1) setStreamOptions(opts);
+            } catch {
+                // Fallback: keep default "All Streams" only
+            }
+        };
+        fetchStreams();
+    }, []);
 
     // Debounce search input
     useEffect(() => {
@@ -161,6 +183,10 @@ export function StudentFilter({ onFilterChange, className = '', simpleSelect, on
                     onChange={(e) => updateFilter('classLevel', e.target.value)}
                     options={[
                         { value: '', label: 'All Classes' },
+                        { value: 'Baby', label: 'Baby Class' },
+                        { value: 'N1', label: 'N1 (Nursery 1)' },
+                        { value: 'N2', label: 'N2 (Nursery 2)' },
+                        { value: 'N3', label: 'N3 (Nursery 3)' },
                         { value: 'P1', label: 'P1' },
                         { value: 'P2', label: 'P2' },
                         { value: 'P3', label: 'P3' },
@@ -175,13 +201,7 @@ export function StudentFilter({ onFilterChange, className = '', simpleSelect, on
                     label=""
                     value={filters.stream}
                     onChange={(e) => updateFilter('stream', e.target.value)}
-                    options={[
-                        { value: '', label: 'All Streams' },
-                        { value: 'Red', label: 'Red' },
-                        { value: 'Blue', label: 'Blue' },
-                        { value: 'Green', label: 'Green' },
-                        { value: 'Yellow', label: 'Yellow' } // Common streams, adjust if dynamic
-                    ]}
+                    options={streamOptions}
                 />
 
                 <Select

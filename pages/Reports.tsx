@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { ApiMarkRecord, ClassLevel, AssessmentType, SUBJECTS_UPPER, SUBJECTS_LOWER } from '../types';
+import { MarkRecord, ClassLevel, AssessmentType, SUBJECTS_UPPER, SUBJECTS_LOWER } from '../types';
 import { useStudents } from '../client/src/hooks/useStudents';
 import { useMarks } from '../client/src/hooks/useMarks';
 import { useSettings } from '../client/src/hooks/useSettings';
@@ -124,8 +124,8 @@ export const Reports: React.FC = () => {
   const stats = useMemo(() => {
     const withMarks = studentPreviews.filter(p => !p.hasMissingMarks);
     const currentMarks = reportType === AssessmentType.BOT
-      ? studentPreviews.map(p => p.botMarks).filter(Boolean) as ApiMarkRecord[]
-      : studentPreviews.map(p => p.eotMarks).filter(Boolean) as ApiMarkRecord[];
+      ? studentPreviews.map(p => p.botMarks).filter(Boolean) as MarkRecord[]
+      : studentPreviews.map(p => p.eotMarks).filter(Boolean) as MarkRecord[];
 
     const aggregates = currentMarks.filter(m => m.aggregate).map(m => m.aggregate!);
     const avgAggregate = aggregates.length > 0

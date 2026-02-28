@@ -3,7 +3,7 @@ import { eq, and, desc, asc, sql, gt, or, isNull, inArray } from "drizzle-orm";
 import {
     feeStructures, feePayments, expenses, financeTransactions,
     invoices, invoiceItems, paymentPlans, planInstallments, studentFeeOverrides,
-    scholarships, studentScholarships, students, invoiceItemSchema
+    scholarships, studentScholarships, students
 } from "../../shared/schema";
 
 export class FeeService {

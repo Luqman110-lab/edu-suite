@@ -4,11 +4,9 @@ import { eq, and, inArray, sql } from "drizzle-orm";
 
 export class MarksService {
     async getMarks(schoolId: number, year?: number) {
-        let query = db.select().from(marks).where(eq(marks.schoolId, schoolId));
-        if (year) {
-            query = query.where(eq(marks.year, year)) as any;
-        }
-        return await query;
+        const conditions = [eq(marks.schoolId, schoolId)];
+        if (year) conditions.push(eq(marks.year, year));
+        return await db.select().from(marks).where(and(...conditions));
     }
 
     async saveMark(schoolId: number, data: Omit<InsertMark, 'id' | 'schoolId' | 'createdAt'>) {

@@ -1,4 +1,4 @@
-import { School, AuthUser, UserSchool, SchoolSettings, SecurityConfig, GradingConfig, SubjectConfig, ReportConfig, BoardingSettings } from '../types';
+import { School, AuthUser, UserSchool, SchoolSettings, SecurityConfig, GradingConfig, SubjectConfig, ReportConfig, BoardingSettings, Teacher } from '../types';
 
 const API_BASE = '/api';
 
@@ -83,18 +83,7 @@ export interface Student {
   forceCapacityOverride?: boolean;
 }
 
-export interface Teacher {
-  id?: number;
-  name: string;
-  gender: string;
-  phone: string;
-  email: string;
-  roles: string[];
-  assignedClass?: string;
-  assignedStream?: string;
-  subjects: string[];
-  teachingClasses: string[];
-}
+
 
 export interface MarkRecord {
   id?: number;

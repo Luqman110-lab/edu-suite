@@ -197,15 +197,17 @@ export class ClassService {
         // 2. Academic Performance (Average per subject for this class)
         const classMarks = await db.select({
             marks: marks.marks
-        }).from(marks).where(
-            and(
-                eq(marks.schoolId, schoolId),
-                eq(marks.classLevel, classLevel),
-                eq(marks.stream, stream),
-                eq(marks.term, term),
-                eq(marks.year, year)
-            )
-        );
+        }).from(marks)
+            .innerJoin(students, eq(marks.studentId, students.id))
+            .where(
+                and(
+                    eq(marks.schoolId, schoolId),
+                    eq(students.classLevel, classLevel),
+                    eq(students.stream, stream),
+                    eq(marks.term, term),
+                    eq(marks.year, year)
+                )
+            );
 
         const subjects = ['english', 'maths', 'science', 'sst', 'literacy1', 'literacy2'];
         const totals: Record<string, { sum: number, count: number }> = {};
@@ -226,7 +228,8 @@ export class ClassService {
 
         const academicAverages = subjects.map(sub => ({
             subject: sub.charAt(0).toUpperCase() + sub.slice(1),
-            average: totals[sub].count > 0 ? Math.round(totals[sub].sum / totals[sub].count) : 0
+            average: totals[sub].count > 0 ? Math.round(totals[sub].sum / totals[sub].count) : 0,
+            count: totals[sub].count
         })).filter(d => d.count > 0 || d.average > 0);
 
         // 3. Today's Attendance

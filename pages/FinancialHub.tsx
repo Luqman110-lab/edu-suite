@@ -80,7 +80,15 @@ export default function FinancialHub() {
             case 'debtors': return <DebtorsTab />;
             case 'structures': return <FeeStructuresTab />;
             case 'expenses': return <ExpensesTab />;
-            case 'scholarships': return <ScholarshipsTab />;
+            case 'scholarships': return (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                    <div className={`text-5xl mb-4`}>🎓</div>
+                    <h3 className={`text-lg font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Scholarships — Coming Soon</h3>
+                    <p className={`max-w-md ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                        Scholarship management is being finalized and will be available in the next update. You'll be able to create scholarships and assign them to students.
+                    </p>
+                </div>
+            );
             case 'reports': return <ReportsTab />;
             case 'statements': return <FinancialStatementsTab />;
         }
@@ -124,8 +132,8 @@ export default function FinancialHub() {
                             key={tab.key}
                             onClick={() => setActiveTab(tab.key)}
                             className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors whitespace-nowrap ${activeTab === tab.key
-                                    ? 'border-blue-500 text-blue-500'
-                                    : `border-transparent ${textSecondary} hover:text-blue-500`
+                                ? 'border-blue-500 text-blue-500'
+                                : `border-transparent ${textSecondary} hover:text-blue-500`
                                 }`}
                         >
                             {tab.label}

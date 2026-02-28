@@ -12,13 +12,15 @@ export type UserSchool = {
   code: string;
   role: string;
   isPrimary: boolean;
+  currentTerm?: number;
+  currentYear?: number;
 };
 
 export type User = {
   id: number;
   username: string;
   name: string;
-  role: "admin" | "teacher" | "parent";
+  role: "admin" | "teacher" | "parent" | "headteacher" | "bursar" | "dos";
   email: string | null;
   phone: string | null;
   isSuperAdmin?: boolean;
@@ -37,7 +39,7 @@ type RegisterData = {
   username: string;
   password: string;
   name: string;
-  role: "admin" | "teacher" | "parent";
+  role: "admin" | "teacher" | "parent" | "headteacher" | "bursar" | "dos";
   email?: string;
   phone?: string;
   setupKey?: string;

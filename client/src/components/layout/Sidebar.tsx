@@ -100,7 +100,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, sidebarOpen, setSid
                 { path: '/app/reports', label: 'Reports', icon: FileText },
                 { path: '/app/assessments', label: 'Assessments', icon: CheckSquare },
                 { path: '/app/tests', label: 'Weekly Tests', icon: TestTube2 },
-                { path: '/app/p7', label: 'P7 Exam Sets', icon: FileBadge },
             ]
         },
         {
@@ -109,7 +108,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, sidebarOpen, setSid
             icon: CalendarCheck2,
             items: [
                 { path: '/app/gate-attendance', label: 'Gate Attendance', icon: CalendarCheck2 },
-                { path: '/app/class-attendance', label: 'Class Attendance', icon: CalendarCheck2 },
                 { path: '/app/teacher-attendance', label: 'Staff Attendance', icon: CalendarCheck2 },
                 { path: '/app/attendance-settings', label: 'Settings', icon: Settings, allowedRoles: ['admin'] },
             ]
@@ -131,8 +129,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, sidebarOpen, setSid
             label: 'Operations',
             icon: Briefcase,
             items: [
-                { path: '/app/planning', label: 'Planning', icon: Calendar },
-                { path: '/app/supervision', label: 'Supervision', icon: Eye, allowedRoles: ['admin'] },
                 { path: '/app/messages', label: 'Messages', icon: MessageSquare },
                 { path: '/app/parents', label: 'Parent Access', icon: UserRound, allowedRoles: ['admin'] },
             ]
@@ -149,7 +145,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, sidebarOpen, setSid
             ]
         },
         { path: '/app/archive', label: 'Archive', icon: Archive, allowedRoles: ['admin'] },
-        { path: '/app/analytics', label: 'Analytics', icon: BarChart3, allowedRoles: ['admin'] },
         { path: '/app/settings', label: 'Settings', icon: Settings, allowedRoles: ['admin'] },
         ...(isSuperAdmin ? [{ path: '/app/admin', label: 'Admin Console', icon: School2 }] : []),
     ];
