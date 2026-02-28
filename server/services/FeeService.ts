@@ -40,29 +40,71 @@ export class FeeService {
         try {
             const conditions = [eq(feePayments.schoolId, schoolId), eq(feePayments.isDeleted, false)];
             const [countResult] = await db.select({ count: sql<number>`count(*)` }).from(feePayments).where(and(...conditions));
-            const payments = await db.select().from(feePayments).where(and(...conditions))
+            const paymentsRaw = await db.select({
+                payment: feePayments,
+                studentName: students.name,
+                studentClass: students.classLevel,
+                studentStream: students.stream,
+            }).from(feePayments)
+                .leftJoin(students, eq(feePayments.studentId, students.id))
+                .where(and(...conditions))
                 .orderBy(desc(feePayments.createdAt)).limit(limit).offset(offset);
+
+            const payments = paymentsRaw.map(r => ({
+                ...r.payment,
+                studentName: r.studentName,
+                studentClass: r.studentClass,
+                studentStream: r.studentStream
+            }));
             return { data: payments, total: Number(countResult.count) };
         } catch (e) {
             // Fallback: query without isDeleted filter (column may not exist in DB yet)
             const conditions = [eq(feePayments.schoolId, schoolId)];
             const [countResult] = await db.select({ count: sql<number>`count(*)` }).from(feePayments).where(and(...conditions));
-            const payments = await db.select().from(feePayments).where(and(...conditions))
+            const paymentsRaw = await db.select({
+                payment: feePayments,
+                studentName: students.name,
+                studentClass: students.classLevel,
+                studentStream: students.stream,
+            }).from(feePayments)
+                .leftJoin(students, eq(feePayments.studentId, students.id))
+                .where(and(...conditions))
                 .orderBy(desc(feePayments.createdAt)).limit(limit).offset(offset);
+
+            const payments = paymentsRaw.map(r => ({
+                ...r.payment,
+                studentName: r.studentName,
+                studentClass: r.studentClass,
+                studentStream: r.studentStream
+            }));
             return { data: payments, total: Number(countResult.count) };
         }
     }
 
     async getStudentPayments(studentId: number, schoolId: number) {
         try {
-            return await db.select().from(feePayments)
+            const paymentsRaw = await db.select({
+                payment: feePayments,
+                studentName: students.name,
+                studentClass: students.classLevel,
+                studentStream: students.stream,
+            }).from(feePayments)
+                .leftJoin(students, eq(feePayments.studentId, students.id))
                 .where(and(eq(feePayments.schoolId, schoolId), eq(feePayments.studentId, studentId), eq(feePayments.isDeleted, false)))
                 .orderBy(desc(feePayments.createdAt));
+            return paymentsRaw.map(r => ({ ...r.payment, studentName: r.studentName, studentClass: r.studentClass, studentStream: r.studentStream }));
         } catch (e) {
             // Fallback: query without isDeleted filter
-            return await db.select().from(feePayments)
+            const paymentsRaw = await db.select({
+                payment: feePayments,
+                studentName: students.name,
+                studentClass: students.classLevel,
+                studentStream: students.stream,
+            }).from(feePayments)
+                .leftJoin(students, eq(feePayments.studentId, students.id))
                 .where(and(eq(feePayments.schoolId, schoolId), eq(feePayments.studentId, studentId)))
                 .orderBy(desc(feePayments.createdAt));
+            return paymentsRaw.map(r => ({ ...r.payment, studentName: r.studentName, studentClass: r.studentClass, studentStream: r.studentStream }));
         }
     }
 
