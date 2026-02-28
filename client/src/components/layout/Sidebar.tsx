@@ -100,6 +100,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, sidebarOpen, setSid
                 { path: '/app/reports', label: 'Reports', icon: FileText },
                 { path: '/app/assessments', label: 'Assessments', icon: CheckSquare },
                 { path: '/app/tests', label: 'Weekly Tests', icon: TestTube2 },
+                { path: '/app/p7', label: 'P7 Exam Sets', icon: FileText },
             ]
         },
         {
