@@ -1,6 +1,6 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
-import { setupAuth, requireAuth } from "./auth";
+import { setupAuth, requireAuth, requireStaff } from "./auth";
 
 
 import { setupPublicRoutes } from "./publicRoutes";
