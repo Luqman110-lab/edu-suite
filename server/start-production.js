@@ -29,6 +29,65 @@ async function initDatabase() {
         await client.query("ALTER TABLE schools ADD COLUMN IF NOT EXISTS security_config JSONB DEFAULT '{}'::jsonb;");
         await client.query("ALTER TABLE schools ADD COLUMN IF NOT EXISTS id_card_config JSONB DEFAULT '{}'::jsonb;");
 
+        // Sickbay Module Tables
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS medical_records (
+                id SERIAL PRIMARY KEY,
+                student_id INTEGER UNIQUE REFERENCES students(id),
+                user_school_id INTEGER UNIQUE REFERENCES user_schools(id),
+                blood_group TEXT,
+                allergies TEXT,
+                pre_existing_conditions TEXT,
+                emergency_contact_name TEXT,
+                emergency_contact_phone TEXT,
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW()
+            );
+        `);
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS sickbay_visits (
+                id SERIAL PRIMARY KEY,
+                school_id INTEGER NOT NULL REFERENCES schools(id),
+                student_id INTEGER REFERENCES students(id),
+                user_school_id INTEGER REFERENCES user_schools(id),
+                visit_date TIMESTAMP NOT NULL DEFAULT NOW(),
+                symptoms TEXT NOT NULL,
+                diagnosis TEXT,
+                treatment_given TEXT,
+                medication_prescribed TEXT,
+                status TEXT NOT NULL DEFAULT 'Admitted',
+                handled_by_user_id INTEGER REFERENCES users(id),
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW()
+            );
+        `);
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS sickbay_inventory (
+                id SERIAL PRIMARY KEY,
+                school_id INTEGER NOT NULL REFERENCES schools(id),
+                item_name TEXT NOT NULL,
+                category TEXT NOT NULL,
+                quantity_in_stock INTEGER NOT NULL DEFAULT 0,
+                unit_of_measure TEXT NOT NULL,
+                low_stock_threshold INTEGER DEFAULT 10,
+                expiry_date TIMESTAMP,
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW()
+            );
+        `);
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS sickbay_inventory_transactions (
+                id SERIAL PRIMARY KEY,
+                inventory_id INTEGER NOT NULL REFERENCES sickbay_inventory(id),
+                visit_id INTEGER REFERENCES sickbay_visits(id),
+                transaction_type TEXT NOT NULL,
+                quantity INTEGER NOT NULL,
+                recorded_by_user_id INTEGER REFERENCES users(id),
+                transaction_date TIMESTAMP DEFAULT NOW()
+            );
+        `);
+
         await client.end();
         console.log('✅ Base schema columns synced successfully without OOM!');
 

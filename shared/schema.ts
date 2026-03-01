@@ -2969,3 +2969,76 @@ export const selectTeacherDisciplinaryRecordSchema = createSelectSchema(teacherD
 
 export type StaffAttendance = typeof staffAttendance.$inferSelect;
 export type InsertStaffAttendance = typeof staffAttendance.$inferInsert;
+
+// --- SICKBAY MODULE ---
+
+export const medicalRecords = pgTable('medical_records', {
+  id: serial('id').primaryKey(),
+  studentId: integer('student_id').references(() => students.id).unique(),
+  userSchoolId: integer('user_school_id').references(() => userSchools.id).unique(),
+  bloodGroup: text('blood_group'),
+  allergies: text('allergies'),
+  preExistingConditions: text('pre_existing_conditions'),
+  emergencyContactName: text('emergency_contact_name'),
+  emergencyContactPhone: text('emergency_contact_phone'),
+  notes: text('notes'),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const sickbayVisits = pgTable('sickbay_visits', {
+  id: serial('id').primaryKey(),
+  schoolId: integer('school_id').notNull().references(() => schools.id),
+  studentId: integer('student_id').references(() => students.id),
+  userSchoolId: integer('user_school_id').references(() => userSchools.id),
+  visitDate: timestamp('visit_date').notNull().defaultNow(),
+  symptoms: text('symptoms').notNull(),
+  diagnosis: text('diagnosis'),
+  treatmentGiven: text('treatment_given'),
+  medicationPrescribed: text('medication_prescribed'),
+  status: text('status').notNull().default('Admitted'),
+  handledByUserId: integer('handled_by_user_id').references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const sickbayInventory = pgTable('sickbay_inventory', {
+  id: serial('id').primaryKey(),
+  schoolId: integer('school_id').notNull().references(() => schools.id),
+  itemName: text('item_name').notNull(),
+  category: text('category').notNull(), // 'drug', 'supply', 'equipment'
+  quantityInStock: integer('quantity_in_stock').notNull().default(0),
+  unitOfMeasure: text('unit_of_measure').notNull(), // 'pills', 'bottles', 'bandages'
+  lowStockThreshold: integer('low_stock_threshold').default(10),
+  expiryDate: timestamp('expiry_date'),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const sickbayInventoryTransactions = pgTable('sickbay_inventory_transactions', {
+  id: serial('id').primaryKey(),
+  inventoryId: integer('inventory_id').notNull().references(() => sickbayInventory.id),
+  visitId: integer('visit_id').references(() => sickbayVisits.id),
+  transactionType: text('transaction_type').notNull(), // 'restock', 'dispensed', 'expired'
+  quantity: integer('quantity').notNull(),
+  recordedByUserId: integer('recorded_by_user_id').references(() => users.id),
+  transactionDate: timestamp("transaction_date").defaultNow(),
+});
+
+export const insertMedicalRecordSchema = createInsertSchema(medicalRecords);
+export const selectMedicalRecordSchema = createSelectSchema(medicalRecords);
+export const insertSickbayVisitSchema = createInsertSchema(sickbayVisits);
+export const selectSickbayVisitSchema = createSelectSchema(sickbayVisits);
+export const insertSickbayInventorySchema = createInsertSchema(sickbayInventory);
+export const selectSickbayInventorySchema = createSelectSchema(sickbayInventory);
+export const insertSickbayInventoryTransactionSchema = createInsertSchema(sickbayInventoryTransactions);
+export const selectSickbayInventoryTransactionSchema = createSelectSchema(sickbayInventoryTransactions);
+
+export type MedicalRecord = typeof medicalRecords.$inferSelect;
+export type InsertMedicalRecord = typeof medicalRecords.$inferInsert;
+export type SickbayVisit = typeof sickbayVisits.$inferSelect;
+export type InsertSickbayVisit = typeof sickbayVisits.$inferInsert;
+export type SickbayInventory = typeof sickbayInventory.$inferSelect;
+export type InsertSickbayInventory = typeof sickbayInventory.$inferInsert;
+export type SickbayInventoryTransaction = typeof sickbayInventoryTransactions.$inferSelect;
+export type InsertSickbayInventoryTransaction = typeof sickbayInventoryTransactions.$inferInsert;

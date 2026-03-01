@@ -11,6 +11,7 @@ import { AttendanceSummaryCard, PerformanceTrendCard } from '../../../../compone
 import { Icons } from '../../lib/icons';
 import { useClassNames } from '../../../../hooks/use-class-names';
 import { Button } from '../../../../components/Button';
+import { MedicalHistoryCard } from '../../pages/sickbay/MedicalHistoryCard';
 
 const { School, Trash2 } = Icons;
 
@@ -117,7 +118,7 @@ export const StudentProfile: React.FC<StudentProfileProps> = ({
                         <PersonalInfoCard student={student} />
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <GuardianCard student={student} />
-                            <MedicalInfoCard student={student} />
+                            <MedicalHistoryCard patientId={student.id!} type="student" />
                         </div>
                         <EmergencyContactsCard student={student} />
                     </div>

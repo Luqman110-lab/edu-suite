@@ -132,6 +132,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, sidebarOpen, setSid
             items: [
                 { path: '/app/messages', label: 'Messages', icon: MessageSquare },
                 { path: '/app/parents', label: 'Parent Access', icon: UserRound, allowedRoles: ['admin'] },
+                { path: '/app/sickbay', label: 'Sickbay', icon: FileBadge, allowedRoles: ['admin', 'School Nurse', 'Medical Officer'] },
             ]
         },
         {

@@ -31,6 +31,7 @@ import { VerifyStudent } from './pages/VerifyStudent';
 import LandingPage from './pages/marketing/LandingPage';
 import { GateAttendance } from './pages/GateAttendance';
 import { ClassAttendance } from './pages/ClassAttendance';
+import { SickbayLayout } from './client/src/pages/sickbay/SickbayLayout';
 import { TeacherAttendance } from './pages/TeacherAttendance';
 import { AttendanceSettings } from './pages/AttendanceSettings';
 import { BoardingDashboard } from './pages/BoardingDashboard';
@@ -165,6 +166,7 @@ export default function App() {
                           <Route path="supervision" element={<Supervision />} />
                           <Route path="planning" element={<Planning />} />
                           <Route path="parents" element={<ParentManagement />} />
+                          <Route path="sickbay" element={<SickbayLayout />} />
                           <Route path="settings" element={<Settings />} />
                           <Route path="*" element={<Navigate to="/app" replace />} />
                         </Routes>

@@ -39,7 +39,7 @@ const Icons = {
     ),
 };
 
-const ROLES = ['Class Teacher', 'Subject Teacher', 'Headteacher', 'DOS'];
+const ROLES = ['Class Teacher', 'Subject Teacher', 'Headteacher', 'DOS', 'School Nurse', 'Medical Officer'];
 
 const STEPS = [
     { id: 1, title: 'Basic Info', icon: Icons.User },
