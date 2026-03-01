@@ -513,7 +513,7 @@ export function requireStaff(req: Request, res: Response, next: NextFunction) {
     return res.status(401).json({ message: "Authentication required" });
   }
   const role = req.user?.activeSchoolRole;
-  if (role !== "admin" && role !== "teacher" && !req.user?.isSuperAdmin) {
+  if (role !== "admin" && role !== "teacher" && role !== "School Nurse" && role !== "Medical Officer" && !req.user?.isSuperAdmin) {
     return res.status(403).json({ message: "Staff access required" });
   }
   next();
