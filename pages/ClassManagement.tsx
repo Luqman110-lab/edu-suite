@@ -307,58 +307,6 @@ export default function ClassManagement() {
           </div>
         </div>
       </div>
-        {isBusy ? (
-          <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-400" />
-        ) : null}
-        <span>{stream}</span>
-        {count >= 0 && (
-          <span className={`text-xs ${(streams.find(s => s.classLevel === level && s.streamName === stream)?.maxCapacity || 60) <= count ? 'text-red-500 font-bold' : 'text-gray-400 dark:text-gray-500'} font-normal`}>
-            ({count}/{streams.find(s => s.classLevel === level && s.streamName === stream)?.maxCapacity || 60})
-          </span>
-        )}
-        <button
-          onClick={() => {
-            const strRec = streams.find(s => s.classLevel === level && s.streamName === stream);
-            setEditingStream({ level, oldName: stream, value: stream, maxCapacity: strRec?.maxCapacity || 60, oldCapacity: strRec?.maxCapacity || 60 });
-          }}
-          disabled={!!busyAction}
-          className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-primary-500 transition-all p-0.5"
-          title="Rename stream"
-        >
-          <Edit2 className="w-3 h-3" />
-        </button>
-        <button
-          onClick={() => setConfirmDelete({ level, stream })}
-          disabled={!!busyAction}
-          className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-all p-0.5"
-          title="Remove stream"
-        >
-          <X className="w-3.5 h-3.5" />
-        </button>
-        <div className="flex gap-1 ml-1 pl-1 border-l border-gray-200 dark:border-gray-600 opacity-0 group-hover:opacity-100 transition-all">
-          <button
-            onClick={() => setOverviewModal({ isOpen: true, classLevel: level, stream })}
-            className="text-gray-400 hover:text-purple-500 p-0.5"
-            title="Overview Dashboard"
-          >
-            <Activity className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => setSubjectTeachersModal({ isOpen: true, classLevel: level, stream })}
-            className="text-gray-400 hover:text-blue-500 p-0.5"
-            title="Subject Teachers"
-          >
-            <BookMarked className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => setRegisterModal({ isOpen: true, classLevel: level, stream })}
-            className="text-gray-400 hover:text-green-500 p-0.5"
-            title="View Register"
-          >
-            <UsersRound className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </div>
     );
   };
 
