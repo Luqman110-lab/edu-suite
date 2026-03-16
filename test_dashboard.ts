@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { dashboardService } from './server/services/DashboardService.js';
+import { dashboardService } from './server/services/DashboardService';
 
 async function test() {
     try {
