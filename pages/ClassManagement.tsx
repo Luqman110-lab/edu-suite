@@ -249,8 +249,64 @@ export default function ClassManagement() {
     return (
       <div
         key={stream}
-        className="group flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-700/60 border border-gray-200 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-200 hover:border-gray-300 dark:hover:border-gray-500 transition-colors"
+        className="group flex items-center justify-between w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-700/60 border border-gray-200 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-200 hover:border-gray-300 dark:hover:border-gray-500 transition-colors"
       >
+        <div className="flex items-center gap-2 overflow-hidden">
+          {isBusy ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-400 shrink-0" />
+          ) : null}
+          <span className="truncate">{stream}</span>
+          {count >= 0 && (
+            <span className={`text-xs whitespace-nowrap ${(streams.find(s => s.classLevel === level && s.streamName === stream)?.maxCapacity || 60) <= count ? 'text-red-500 font-bold' : 'text-gray-400 dark:text-gray-500'} font-normal`}>
+              ({count}/{streams.find(s => s.classLevel === level && s.streamName === stream)?.maxCapacity || 60})
+            </span>
+          )}
+        </div>
+        <div className="flex items-center shrink-0">
+          <button
+            onClick={() => {
+              const strRec = streams.find(s => s.classLevel === level && s.streamName === stream);
+              setEditingStream({ level, oldName: stream, value: stream, maxCapacity: strRec?.maxCapacity || 60, oldCapacity: strRec?.maxCapacity || 60 });
+            }}
+            disabled={!!busyAction}
+            className="opacity-0 lg:opacity-100 group-hover:opacity-100 text-gray-400 hover:text-primary-500 transition-all p-1"
+            title="Rename stream"
+          >
+            <Edit2 className="w-3 h-3" />
+          </button>
+          <button
+            onClick={() => setConfirmDelete({ level, stream })}
+            disabled={!!busyAction}
+            className="opacity-0 lg:opacity-100 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-all p-1"
+            title="Remove stream"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+          <div className="flex gap-1 ml-1 pl-1 border-l border-gray-200 dark:border-gray-600 opacity-0 lg:opacity-100 group-hover:opacity-100 transition-all">
+            <button
+              onClick={() => setOverviewModal({ isOpen: true, classLevel: level, stream })}
+              className="text-gray-400 hover:text-purple-500 p-1"
+              title="Overview Dashboard"
+            >
+              <Activity className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => setSubjectTeachersModal({ isOpen: true, classLevel: level, stream })}
+              className="text-gray-400 hover:text-blue-500 p-1"
+              title="Subject Teachers"
+            >
+              <BookMarked className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => setRegisterModal({ isOpen: true, classLevel: level, stream })}
+              className="text-gray-400 hover:text-green-500 p-1"
+              title="View Register"
+            >
+              <UsersRound className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
         {isBusy ? (
           <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-400" />
         ) : null}
@@ -395,7 +451,7 @@ export default function ClassManagement() {
 
         {/* Streams */}
         <div className="p-4 space-y-3">
-          <div className="flex flex-wrap gap-2 min-h-[36px]">
+          <div className="flex flex-col gap-2 min-h-[36px]">
             {classStreams.length > 0 ? (
               classStreams.map(streamName => renderStreamChip(level, streamName))
             ) : (
