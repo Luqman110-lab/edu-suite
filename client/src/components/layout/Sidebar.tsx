@@ -125,27 +125,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, sidebarOpen, setSid
                 { path: '/app/visitor-log', label: 'Visitor Log', icon: UserPlus },
             ]
         },
-        {
-            id: 'operations',
-            label: 'Operations',
-            icon: Briefcase,
-            items: [
-                { path: '/app/messages', label: 'Messages', icon: MessageSquare },
-                { path: '/app/parents', label: 'Parent Access', icon: UserRound, allowedRoles: ['admin'] },
-                { path: '/app/sickbay', label: 'Sickbay', icon: FileBadge, allowedRoles: ['admin', 'School Nurse', 'Medical Officer'] },
-            ]
-        },
-        {
-            id: 'finance',
-            label: 'Finance',
-            icon: BadgeDollarSign,
-            items: [
-                { path: '/app/finance-hub', label: 'Finance Hub', icon: BadgeDollarSign, allowedRoles: ['admin'] },
-                { path: '/app/finance-accounting', label: 'Accounting', icon: FileText, allowedRoles: ['admin'] },
-                { path: '/app/finance-budgets', label: 'Budgets', icon: Layers, allowedRoles: ['admin'] },
-                { path: '/app/finance-petty-cash', label: 'Petty Cash', icon: ClipboardList, allowedRoles: ['admin'] },
-            ]
-        },
         { path: '/app/archive', label: 'Archive', icon: Archive, allowedRoles: ['admin'] },
         { path: '/app/settings', label: 'Settings', icon: Settings, allowedRoles: ['admin'] },
         ...(isSuperAdmin ? [{ path: '/app/admin', label: 'Admin Console', icon: School2 }] : []),

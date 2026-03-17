@@ -32,31 +32,6 @@ export class DashboardService {
         const teacherLateResult = await db.select({ count: sql<number>`count(*)` }).from(teacherAttendance)
             .where(and(eq(teacherAttendance.schoolId, schoolId), eq(teacherAttendance.date, today), eq(teacherAttendance.status, 'late')));
 
-        const studentBalances = await db.select({
-            studentId: financeTransactions.studentId,
-            totalCredits: sql<number>`SUM(CASE WHEN ${financeTransactions.transactionType} = 'credit' THEN ${financeTransactions.amount} ELSE 0 END)`,
-            totalDebits: sql<number>`SUM(CASE WHEN ${financeTransactions.transactionType} = 'debit' THEN ${financeTransactions.amount} ELSE 0 END)`,
-        }).from(financeTransactions).where(and(
-            eq(financeTransactions.schoolId, schoolId),
-            eq(financeTransactions.term, currentTerm),
-            eq(financeTransactions.year, currentYear)
-        )).groupBy(financeTransactions.studentId);
-
-        let debtorsCount = 0;
-        let totalRevenue = 0;
-        let totalInvoiced = 0;
-
-        studentBalances.forEach(record => {
-            const debits = Number(record.totalDebits || 0);
-            const credits = Number(record.totalCredits || 0);
-            totalInvoiced += debits;
-            totalRevenue += credits;
-            if (debits - credits > 0) debtorsCount++;
-        });
-
-        const outstanding = totalInvoiced - totalRevenue;
-        const collectionRate = totalInvoiced > 0 ? Math.round((totalRevenue / totalInvoiced) * 100) : 0;
-
         const studentTotal = Number(studentCount[0].count);
         const studentPresent = Number(attendance[0].count);
         const teacherTotal = Number(teacherCount[0].count);
@@ -65,42 +40,8 @@ export class DashboardService {
         return {
             students: { total: studentTotal, present: studentPresent, absent: Math.max(0, studentTotal - studentPresent), late: Number(studentLate[0].count) },
             teachers: { total: teacherTotal, present: teacherPresent, absent: Math.max(0, teacherTotal - teacherPresent), late: Number(teacherLateResult[0].count) },
-            revenue: { total: totalRevenue, outstanding, collectionRate, invoiced: totalInvoiced, debtors: debtorsCount },
             attendance: { rate: studentTotal > 0 ? Math.round((studentPresent / studentTotal) * 100) : 0 }
         };
-    }
-
-    async getRevenueTrends(schoolId: number) {
-        const payments = await db.select({ date: feePayments.paymentDate, amount: feePayments.amountPaid })
-            .from(feePayments).where(and(eq(feePayments.schoolId, schoolId), eq(feePayments.isDeleted, false)));
-        const expenseRecords = await db.select({ date: expenses.expenseDate, amount: expenses.amount })
-            .from(expenses).where(eq(expenses.schoolId, schoolId));
-
-        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        const revenueMap: Record<string, number> = {};
-        const expenseMap: Record<string, number> = {};
-        months.forEach(m => { revenueMap[m] = 0; expenseMap[m] = 0; });
-
-        payments.forEach(p => {
-            if (p.date) {
-                const date = new Date(p.date);
-                if (!isNaN(date.getTime())) {
-                    const month = months[date.getMonth()];
-                    revenueMap[month] = (revenueMap[month] || 0) + Number(p.amount);
-                }
-            }
-        });
-        expenseRecords.forEach(e => {
-            if (e.date) {
-                const date = new Date(e.date);
-                if (!isNaN(date.getTime())) {
-                    const month = months[date.getMonth()];
-                    expenseMap[month] = (expenseMap[month] || 0) + Number(e.amount);
-                }
-            }
-        });
-
-        return months.map(name => ({ name, revenue: revenueMap[name] || 0, expenses: expenseMap[name] || 0 }));
     }
 
     async getDemographics(schoolId: number) {
@@ -121,14 +62,16 @@ export class DashboardService {
 
         const subjects = ['english', 'maths', 'science', 'sst', 'literacy1', 'literacy2'];
 
-        // Safely extract JSON keys and cast to numeric, but strictly use Regex to ensure no empty strings or letters crash the transaction
-        const safeAvg = (field: string) => sql<number>`AVG(
-            CASE 
-                WHEN marks->>${field} ~ '^[0-9]+(\.[0-9]+)?$' 
-                THEN NULLIF((marks->>${field})::numeric, 0) 
-                ELSE NULL 
-            END
-        )`;
+        // Safely extract JSON keys and cast to numeric
+        const safeAvg = (field: string) => sql<number>`
+            AVG(
+                NULLIF(
+                    CAST(
+                        NULLIF(marks->>${field}, '') 
+                    AS numeric), 
+                0)
+            )
+        `;
 
         const stats = await db.select({
             englishAvg: safeAvg('english'),
@@ -273,40 +216,6 @@ export class DashboardService {
                 detail: absentTeachers.map(t => t.name).join(', '),
                 action: '/app/teachers'
             });
-        }
-
-        // 2. High Debtors Alert
-        const school = await db.query.schools.findFirst({ where: eq(schools.id, schoolId) });
-        if (school) {
-            const currentTerm = school.currentTerm || 1;
-            const currentYear = school.currentYear || new Date().getFullYear();
-
-            const studentBalances = await db.select({
-                studentId: financeTransactions.studentId,
-                totalCredits: sql<number>`SUM(CASE WHEN ${financeTransactions.transactionType} = 'credit' THEN ${financeTransactions.amount} ELSE 0 END)`,
-                totalDebits: sql<number>`SUM(CASE WHEN ${financeTransactions.transactionType} = 'debit' THEN ${financeTransactions.amount} ELSE 0 END)`,
-            }).from(financeTransactions).where(and(
-                eq(financeTransactions.schoolId, schoolId),
-                eq(financeTransactions.term, currentTerm),
-                eq(financeTransactions.year, currentYear)
-            )).groupBy(financeTransactions.studentId);
-
-            let highDebtorsCount = 0;
-            const HIGH_DEBT_THRESHOLD = 500000;
-
-            studentBalances.forEach(record => {
-                const balance = Number(record.totalDebits || 0) - Number(record.totalCredits || 0);
-                if (balance >= HIGH_DEBT_THRESHOLD) highDebtorsCount++;
-            });
-
-            if (highDebtorsCount > 0) {
-                alerts.push({
-                    severity: 'warning',
-                    type: 'high_debtors',
-                    message: `${highDebtorsCount} students owe ${HIGH_DEBT_THRESHOLD >= 1000 ? HIGH_DEBT_THRESHOLD / 1000 + 'K' : HIGH_DEBT_THRESHOLD.toString()} or more in fees`,
-                    action: '/app/finance'
-                });
-            }
         }
 
         const upcomingBdays = await this.getUpcomingEvents(schoolId);

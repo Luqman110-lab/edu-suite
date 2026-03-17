@@ -42,11 +42,10 @@ import { VisitorLog } from './pages/VisitorLog';
 import { Messages, ConversationView } from './pages/Messages';
 import { Supervision } from './pages/Supervision';
 import { Planning } from './pages/Planning';
+import { Planning } from './pages/Planning';
 import ClassManagement from './pages/ClassManagement';
-import FinancialHub from './pages/FinancialHub';
-import FinanceAccounting from './pages/finance/Accounting';
-import FinanceBudgets from './pages/finance/Budgets';
-import FinancePettyCash from './pages/finance/PettyCash';
+import { Planning } from './pages/Planning';
+import ClassManagement from './pages/ClassManagement';
 import { ArchivePage } from './pages/Archive';
 import ParentLayout from './pages/parent/ParentLayout';
 import ParentDashboard from './pages/parent/ParentDashboard';
@@ -148,10 +147,9 @@ export default function App() {
                           <Route path="analytics" element={<Analytics />} />
 
 
-                          <Route path="finance-hub" element={<FinancialHub />} />
-                          <Route path="finance-accounting" element={<FinanceAccounting />} />
-                          <Route path="finance-budgets" element={<FinanceBudgets />} />
-                          <Route path="finance-petty-cash" element={<FinancePettyCash />} />
+                          <Route path="analytics" element={<Analytics />} />
+
+
                           <Route path="gate-attendance" element={<GateAttendance />} />
                           <Route path="class-attendance" element={<ClassAttendance />} />
                           <Route path="teacher-attendance" element={<TeacherAttendance />} />
@@ -161,12 +159,9 @@ export default function App() {
                           <Route path="boarding-attendance" element={<BoardingAttendance />} />
                           <Route path="leave-management" element={<LeaveManagement />} />
                           <Route path="visitor-log" element={<VisitorLog />} />
-                          <Route path="messages" element={<Messages />} />
-                          <Route path="messages/:id" element={<ConversationView />} />
+                          <Route path="visitor-log" element={<VisitorLog />} />
                           <Route path="supervision" element={<Supervision />} />
                           <Route path="planning" element={<Planning />} />
-                          <Route path="parents" element={<ParentManagement />} />
-                          <Route path="sickbay" element={<SickbayLayout />} />
                           <Route path="settings" element={<Settings />} />
                           <Route path="*" element={<Navigate to="/app" replace />} />
                         </Routes>

@@ -157,10 +157,8 @@ export function Dashboard() {
 
   // Queries
   const { data: stats } = useQuery({ queryKey: ['dashboardStats', schoolId], queryFn: fetchDashboardStats, enabled: !!schoolId, staleTime: 0 });
-  const { data: revenueData } = useQuery({ queryKey: ['revenueTrends', schoolId], queryFn: fetchRevenueTrends, enabled: !!schoolId, staleTime: 0 });
   const { data: events } = useQuery({ queryKey: ['upcomingEvents', schoolId], queryFn: fetchUpcomingEvents, enabled: !!schoolId, staleTime: 0 });
   const { data: academicData } = useQuery({ queryKey: ['academicPerformance', schoolId], queryFn: fetchAcademicPerformance, enabled: !!schoolId, staleTime: 0 });
-  const { data: recentPayments } = useQuery({ queryKey: ['recentPayments', schoolId], queryFn: fetchRecentPayments, enabled: !!schoolId, staleTime: 0 });
   const { data: classPerformance } = useQuery({ queryKey: ['classPerformance', schoolId], queryFn: fetchClassPerformance, enabled: !!schoolId, staleTime: 0 });
   const { data: divisionDistribution } = useQuery({ queryKey: ['divisionDist', schoolId], queryFn: fetchDivisionDistribution, enabled: !!schoolId, staleTime: 0 });
   const { data: alerts } = useQuery({ queryKey: ['alerts', schoolId], queryFn: fetchAlerts, enabled: !!schoolId, staleTime: 0 });
@@ -217,20 +215,6 @@ export function Dashboard() {
           subtext="Enrolled this year"
         />
         <AnalyticsCard
-          title="Revenue"
-          value={`UGX ${(stats?.revenue?.total / 1000000 || 0).toFixed(1)}M`}
-          icon={Banknote}
-          color="success"
-          subtext="Total collected"
-        />
-        <AnalyticsCard
-          title="Outstanding"
-          value={`UGX ${(stats?.revenue?.outstanding / 1000000 || 0).toFixed(1)}M`}
-          icon={TrendingUp}
-          color="warning"
-          subtext="Fees pending"
-        />
-        <AnalyticsCard
           title="Avg. Performance"
           value={`${avgPerformance}%`}
           icon={Activity}
@@ -280,109 +264,46 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* Bottom Section: Financials & Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Financial Graph */}
-        <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="font-bold text-gray-900 dark:text-white text-lg">Financial Overview</h3>
-            <select className="text-sm border-none bg-gray-50 dark:bg-gray-700 rounded-lg px-2 py-1 outline-none cursor-pointer">
-              <option>This Year</option>
-              <option>Last Year</option>
-            </select>
-          </div>
-          <DashboardChart data={revenueData || []} isDark={isDark} />
-        </div>
+      {/* Bottom Section: Quick Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Quick Actions Card */}
+        <div className="lg:col-span-1 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
+          <div className="relative z-10">
+            <h3 className="font-bold text-lg mb-1">Quick Actions</h3>
+            <p className="text-indigo-100 text-sm mb-4">Manage your school efficiently</p>
+            <div className="grid grid-cols-2 gap-3">
+              {/* Admin / Headteacher Actions */}
+              {(user?.role === 'admin' || user?.role === 'headteacher' || user?.isSuperAdmin) && (
+                <>
+                  <button onClick={() => navigate('/app/students')} className="bg-white/10 hover:bg-white/20 backdrop-blur-md p-3 rounded-xl flex flex-col items-center gap-2 transition-all border border-white/10">
+                    <UserPlus className="w-5 h-5 text-indigo-300" />
+                    <span className="text-xs font-semibold text-center">Add Student</span>
+                  </button>
+                  <button onClick={() => navigate('/app/reports')} className="bg-white/10 hover:bg-white/20 backdrop-blur-md p-3 rounded-xl flex flex-col items-center gap-2 transition-all border border-white/10">
+                    <PieChartIcon className="w-5 h-5 text-blue-300" />
+                    <span className="text-xs font-semibold text-center">Reports</span>
+                  </button>
+                </>
+              )}
 
-        {/* Transactions / Quick Actions */}
-        <div className="lg:col-span-1 space-y-6">
-          {/* Quick Actions Card */}
-          <div className="bg-gradient-to-br from-violet-600 to-indigo-600 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
-            <div className="relative z-10">
-              <h3 className="font-bold text-lg mb-1">Quick Actions</h3>
-              <p className="text-indigo-100 text-sm mb-4">Manage your school efficiently</p>
-              <div className="grid grid-cols-2 gap-3">
-                {/* Admin / Headteacher Actions */}
-                {(user?.role === 'admin' || user?.role === 'headteacher' || user?.isSuperAdmin) && (
-                  <>
-                    <button onClick={() => navigate('/app/students')} className="bg-white/10 hover:bg-white/20 backdrop-blur-md p-3 rounded-xl flex flex-col items-center gap-2 transition-all border border-white/10">
-                      <UserPlus className="w-5 h-5 text-indigo-300" />
-                      <span className="text-xs font-semibold text-center">Add Student</span>
-                    </button>
-                    <button onClick={() => navigate('/app/finance')} className="bg-white/10 hover:bg-white/20 backdrop-blur-md p-3 rounded-xl flex flex-col items-center gap-2 transition-all border border-white/10">
-                      <TrendingUp className="w-5 h-5 text-red-300" />
-                      <span className="text-xs font-semibold text-center">View Debtors</span>
-                    </button>
-                    <button onClick={() => navigate('/app/reports')} className="bg-white/10 hover:bg-white/20 backdrop-blur-md p-3 rounded-xl flex flex-col items-center gap-2 transition-all border border-white/10">
-                      <PieChartIcon className="w-5 h-5 text-blue-300" />
-                      <span className="text-xs font-semibold text-center">Reports</span>
-                    </button>
-                  </>
-                )}
-
-                {/* Bursar Actions */}
-                {user?.role === 'bursar' && (
-                  <>
-                    <button onClick={() => navigate('/app/finance/record-payment')} className="bg-white/10 hover:bg-white/20 backdrop-blur-md p-3 rounded-xl flex flex-col items-center gap-2 transition-all border border-white/10">
-                      <Banknote className="w-5 h-5 text-green-300" />
-                      <span className="text-xs font-semibold text-center">Record Payment</span>
-                    </button>
-                    <button onClick={() => navigate('/app/finance')} className="bg-white/10 hover:bg-white/20 backdrop-blur-md p-3 rounded-xl flex flex-col items-center gap-2 transition-all border border-white/10">
-                      <TrendingUp className="w-5 h-5 text-red-300" />
-                      <span className="text-xs font-semibold text-center">View Debtors</span>
-                    </button>
-                  </>
-                )}
-
-                {/* Teacher / DOS Actions */}
-                {(user?.role === 'teacher' || user?.role === 'dos') && (
-                  <>
-                    <button onClick={() => navigate('/app/academics')} className="bg-white/10 hover:bg-white/20 backdrop-blur-md p-3 rounded-xl flex flex-col items-center gap-2 transition-all border border-white/10">
-                      <Activity className="w-5 h-5 text-green-300" />
-                      <span className="text-xs font-semibold text-center">Enter Marks</span>
-                    </button>
-                    <button onClick={() => navigate('/app/students/attendance')} className="bg-white/10 hover:bg-white/20 backdrop-blur-md p-3 rounded-xl flex flex-col items-center gap-2 transition-all border border-white/10">
-                      <Users className="w-5 h-5 text-yellow-300" />
-                      <span className="text-xs font-semibold text-center">Attendance</span>
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-            {/* Decorative circles */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl transform translate-x-10 -translate-y-10"></div>
-            <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full blur-2xl transform -translate-x-5 translate-y-5"></div>
-          </div>
-
-          {/* Recent Transactions List */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-700/50">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-gray-900 dark:text-white">Recent Payments</h3>
-              <ArrowRight className="w-4 h-4 text-gray-400 cursor-pointer" onClick={() => navigate('/app/finance')} />
-            </div>
-            <div className="space-y-4">
-              {recentPayments?.map((payment: any, i: number) => (
-                <div key={i} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-green-50 dark:bg-green-900/20 flex items-center justify-center text-green-600">
-                      <Banknote className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="text-sm font-semibold text-gray-900 dark:text-white">#{payment.studentId}</div>
-                      <div className="text-xs text-gray-500">{payment.paymentDate}</div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-bold text-gray-900 dark:text-white">+{parseInt(payment.amountPaid).toLocaleString()}</div>
-                    <span className="text-[10px] uppercase font-semibold text-green-600 bg-green-50 px-1.5 py-0.5 rounded dark:bg-green-900/30 dark:text-green-400">Paid</span>
-                  </div>
-                </div>
-              ))}
-              {(!recentPayments || recentPayments.length === 0) && (
-                <div className="text-center py-2 text-gray-400 text-sm">No recent transactions</div>
+              {/* Teacher / DOS Actions */}
+              {(user?.role === 'teacher' || user?.role === 'dos') && (
+                <>
+                  <button onClick={() => navigate('/app/academics')} className="bg-white/10 hover:bg-white/20 backdrop-blur-md p-3 rounded-xl flex flex-col items-center gap-2 transition-all border border-white/10">
+                    <Activity className="w-5 h-5 text-green-300" />
+                    <span className="text-xs font-semibold text-center">Enter Marks</span>
+                  </button>
+                  <button onClick={() => navigate('/app/students/attendance')} className="bg-white/10 hover:bg-white/20 backdrop-blur-md p-3 rounded-xl flex flex-col items-center gap-2 transition-all border border-white/10">
+                    <Users className="w-5 h-5 text-yellow-300" />
+                    <span className="text-xs font-semibold text-center">Attendance</span>
+                  </button>
+                </>
               )}
             </div>
           </div>
+          {/* Decorative circles */}
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl transform translate-x-10 -translate-y-10"></div>
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full blur-2xl transform -translate-x-5 translate-y-5"></div>
         </div>
       </div>
     </div>
