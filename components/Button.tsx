@@ -107,7 +107,8 @@ export const Button: React.FC<ButtonProps> = ({
 
   return (
     <button
-      type="button"
+      {...props}
+      type={props.type ?? 'button'}
       className={`
         ${baseStyles} 
         ${variants[variant]} 
@@ -116,7 +117,6 @@ export const Button: React.FC<ButtonProps> = ({
         ${className}
       `}
       disabled={isDisabled}
-      {...props}
     >
       {/* Shimmer effect for gradient variant */}
       {variant === 'gradient' && !isDisabled && (

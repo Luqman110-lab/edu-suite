@@ -323,7 +323,7 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = () 
                         <h3 className={`text-xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
                             {editingUser ? 'Edit User' : 'Create User'}
                         </h3>
-                        <div className="space-y-4">
+                        <form onSubmit={e => { e.preventDefault(); editingUser ? handleUpdateUser() : handleCreateUser(); }} className="space-y-4">
                             <div>
                                 <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Full Name</label>
                                 <input
@@ -392,14 +392,23 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = () 
                                 />
                             </div>
                             <div className="flex gap-3 mt-6">
-                                <Button variant="secondary" onClick={() => { setShowUserModal(false); setFormErrors({}); }} className="flex-1" disabled={saving}>
+                                <button
+                                    type="button"
+                                    onClick={() => { setShowUserModal(false); setFormErrors({}); }}
+                                    disabled={saving}
+                                    className={`flex-1 px-4 py-2.5 text-sm font-semibold rounded-xl border transition-all ${isDark ? 'border-gray-600 bg-gray-700 text-gray-200 hover:bg-gray-600' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'} disabled:opacity-50`}
+                                >
                                     Cancel
-                                </Button>
-                                <Button onClick={editingUser ? handleUpdateUser : handleCreateUser} className="flex-1" disabled={saving}>
-                                    {saving ? 'Saving...' : editingUser ? 'Update' : 'Create'}
-                                </Button>
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={saving}
+                                    className="flex-1 px-4 py-2.5 text-sm font-semibold rounded-xl bg-primary-600 text-white hover:bg-primary-700 transition-all disabled:opacity-50"
+                                >
+                                    {saving ? 'Saving...' : editingUser ? 'Update' : 'Create User'}
+                                </button>
                             </div>
-                        </div>
+                        </form>
                     </div>
                 </div>
             )}
