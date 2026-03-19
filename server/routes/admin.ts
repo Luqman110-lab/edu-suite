@@ -138,8 +138,13 @@ adminRoutes.get("/users", requireAdmin, async (req, res) => {
 // POST /api/users
 adminRoutes.post("/users", requireAdmin, async (req, res) => {
     try {
-        const schoolId = getActiveSchoolId(req);
-        if (!schoolId) return res.status(400).json({ message: "No active school selected" });
+        let schoolId = getActiveSchoolId(req);
+        // Fallback: if session doesn't have activeSchoolId, look up from userSchools
+        if (!schoolId && req.user?.id) {
+            const userSchoolRow = await db.select().from(userSchools).where(eq(userSchools.userId, req.user.id)).limit(1);
+            schoolId = userSchoolRow[0]?.schoolId || null;
+        }
+        if (!schoolId) return res.status(400).json({ message: "No school found. Please log out and log back in." });
         const result = (insertUserSchema as any).omit({ id: true, createdAt: true, updatedAt: true, isSuperAdmin: true, lastLogin: true, resetToken: true, resetTokenExpiry: true }).safeParse(req.body);
         if (!result.success) return res.status(400).json({ message: "Invalid data", errors: result.error.issues });
         const { username, password, name, role, email, phone } = result.data;
