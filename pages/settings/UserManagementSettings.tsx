@@ -31,6 +31,8 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = () 
     const [resetPasswordModal, setResetPasswordModal] = useState<UserType | null>(null);
     const [newPassword, setNewPassword] = useState('');
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+    const [saving, setSaving] = useState(false);
+    const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
 
     const showToast = (message: string, type: 'success' | 'error') => {
         setToast({ message, type });
@@ -56,7 +58,22 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = () 
         }
     };
 
+    const validateForm = () => {
+        const errors: { [key: string]: string } = {};
+        if (!userForm.name.trim()) errors.name = 'Name is required';
+        if (!userForm.username.trim()) errors.username = 'Username is required';
+        if (userForm.username.trim().length < 3) errors.username = 'Username must be at least 3 characters';
+        if (!editingUser) {
+            if (!userForm.password) errors.password = 'Password is required';
+            else if (userForm.password.length < 8) errors.password = 'Password must be at least 8 characters';
+        }
+        setFormErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
+
     const handleCreateUser = async () => {
+        if (!validateForm()) return;
+        setSaving(true);
         try {
             const response = await fetch('/api/users', {
                 method: 'POST',
@@ -64,22 +81,38 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = () 
                 credentials: 'include',
                 body: JSON.stringify(userForm),
             });
+            const data = await response.json();
             if (response.ok) {
                 showToast('User created successfully!', 'success');
                 setShowUserModal(false);
+                setFormErrors({});
                 setUserForm({ username: '', password: '', name: '', role: 'teacher', email: '', phone: '' });
                 loadUsers();
             } else {
-                const data = await response.json();
-                showToast(data.message || 'Failed to create user', 'error');
+                // Parse zod validation errors if present
+                if (data.errors && Array.isArray(data.errors)) {
+                    const errs: { [key: string]: string } = {};
+                    data.errors.forEach((e: any) => {
+                        const field = e.path?.[0];
+                        if (field) errs[field] = e.message;
+                    });
+                    setFormErrors(errs);
+                    showToast('Please fix the errors below', 'error');
+                } else {
+                    showToast(data.message || 'Failed to create user', 'error');
+                }
             }
         } catch (err) {
-            showToast('Failed to create user', 'error');
+            showToast('Failed to create user — network error', 'error');
+        } finally {
+            setSaving(false);
         }
     };
 
     const handleUpdateUser = async () => {
         if (!editingUser) return;
+        if (!validateForm()) return;
+        setSaving(true);
         try {
             const response = await fetch(`/api/users/${editingUser.id}`, {
                 method: 'PUT',
@@ -87,17 +120,20 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = () 
                 credentials: 'include',
                 body: JSON.stringify(userForm),
             });
+            const data = await response.json();
             if (response.ok) {
                 showToast('User updated successfully!', 'success');
                 setEditingUser(null);
                 setShowUserModal(false);
+                setFormErrors({});
                 loadUsers();
             } else {
-                const data = await response.json();
                 showToast(data.message || 'Failed to update user', 'error');
             }
         } catch (err) {
             showToast('Failed to update user', 'error');
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -200,6 +236,7 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = () 
                         <Button onClick={() => {
                             setEditingUser(null);
                             setUserForm({ username: '', password: '', name: '', role: 'teacher', email: '', phone: '' });
+                            setFormErrors({});
                             setShowUserModal(true);
                         }}>
                             <Plus className="w-4 h-4 mr-2" />
@@ -288,32 +325,41 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = () 
                         </h3>
                         <div className="space-y-4">
                             <div>
-                                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Name</label>
+                                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Full Name</label>
                                 <input
                                     type="text"
-                                    className={inputClasses}
+                                    className={`${inputClasses} ${formErrors.name ? 'border-red-500' : ''}`}
                                     value={userForm.name}
                                     onChange={e => setUserForm({ ...userForm, name: e.target.value })}
+                                    placeholder="e.g. John Smith"
                                 />
+                                {formErrors.name && <p className="mt-1 text-xs text-red-500">{formErrors.name}</p>}
                             </div>
                             <div>
                                 <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Username</label>
                                 <input
                                     type="text"
-                                    className={inputClasses}
+                                    className={`${inputClasses} ${formErrors.username ? 'border-red-500' : ''}`}
                                     value={userForm.username}
                                     onChange={e => setUserForm({ ...userForm, username: e.target.value })}
+                                    placeholder="min. 3 characters"
                                 />
+                                {formErrors.username && <p className="mt-1 text-xs text-red-500">{formErrors.username}</p>}
                             </div>
                             {!editingUser && (
                                 <div>
                                     <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Password</label>
                                     <input
                                         type="password"
-                                        className={inputClasses}
+                                        className={`${inputClasses} ${formErrors.password ? 'border-red-500' : ''}`}
                                         value={userForm.password}
                                         onChange={e => setUserForm({ ...userForm, password: e.target.value })}
+                                        placeholder="min. 8 characters"
                                     />
+                                    {formErrors.password
+                                        ? <p className="mt-1 text-xs text-red-500">{formErrors.password}</p>
+                                        : <p className="mt-1 text-xs text-gray-400">Password must be at least 8 characters</p>
+                                    }
                                 </div>
                             )}
                             <div>
@@ -346,11 +392,11 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = () 
                                 />
                             </div>
                             <div className="flex gap-3 mt-6">
-                                <Button variant="secondary" onClick={() => setShowUserModal(false)} className="flex-1">
+                                <Button variant="secondary" onClick={() => { setShowUserModal(false); setFormErrors({}); }} className="flex-1" disabled={saving}>
                                     Cancel
                                 </Button>
-                                <Button onClick={editingUser ? handleUpdateUser : handleCreateUser} className="flex-1">
-                                    {editingUser ? 'Update' : 'Create'}
+                                <Button onClick={editingUser ? handleUpdateUser : handleCreateUser} className="flex-1" disabled={saving}>
+                                    {saving ? 'Saving...' : editingUser ? 'Update' : 'Create'}
                                 </Button>
                             </div>
                         </div>
