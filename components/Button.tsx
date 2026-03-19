@@ -107,6 +107,7 @@ export const Button: React.FC<ButtonProps> = ({
 
   return (
     <button
+      type="button"
       className={`
         ${baseStyles} 
         ${variants[variant]} 
