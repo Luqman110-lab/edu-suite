@@ -30,15 +30,6 @@ const navItems = [
     ),
   },
   {
-    path: '/app/messages',
-    label: 'Messages',
-    icon: (
-      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-      </svg>
-    ),
-  },
-  {
     path: '/app/marks',
     label: 'Marks',
     icon: (
@@ -49,11 +40,9 @@ const navItems = [
   },
 ];
 
-interface MobileBottomNavProps {
-  unreadMessages?: number;
-}
+interface MobileBottomNavProps {}
 
-export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ unreadMessages = 0 }) => {
+export const MobileBottomNav: React.FC<MobileBottomNavProps> = () => {
   const location = useLocation();
 
   return (
@@ -62,8 +51,6 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ unreadMessages
         {navItems.map((item) => {
           const isActive = location.pathname === item.path || 
             (item.path === '/app' && location.pathname === '/app/');
-          const hasNotification = item.path === '/app/messages' && unreadMessages > 0;
-          
           return (
             <Link
               key={item.path}
@@ -76,11 +63,6 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ unreadMessages
             >
               <div className="relative">
                 {item.icon}
-                {hasNotification && (
-                  <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
-                    {unreadMessages > 9 ? '9+' : unreadMessages}
-                  </span>
-                )}
               </div>
               <span className={`text-[10px] mt-1 font-medium ${isActive ? 'font-semibold' : ''}`}>
                 {item.label}

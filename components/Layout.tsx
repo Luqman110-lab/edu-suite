@@ -19,29 +19,11 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { activeSchool } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  const [unreadMessages, setUnreadMessages] = useState(0);
   const [showScanner, setShowScanner] = useState(false);
 
   useEffect(() => {
     setSidebarOpen(false);
   }, [location.pathname]);
-
-  useEffect(() => {
-    const fetchUnreadCount = async () => {
-      try {
-        const res = await fetch('/api/conversations/unread-count', { credentials: 'include' });
-        if (res.ok) {
-          const data = await res.json();
-          setUnreadMessages(data.unreadCount || 0);
-        }
-      } catch (err) {
-        console.error('Error fetching unread messages:', err);
-      }
-    };
-    fetchUnreadCount();
-    const interval = setInterval(fetchUnreadCount, 30000);
-    return () => clearInterval(interval);
-  }, [activeSchool]);
 
   // Determine title based on location (simplified logic from original)
   // In a real app, this might be better handled by a context or route metadata
@@ -68,7 +50,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         collapsed={collapsed}
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
-        unreadMessages={unreadMessages}
       />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-gradient-to-br from-gray-50 via-white to-gray-100/50 dark:from-gray-950 dark:via-gray-950 dark:to-gray-900">
@@ -87,7 +68,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         </main>
       </div>
 
-      <MobileBottomNav unreadMessages={unreadMessages} />
+      <MobileBottomNav />
       <PWAInstallPrompt />
       <NetworkStatus />
 

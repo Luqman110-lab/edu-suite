@@ -37,10 +37,9 @@ interface SidebarProps {
     collapsed: boolean;
     sidebarOpen: boolean;
     setSidebarOpen: (open: boolean) => void;
-    unreadMessages: number;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ collapsed, sidebarOpen, setSidebarOpen, unreadMessages }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ collapsed, sidebarOpen, setSidebarOpen }) => {
     const location = useLocation();
     const { user, activeSchool, isSuperAdmin } = useAuth();
 
@@ -267,7 +266,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, sidebarOpen, setSid
                                         <div className="ml-4 pl-4 border-l-2 border-gray-100 dark:border-gray-800 space-y-0.5 my-1">
                                             {group.items.map((item) => {
                                                 const isActive = location.pathname === item.path;
-                                                const hasUnread = item.path === '/app/messages' && unreadMessages > 0;
                                                 return (
                                                     <Link
                                                         key={item.path}
@@ -282,11 +280,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, sidebarOpen, setSid
                                                     >
                                                         <item.icon className={`w-4 h-4 flex-shrink-0 mr-2.5 transition-colors ${isActive ? 'text-primary-600 dark:text-primary-400' : 'text-gray-400 dark:text-gray-500'}`} />
                                                         <span className="flex-1">{item.label}</span>
-                                                        {hasUnread && (
-                                                            <span className="min-w-5 h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">
-                                                                {unreadMessages > 99 ? '99+' : unreadMessages}
-                                                            </span>
-                                                        )}
                                                     </Link>
                                                 );
                                             })}
