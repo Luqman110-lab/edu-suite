@@ -266,9 +266,9 @@ adminRoutes.get("/all-data", requireAdmin, async (req, res) => {
 });
 
 // GET /api/admin/schools
-adminRoutes.get("/admin/schools", requireSuperAdmin, async (_req, res) => {
+adminRoutes.get("/admin/schools", requireAdmin, async (_req, res) => {
     try {
-        const allSchools = await db.select().from(schools).orderBy(desc(schools.createdAt));
+        const allSchools = await db.select({ id: schools.id, name: schools.name, isActive: schools.isActive }).from(schools).orderBy(schools.name);
         res.json(allSchools);
     } catch (error: any) {
         res.status(500).json({ message: "Failed to fetch schools: " + error.message });
