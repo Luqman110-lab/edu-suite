@@ -31,6 +31,7 @@ export const UserList: React.FC = () => {
     const [data, setData] = useState<AdminUser[]>([]);
     const [schools, setSchools] = useState<SchoolOption[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
     const [globalFilter, setGlobalFilter] = useState('');
     const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>('');
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -67,6 +68,7 @@ export const UserList: React.FC = () => {
     }, []);
 
     const handleSave = async (formData: UserFormData) => {
+        setIsSaving(true);
         try {
             const method = editingUser ? 'PUT' : 'POST';
             const endpoint = editingUser ? `/api/admin/users/${editingUser.id}` : '/api/admin/users';
@@ -88,6 +90,8 @@ export const UserList: React.FC = () => {
             }
         } catch (err) {
             toast({ title: 'Error', description: 'Failed to save user', variant: 'destructive' });
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -262,7 +266,7 @@ export const UserList: React.FC = () => {
                             initialData={editingUser}
                             onSubmit={handleSave}
                             onCancel={() => setIsModalOpen(false)}
-                            isLoading={loading}
+                            isLoading={isSaving}
                             isEdit={!!editingUser}
                         />
                     </div>
